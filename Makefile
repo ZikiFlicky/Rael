@@ -1,7 +1,7 @@
 CC=gcc
 LINK=-lm
 CFLAGS=-Wall -Wextra -Werror -std=c99
-NAME=ech
+NAME=rael
 RM=rm -f
 
 all: clean $(NAME)
