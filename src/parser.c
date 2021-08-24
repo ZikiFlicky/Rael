@@ -462,7 +462,6 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
     if (!(loop.block = parser_parse_block(parser))) {
         parser_error(parser, "Expected block after expression");
     }
-    parser_expect_newline(parser);
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLoop;
     node->value.loop = loop;
