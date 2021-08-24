@@ -155,9 +155,19 @@ static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* co
         value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == rhs->type == ValueTypeNumber) {
+        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->type = ValueTypeNumber;
             value->as.number = number_add(lhs->as.number, rhs->as.number);
+        } else if (lhs->type == ValueTypeString && rhs->type == ValueTypeString) {
+            // FIXME: optimise this
+            char *new_string;
+            size_t s_lhs = strlen(lhs->as.string), s_rhs = strlen(rhs->as.string);
+            new_string = malloc((s_lhs + s_rhs + 1) * sizeof(char));
+            strcpy(new_string, lhs->as.string);
+            strcpy(new_string + s_lhs, rhs->as.string);
+            new_string[s_lhs + s_rhs] = '\0';
+            value->type = ValueTypeString;
+            value->as.string = new_string;
         } else {
             runtime_error("Invalid operation (+) on types");
         }
@@ -166,7 +176,7 @@ static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* co
         value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == rhs->type == ValueTypeNumber) {
+        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->type = ValueTypeNumber;
             value->as.number = number_sub(lhs->as.number, rhs->as.number);
         } else {
@@ -177,7 +187,7 @@ static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* co
         value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == rhs->type == ValueTypeNumber) {
+        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->type = ValueTypeNumber;
             value->as.number = number_mul(lhs->as.number, rhs->as.number);
         } else {
@@ -188,14 +198,12 @@ static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* co
         value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == rhs->type == ValueTypeNumber) {
+        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->type = ValueTypeNumber;
             if (rhs->as.number.as._float == 0.f) {
                 runtime_error("Haha! no. you are not dividing by zero. Have a great day!");
             }
             value->as.number = number_div(lhs->as.number, rhs->as.number);
-        } else if (lhs->type != rhs->type) {
-            runtime_error("Mismatch types");
         } else {
             runtime_error("Invalid operation (/) on types");
         }
@@ -204,7 +212,7 @@ static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* co
         value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == rhs->type == ValueTypeNumber) {
+        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->type = ValueTypeNumber;
             value->as.number = number_eq(lhs->as.number, rhs->as.number);
         } else {
@@ -215,7 +223,7 @@ static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* co
         value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == rhs->type == ValueTypeNumber) {
+        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->type = ValueTypeNumber;
             value->as.number = number_smaller(lhs->as.number, rhs->as.number);
         } else {
@@ -226,7 +234,7 @@ static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* co
         value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == rhs->type == ValueTypeNumber) {
+        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->type = ValueTypeNumber;
             value->as.number = number_bigger(lhs->as.number, rhs->as.number);
         } else {
@@ -328,6 +336,7 @@ static void interpreter_interpret_node(struct Interpreter* const interp, struct 
 }
 
 void interpret(struct Node **instructions) {
+    struct Node *node;
     struct Interpreter interp = {
         .instructions = instructions,
         .block = {
@@ -335,7 +344,6 @@ void interpret(struct Node **instructions) {
             .vars = NULL
         }
     };
-    struct Node *node = NULL;
     map_construct(&interp.block.vars);
     for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
         interpreter_interpret_node(&interp, node);
