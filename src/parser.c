@@ -41,6 +41,15 @@ static void parser_expect_newline(struct Parser* const parser) {
     }
 }
 
+static void parser_maybe_expect_newline(struct Parser* const parser) {
+    struct Lexer last_state = parser->lexer;
+    if (lexer_tokenize(&parser->lexer)) {
+        if (parser->lexer.token.name != TokenNameNewline) {
+            parser->lexer = last_state;
+        }
+    }
+}
+
 static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     struct Expr *expr;
     struct Lexer old_state = parser->lexer;
@@ -321,6 +330,7 @@ static struct Node **parser_parse_block(struct Parser* const parser) {
         nodes[node_idx++] = node;
     }
     nodes[node_idx] = NULL;
+    parser_maybe_expect_newline(parser);
     return nodes;
 }
 
@@ -482,13 +492,7 @@ struct Node **parse(char* const stream) {
             .stream = stream
         }
     };
-    // sometimes there is a useless newline at the start of a stream, it can be advanced
-    struct Lexer state = parser.lexer;
-    if (lexer_tokenize(&parser.lexer) && parser.lexer.token.name == TokenNameNewline) {
-        ++parser.idx;
-    } else {
-        parser.lexer = state;
-    }
+    parser_maybe_expect_newline(&parser);
     while ((node = parser_parse_node(&parser))) {
         parser_push(&parser, node);
     }
