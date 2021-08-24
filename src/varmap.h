@@ -1,5 +1,5 @@
-#ifndef ECHOES_TYPES_H
-#define ECHOES_TYPES_H
+#ifndef RAEL_TYPES_H
+#define RAEL_TYPES_H
 
 #include "parser.h"
 
@@ -23,4 +23,4 @@ void map_dealloc(struct VariableMap *map);
 
 struct Value *map_get(struct VariableMap *map, char *key);
 
-#endif /* ECHOES_TYPES_H */
+#endif /* RAEL_TYPES_H */

@@ -1,5 +1,5 @@
-#ifndef ECHOES_LEXER_H
-#define ECHOES_LEXER_H
+#ifndef RAEL_LEXER_H
+#define RAEL_LEXER_H
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -45,4 +45,4 @@ bool lexer_tokenize(struct Lexer* const lexer);
 
 char *token_allocate_key(struct Token* const token);
 
-#endif // ECHOES_LEXER_H
+#endif // RAEL_LEXER_H

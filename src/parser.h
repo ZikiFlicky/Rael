@@ -1,5 +1,5 @@
-#ifndef ECHOES_PARSER_H
-#define ECHOES_PARSER_H
+#ifndef RAEL_PARSER_H
+#define RAEL_PARSER_H
 
 #include "lexer.h"
 
@@ -97,4 +97,4 @@ struct Parser {
 
 struct Node **parse(char* const stream);
 
-#endif // ECHOES_PARSER_H
+#endif // RAEL_PARSER_H
