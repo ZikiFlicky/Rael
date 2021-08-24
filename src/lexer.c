@@ -18,10 +18,22 @@ static inline bool is_identifier_char(const char c) {
 
 static bool lexer_clean(struct Lexer* const lexer) {
     bool cleaned = false;
-    while (lexer->stream[0] == ' ' || lexer->stream[0] == '\t') {
-        cleaned = true;
-        ++lexer->stream;
-        ++lexer->column;
+    while (true) {
+        if (lexer->stream[0] == ' ' || lexer->stream[0] == '\t') {
+            cleaned = true;
+            ++lexer->stream;
+            ++lexer->column;
+        } else if (lexer->stream[0] == '%' && lexer->stream[1] == '%') { // handle comments :^)
+            cleaned = true;
+            lexer->stream += 2;
+            lexer->column += 2;
+            while (lexer->stream[0] != '\n' && lexer->stream[0] != '\0') {
+                ++lexer->stream;
+                ++lexer->column;
+            }
+        } else {
+            break;
+        }
     }
     return cleaned;
 }

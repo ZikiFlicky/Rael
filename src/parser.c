@@ -482,6 +482,13 @@ struct Node **parse(char* const stream) {
             .stream = stream
         }
     };
+    // sometimes there is a useless newline at the start of a stream, it can be advanced
+    struct Lexer state = parser.lexer;
+    if (lexer_tokenize(&parser.lexer) && parser.lexer.token.name == TokenNameNewline) {
+        ++parser.idx;
+    } else {
+        parser.lexer = state;
+    }
     while ((node = parser_parse_node(&parser))) {
         parser_push(&parser, node);
     }
