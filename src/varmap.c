@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <stdbool.h>
 
 static size_t map_hash(struct VariableMap *map, char* const to_hash) {
     size_t value = 0;
@@ -24,6 +24,7 @@ void map_construct(struct VariableMap *map) {
     map->pairs = 0;
 }
 
+/* FIXME: optimise this */
 static void node_delete(struct BucketNode *node) {
     if (!node)
         return;
@@ -39,7 +40,7 @@ void map_dealloc(struct VariableMap *map) {
      free(map);
 }
 
-bool map_set(struct VariableMap *map, char *key, struct Value *value) {
+bool map_set(struct VariableMap *map, char *key, struct Value value) {
     struct BucketNode *node;
     struct BucketNode *previous_node;
     size_t hash_result;
@@ -79,15 +80,19 @@ bool map_set(struct VariableMap *map, char *key, struct Value *value) {
     return true;
 }
 
-struct Value *map_get(struct VariableMap *map, char* key) {
+struct Value map_get(struct VariableMap *map, char* const key) {
     struct BucketNode *node;
 
-    if (map->allocated == 0) /* not yet allocated (map_set wasn't yet called) */
-        return NULL;
+    if (!map->allocated)
+        goto end;
+
     for (node = map->buckets[map_hash(map, key)]; node; node = node->next) {
         if (strcmp(key, node->key) == 0)
             return node->value;
     }
-
-    return NULL;
+    /* TODO: I should definitely decide if this is a good idea */
+end:
+    return (struct Value) {
+        .type = ValueTypeVoid
+    };
 }

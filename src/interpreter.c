@@ -144,99 +144,92 @@ static struct NumberExpr number_bigger(struct NumberExpr a, struct NumberExpr b)
     return res;
 }
 
-static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* const expr) {
-    struct Value *lhs, *rhs, *value;
+static struct Value expr_eval(struct Interpreter* const interp, struct Expr* const expr) {
+    struct Value lhs, rhs, value;
     switch (expr->type) {
     case ExprTypeValue:
-        return expr->as.value;
+        return *expr->as.value;
     case ExprTypeKey:
         return map_get(&interp->block.vars, expr->as.key);
     case ExprTypeAdd:
-        value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value->type = ValueTypeNumber;
-            value->as.number = number_add(lhs->as.number, rhs->as.number);
-        } else if (lhs->type == ValueTypeString && rhs->type == ValueTypeString) {
+        if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
+            value.type = ValueTypeNumber;
+            value.as.number = number_add(lhs.as.number, rhs.as.number);
+        } else if (lhs.type == ValueTypeString && rhs.type == ValueTypeString) {
             // FIXME: optimise this
             char *new_string;
-            size_t s_lhs = strlen(lhs->as.string), s_rhs = strlen(rhs->as.string);
+            size_t s_lhs = strlen(lhs.as.string), s_rhs = strlen(rhs.as.string);
             new_string = malloc((s_lhs + s_rhs + 1) * sizeof(char));
-            strcpy(new_string, lhs->as.string);
-            strcpy(new_string + s_lhs, rhs->as.string);
+            strcpy(new_string, lhs.as.string);
+            strcpy(new_string + s_lhs, rhs.as.string);
             new_string[s_lhs + s_rhs] = '\0';
-            value->type = ValueTypeString;
-            value->as.string = new_string;
+            value.type = ValueTypeString;
+            value.as.string = new_string;
         } else {
             runtime_error("Invalid operation (+) on types");
         }
         return value;
     case ExprTypeSub:
-        value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value->type = ValueTypeNumber;
-            value->as.number = number_sub(lhs->as.number, rhs->as.number);
+        if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
+            value.type = ValueTypeNumber;
+            value.as.number = number_sub(lhs.as.number, rhs.as.number);
         } else {
             runtime_error("Invalid operation (-) on types");
         }
         return value;
     case ExprTypeMul:
-        value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value->type = ValueTypeNumber;
-            value->as.number = number_mul(lhs->as.number, rhs->as.number);
+        if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
+            value.type = ValueTypeNumber;
+            value.as.number = number_mul(lhs.as.number, rhs.as.number);
         } else {
             runtime_error("Invalid operation (*) on types");
         }
         return value;
     case ExprTypeDiv:
-        value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value->type = ValueTypeNumber;
-            if (rhs->as.number.as._float == 0.f) {
+        if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
+            value.type = ValueTypeNumber;
+            if (rhs.as.number.as._float == 0.f) {
                 runtime_error("Haha! no. you are not dividing by zero. Have a great day!");
             }
-            value->as.number = number_div(lhs->as.number, rhs->as.number);
+            value.as.number = number_div(lhs.as.number, rhs.as.number);
         } else {
             runtime_error("Invalid operation (/) on types");
         }
         return value;
     case ExprTypeEquals:
-        value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value->type = ValueTypeNumber;
-            value->as.number = number_eq(lhs->as.number, rhs->as.number);
+        if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
+            value.type = ValueTypeNumber;
+            value.as.number = number_eq(lhs.as.number, rhs.as.number);
         } else {
             runtime_error("Invalid operation (=) on types");
         }
         return value;
     case ExprTypeSmallerThen:
-        value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value->type = ValueTypeNumber;
-            value->as.number = number_smaller(lhs->as.number, rhs->as.number);
+        if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
+            value.type = ValueTypeNumber;
+            value.as.number = number_smaller(lhs.as.number, rhs.as.number);
         } else {
             runtime_error("Invalid operation (<) on types");
         }
         return value;
     case ExprTypeBiggerThen:
-        value = malloc(sizeof(struct Value));
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value->type = ValueTypeNumber;
-            value->as.number = number_bigger(lhs->as.number, rhs->as.number);
+        if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
+            value.type = ValueTypeNumber;
+            value.as.number = number_bigger(lhs.as.number, rhs.as.number);
         } else {
             runtime_error("Invalid operation (>) on types");
         }
@@ -246,27 +239,27 @@ static struct Value *expr_eval(struct Interpreter* const interp, struct Expr* co
     }
 }
 
-static void value_log(struct Value *value) {
-    switch (value->type) {
+static void value_log(struct Value value) {
+    switch (value.type) {
     case ValueTypeNumber:
-        if (value->as.number.is_float) {
-            printf("%f", value->as.number.as._float);
+        if (value.as.number.is_float) {
+            printf("%f", value.as.number.as._float);
         } else {
-            printf("%d", value->as.number.as._int);
+            printf("%d", value.as.number.as._int);
         }
         break;
     case ValueTypeString:
-        printf("%s", value->as.string);
+        printf("%s", value.as.string);
         break;
     case ValueTypeVoid:
-        printf("(void)");
+        printf("Void");
         break;
     case ValueTypeRoutine:
         printf("routine(");
-        if (value->as.routine.amount_parameters > 0) {
-            printf(":%s", value->as.routine.parameters[0]);
-            for (size_t i = 1; i < value->as.routine.amount_parameters; ++i)
-                printf(", :%s", value->as.routine.parameters[i]);
+        if (value.as.routine.amount_parameters > 0) {
+            printf(":%s", value.as.routine.parameters[0]);
+            for (size_t i = 1; i < value.as.routine.amount_parameters; ++i)
+                printf(", :%s", value.as.routine.parameters[i]);
         }
         printf(")");
         break;
@@ -277,17 +270,17 @@ static void value_log(struct Value *value) {
 }
 
 /* is the value booleanly true? like Python's bool */
-static bool value_as_bool(struct Value* const value) {
-    switch (value->type) {
+static bool value_as_bool(struct Value const value) {
+    switch (value.type) {
     case ValueTypeVoid:
         return false;
     case ValueTypeString:
-        return value->as.string[0] != '\0';
+        return value.as.string[0] != '\0';
     case ValueTypeNumber:
-        if (value->as.number.is_float)
-            return value->as.number.as._float != 0.0f;
+        if (value.as.number.is_float)
+            return value.as.number.as._float != 0.0f;
         else
-            return value->as.number.as._int != 0;
+            return value.as.number.as._int != 0;
     case ValueTypeRoutine:
         return true;
     default:
@@ -298,7 +291,7 @@ static bool value_as_bool(struct Value* const value) {
 static void interpreter_interpret_node(struct Interpreter* const interp, struct Node* const node) {
     switch (node->type) {
     case NodeTypeLog: {
-        struct Value *value = expr_eval(interp, node->value.log_value);
+        struct Value value = expr_eval(interp, node->value.log_value);
         value_log(value);
         break;
     }
@@ -307,7 +300,7 @@ static void interpreter_interpret_node(struct Interpreter* const interp, struct 
         break;
     }
     case NodeTypeIf: {
-        struct Value *val;
+        struct Value val;
         if (value_as_bool((val = expr_eval(interp, node->value.if_stat.condition)))) {
             for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
                 interpreter_interpret_node(interp, node->value.if_stat.block[i]);
@@ -319,7 +312,6 @@ static void interpreter_interpret_node(struct Interpreter* const interp, struct 
                 }
             }
         }
-        free(val);
         break;
     }
     case NodeTypeLoop:
