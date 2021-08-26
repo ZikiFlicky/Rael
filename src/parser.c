@@ -118,6 +118,12 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         expr->type = ExprTypeKey;
         return expr;
     }
+    case TokenNameVoid:
+        expr = malloc(sizeof(struct Expr));
+        expr->type = ExprTypeValue;
+        expr->as.value = malloc(sizeof(struct Value));
+        expr->as.value->type = ValueTypeVoid;
+        return expr;
     default:
         parser->lexer = old_state;
         return NULL;
