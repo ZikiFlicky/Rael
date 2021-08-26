@@ -1,5 +1,5 @@
-from os import listdir, popen
-import re
+from os import listdir
+import subprocess
 
 TESTDIR = "tests/"
 RAELPATH = "./rael"
@@ -17,7 +17,11 @@ def main():
                 print("no .exp file for '{}'".format(file))
             else:
                 with open(TESTDIR + exp_file, "r") as f:
-                    output = popen("{} --file {}".format(RAELPATH, TESTDIR + file)).read()
+                    try:
+                        output = subprocess.check_output("{} --file {}".format(RAELPATH, TESTDIR + file),
+                            shell=True, stderr=subprocess.STDOUT).decode()
+                    except subprocess.CalledProcessError as ex:
+                        output = ex.output
                     expected = f.read()
                     test_number = file[4:file.find(".")]
                     if output == expected:
