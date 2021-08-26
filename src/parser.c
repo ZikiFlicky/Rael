@@ -131,7 +131,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 }
 
 
-static enum ExprType token_name_to_expr_type(const enum ExprType type) {
+static enum ExprType token_name_to_expr_type(const enum TokenName type) {
     switch (type) {
     case TokenNameEquals:
         return ExprTypeEquals;
@@ -259,7 +259,6 @@ static struct Node *parser_parse_node_set(struct Parser* const parser) {
     struct Lexer old_state = parser->lexer;
     struct Node *node;
     struct Expr *expr;
-    char *key;
     struct Token key_token;
     // is there nothing?
     if (!lexer_tokenize(&parser->lexer))
