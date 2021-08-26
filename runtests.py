@@ -6,6 +6,7 @@ RAELPATH = "./rael"
 
 def main():
     files = listdir(TESTDIR)
+    failed = []
     i = 1
     while True:
         file = "test{}.rael".format(i)
@@ -18,10 +19,12 @@ def main():
                 with open(TESTDIR + exp_file, "r") as f:
                     output = popen("{} --file {}".format(RAELPATH, TESTDIR + file)).read()
                     expected = f.read()
+                    test_number = file[4:file.find(".")]
                     if output == expected:
-                        print("Test {} passed!".format(file[4:file.find(".")]))
+                        print("Test {} passed!".format(test_number))
                     else:
-                        print("Test {} failed!".format(file[4:file.find(".")]))
+                        failed.append(test_number)
+                        print("Test {} failed!".format(test_number))
                         print("expected:")
                         print(expected)
                         print("output:")
@@ -29,6 +32,9 @@ def main():
         else:
             break
         i += 1
+
+    if failed:
+        print("Failed tests: {}".format(", ".join(failed)))
 
 if __name__ == "__main__":
     main()
