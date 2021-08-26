@@ -70,6 +70,7 @@ bool map_set(struct VariableMap *map, char *key, struct Value value) {
 
     node->key = key;
     node->value = value;
+    node->next = NULL;
 
     if (!previous_node)
         map->buckets[hash_result] = node;
