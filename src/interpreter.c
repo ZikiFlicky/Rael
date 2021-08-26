@@ -207,11 +207,19 @@ static struct Value expr_eval(struct Interpreter* const interp, struct Expr* con
     case ExprTypeEquals:
         lhs = expr_eval(interp, expr->as.binary.lhs);
         rhs = expr_eval(interp, expr->as.binary.rhs);
+        value.type = ValueTypeNumber;
+        value.as.number.is_float = false;
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
-            value.type = ValueTypeNumber;
             value.as.number = number_eq(lhs.as.number, rhs.as.number);
+        } else if (lhs.type == ValueTypeString && rhs.type == ValueTypeString) {
+            // if they have the same pointer, they must be equal
+            if (lhs.as.string == rhs.as.string) {
+                value.as.number.as._int = 1;
+            } else {
+                value.as.number.as._int = strcmp(lhs.as.string, rhs.as.string) == 0;
+            }
         } else {
-            runtime_error("Invalid operation (=) on types");
+            value.as.number.as._int = 0;
         }
         return value;
     case ExprTypeSmallerThen:
