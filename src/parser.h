@@ -2,6 +2,7 @@
 #define RAEL_PARSER_H
 
 #include "lexer.h"
+#include "number.h"
 
 #include <stdbool.h>
 
@@ -16,14 +17,6 @@ struct RoutineValue {
     char **parameters;
     size_t amount_parameters;
     struct Node **block;
-};
-
-struct NumberExpr {
-    bool is_float;
-    union {
-        int _int;
-        double _float;
-    } as;
 };
 
 struct Value {

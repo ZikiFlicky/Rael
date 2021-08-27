@@ -12,4 +12,6 @@ struct Interpreter {
     struct Block block;
 };
 
+void runtime_error(const char* const error_message);
+
 void interpret(struct Node **instructions);
