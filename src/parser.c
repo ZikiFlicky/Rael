@@ -500,6 +500,7 @@ struct Node **parse(char* const stream) {
     while ((node = parser_parse_node(&parser))) {
         parser_push(&parser, node);
     }
+    parser_push(&parser, NULL);
     if (lexer_tokenize(&parser.lexer)) {
         parser_error(&parser, "Syntax Error");
     }
