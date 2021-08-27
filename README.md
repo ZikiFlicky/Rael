@@ -1,57 +1,42 @@
-## About
-Hello! this is my **very** incomplete entry for LangJam 1!
+# Rael
+Rael is an interpreted programming language written in C.
 
-In this language, you can declare numeric variables, like `:12`!
+The language is made for people who prefer not to name their variables.
 
-## Comments
-The comments are in first-class seats, you can't interact with them.
-
-## Examples
-### Fibonacci
-`:1`, `:2`, `:3` and `:n` are variables
-
-```ech
-:1 2
-:2 1
-:3 0
-:n 10
-loop :n > 0 {
-    log :2
-    :3  :1 + :2
-    :1  :2
-    :2  :3
-    :n  :n - 1
-}
-```
-### if/else
-```ech
-if (1 + 2 * 5) = 10 {
-    log "Yo this language is so cool!"
-} else {
-    log "This language is trash"
-}
-```
+Rael was started, but not finished in [LangJam](https://github.com/langjam/jam0001).
 
 ## Dependencies
-* Linux - you must use Linux to compile and run this program. Tested on Ubuntu 20.04. Not tested with WSL.
 * Git - to clone this repository
 * GNU Make - to build the project
-* GCC - to compile stuff
+* GCC - any C99 compiler should work, though
+* Python 2.7 or higher - for running tests
+
+Note: this was tested only on Linux (Ubuntu 20.04).
+
+The language doesn't use Linux specific things, so it should work on other platforms, too.
+
+For build problems and questions, please open an issue.
 
 ## Build
-To build, write `make`.
+To build, run `make`.
 
-To run the interpreter, write `./ech`, and it will
-show you a help menu.
+To run the tests, run `python runtests.py`
 
-## Notes
-* It will probably not work as expected sometimes.
-* Expect segfaults and stupid stuff.
-* This was my first time writing a language!
-* I wasn't home for a big chunk of the weekend.
-* I will probably continue to develop it, because I like the language's concept.
-* Float arithmetic might be broken sometimes.
-* A lot of stuff is incomplete :c.
-* There is no garbage collector/freeing, so your computer will explode at some point.
-* You can check other people's projects, they must be better!
-* Routines are incomplete.
+## Usage
+To run a file, `./rael --file filename.rael`
+
+## Examples
+### Fibonacci:
+```rael
+:n 22
+:1 1
+:2 1
+:3 0
+loop :n {
+    log :2
+    :3 :1 + :2
+    :1 :2
+    :2 :3
+    :n :n - 1 %% decrease :n by 1
+}
+```
