@@ -16,11 +16,12 @@ typedef enum Precedence {
     PrecedenceProduct
 } Precedence;
 
+static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Node *parser_parse_node(struct Parser* const parser);
 static struct Value *parser_parse_node_routine(struct Parser* const parser);
 
 static inline bool parser_error(const struct Parser* const parser, const char* const error_message) {
-    printf("ParserError: %s. on line: %ld, column: %ld\n",
+    fprintf(stderr, "ParserError: %s. on line: %ld, column: %ld\n",
             error_message, parser->lexer.line, parser->lexer.column);
     exit(1);
 }
@@ -172,15 +173,83 @@ static Precedence token_name_to_precedence(const enum TokenName name) {
     }
 }
 
+/** routine call is:
+ *    :key(arguments, seperated, by, a, comma)
+ *  example:
+ *    :add(5, 8)
+ **/
+static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
+    struct Expr *expr;
+    struct RoutineCallExpr call;
+    struct Lexer old_state = parser->lexer;
+    struct Token key_token;
+    struct Expr *argument;
+    // is there something?
+    if (!lexer_tokenize(&parser->lexer))
+        return NULL;
+    // verify it starts with a key
+    if (parser->lexer.token.name != TokenNameKey) {
+        parser->lexer = old_state;
+        return NULL;
+    }
+    key_token = parser->lexer.token;
+    // verify there is '(' after the key?
+    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameLeftParen) {
+        parser->lexer = old_state;
+        return NULL;
+    }
+    if ((argument = parser_parse_expr(parser))) {
+        size_t allocated;
+        call.arguments = malloc((allocated = 4) * sizeof(struct Expr*));
+        call.amount_arguments = 0;
+        call.arguments[call.amount_arguments++] = argument;
+        while (true) {
+            // verify you can tokenize
+            if (!lexer_tokenize(&parser->lexer))
+                parser_error(parser, "Unexpected EOF");
+            // if the token is ')', you can exit the loop
+            if (parser->lexer.token.name == TokenNameRightParen)
+                break;
+            // if there is no comma, error
+            if (parser->lexer.token.name != TokenNameComma)
+                parser_error(parser, "Expected Comma");
+            // parse expression
+            if (!(argument = parser_parse_expr(parser)))
+                parser_error(parser, "Expected expression after ','");
+            // reallocate if needed
+            if (call.amount_arguments == allocated) {
+                call.arguments = realloc(call.arguments, (allocated += 3)*sizeof(struct Expr*));
+            }
+            // push argument
+            call.arguments[call.amount_arguments++] = argument;
+        }
+    } else if (lexer_tokenize(&parser->lexer)) {
+        if (parser->lexer.token.name == TokenNameRightParen) {
+            call.amount_arguments = 0;
+            call.arguments = NULL;
+        } else {
+            parser_error(parser, "Unexpected token");
+        }
+    } else {
+        parser_error(parser, "Unexpected EOF");
+    }
+    call.routine_name = token_allocate_key(&key_token);
+    expr = malloc(sizeof(struct Expr));
+    expr->type = ExprTypeRoutineCall;
+    expr->as.call = call;
+    return expr;
+}
+
 static struct Expr *parser_parse_expr(struct Parser* const parser) {
     struct Token operator_stack[256];
     struct Expr* output_stack[256];
     struct Expr* expr_stack[256];
+    struct Lexer last_state;
     size_t op_idx = 0, out_idx = 0, expr_idx = 0;
-
     while (true) {
-        struct Lexer last_state = parser->lexer;
-        if ((output_stack[out_idx] = parser_parse_literal_expr(parser))) {
+        last_state = parser->lexer;
+        if ((output_stack[out_idx] = parser_parse_routine_call(parser)) ||
+            (output_stack[out_idx] = parser_parse_literal_expr(parser))) {
             ++out_idx;
             continue;
         }
@@ -191,6 +260,20 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
             operator_stack[op_idx++] = parser->lexer.token;
             continue;
         case TokenNameRightParen:
+            // FIXME: this feels a bit inefficient
+            if (op_idx == 0) {
+                parser->lexer = last_state;
+                goto end;
+            }
+            // make sure there is a left paren
+            for (size_t i = op_idx - 1; operator_stack[i].name != TokenNameLeftParen; --i) {
+                // if there is no left paren, deconsume the `)`
+                if (i == 0) {
+                    parser->lexer = last_state;
+                    goto end;
+                }
+            }
+            // pop tokens into output_stack until reached `(`
             while (operator_stack[--op_idx].name != TokenNameLeftParen) {
                 output_stack[out_idx] = malloc(sizeof(struct Expr));
                 output_stack[out_idx]->type = token_name_to_expr_type(operator_stack[op_idx].name);
@@ -204,6 +287,8 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
         case TokenNameEquals:
         case TokenNameSmallerThan:
         case TokenNameBiggerThan:
+            // if the new precedence is smaller or equal to the last precedence,
+            // pop last operator into output_stack 
             if (op_idx > 0 &&
                     token_name_to_precedence(parser->lexer.token.name) <= token_name_to_precedence(operator_stack[op_idx-1].name)) {
                 // pop operations into output_stack
@@ -219,6 +304,7 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
         }
         break;
     }
+end:
     // pop remaining into output_stack
     for (size_t i = 1; i <= op_idx; ++i) {
         output_stack[out_idx] = malloc(sizeof(struct Expr));
@@ -249,6 +335,10 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
             expr_stack[expr_idx++] = output_stack[i];
             break;
         }
+    }
+    if (expr_idx == 0) {
+        parser->lexer = last_state;
+        return NULL;
     }
     if (expr_idx != 1) {
         parser_error(parser, "Expected operator between operands");
@@ -317,7 +407,7 @@ static struct Node **parser_parse_block(struct Parser* const parser) {
         parser->lexer = old_state;
         return NULL;
     }
-    parser_expect_newline(parser);
+    parser_maybe_expect_newline(parser);
     nodes = malloc(((node_amount = 32)+1) * sizeof(struct Node *));
     while (true) {
         struct Node *node;
@@ -336,7 +426,6 @@ static struct Node **parser_parse_block(struct Parser* const parser) {
         nodes[node_idx++] = node;
     }
     nodes[node_idx] = NULL;
-    parser_maybe_expect_newline(parser);
     return nodes;
 }
 
@@ -357,21 +446,22 @@ static struct Value *parser_parse_node_routine(struct Parser* const parser) {
         parser->lexer = old_state;
         parser_error(parser, "Expected '(' after 'routine'");
     }
-    // verify you can lex and lex
+    // verify you can lex
     if (!lexer_tokenize(&parser->lexer))
         parser_error(parser, "Unexpected EOF");
     // if there is a ')', it is the end
-    if (parser->lexer.token.name == TokenNameRightParen) {
+    switch (parser->lexer.token.name) {
+    case TokenNameRightParen:
         decl.amount_parameters = 0;
         decl.parameters = NULL;
-    } else if (parser->lexer.token.name == TokenNameKey) {
-        char *key = token_allocate_key(&parser->lexer.token);
+        break;
+    case TokenNameKey: {
         size_t allocated;
-        decl.parameters = malloc((allocated = 4) * sizeof(char *));
+        decl.parameters = malloc((allocated = 4) * sizeof(struct Expr*));
         decl.amount_parameters = 0;
-        decl.parameters[decl.amount_parameters++] = key;
+        decl.parameters[decl.amount_parameters++] = token_allocate_key(&parser->lexer.token);
         while (true) {
-            // verify you can tokenize
+            // tokenize
             if (!lexer_tokenize(&parser->lexer))
                 parser_error(parser, "Unexpected EOF");
             // if the token is ')', you can exit the loop
@@ -380,22 +470,19 @@ static struct Value *parser_parse_node_routine(struct Parser* const parser) {
             // if there is no comma, error
             if (parser->lexer.token.name != TokenNameComma)
                 parser_error(parser, "Expected Comma");
-            // verify you can lex
+            // tokenize
             if (!lexer_tokenize(&parser->lexer))
                 parser_error(parser, "Unexpected EOF");
-            // verify the token is a key
-            if (parser->lexer.token.name != TokenNameKey)
-                parser_error(parser, "Expected key");
-            // allocate the key
-            key = token_allocate_key(&parser->lexer.token);
             // reallocate if needed
             if (decl.amount_parameters == allocated) {
-                decl.parameters = realloc(decl.parameters, (allocated += 3)*sizeof(char *));
+                decl.parameters = realloc(decl.parameters, (allocated += 3)*sizeof(struct Expr*));
             }
-            // push parameter
-            decl.parameters[decl.amount_parameters++] = key;
+            // parse expression
+            decl.parameters[decl.amount_parameters++] = token_allocate_key(&parser->lexer.token);
         }
-    } else {
+        break;
+    }
+    default:
         parser_error(parser, "Unexpected token");
     }
     if (!(decl.block = parser_parse_block(parser))) {
@@ -429,6 +516,7 @@ static struct Node *parser_parse_if_statement(struct Parser* const parser) {
     if (!(if_stat.block = parser_parse_block(parser))) {
         parser_error(parser, "Expected block after if (expr)");
     }
+    parser_maybe_expect_newline(parser);
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeIf;
     old_state = parser->lexer;
@@ -442,6 +530,7 @@ static struct Node *parser_parse_if_statement(struct Parser* const parser) {
     if (!(if_stat.else_block = parser_parse_block(parser))) {
         parser_error(parser, "Expected block after Else keyword");
     }
+    parser_maybe_expect_newline(parser);
 end:
     node->value.if_stat = if_stat;
     return node;
@@ -468,6 +557,7 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
     if (!(loop.block = parser_parse_block(parser))) {
         parser_error(parser, "Expected block after expression");
     }
+    parser_maybe_expect_newline(parser);
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLoop;
     node->value.loop = loop;

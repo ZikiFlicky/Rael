@@ -15,12 +15,17 @@ struct VariableMap {
     size_t allocated, pairs;
 };
 
-void map_construct(struct VariableMap *map);
+struct Scope {
+    struct VariableMap variables;
+    struct Scope *parent;
+};
 
-bool map_set(struct VariableMap *map, char *key, struct Value value);
+void scope_construct(struct Scope* const scope, struct Scope* const parent_scope); 
 
-void map_dealloc(struct VariableMap *map);
+bool scope_set(struct Scope* const scope, char *key, struct Value value);
 
-struct Value map_get(struct VariableMap *map, char *key);
+void scope_dealloc(struct Scope* const scope);
+
+struct Value scope_get(struct Scope* const scope, char *key);
 
 #endif /* RAEL_TYPES_H */

@@ -8,21 +8,24 @@
 #include <math.h>
 #include <stdlib.h>
 
+
+static void interpreter_interpret_node(struct Scope *scope, struct Node* const node);
+
 void runtime_error(const char* const error_message) {
     printf("RuntimeError: %s.\n", error_message);
     exit(1);
 }
 
-static struct Value expr_eval(struct Interpreter* const interp, struct Expr* const expr) {
+static struct Value expr_eval(struct Scope *scope, struct Expr* const expr) {
     struct Value lhs, rhs, value;
     switch (expr->type) {
     case ExprTypeValue:
         return *expr->as.value;
     case ExprTypeKey:
-        return map_get(&interp->block.vars, expr->as.key);
+        return scope_get(scope, expr->as.key);
     case ExprTypeAdd:
-        lhs = expr_eval(interp, expr->as.binary.lhs);
-        rhs = expr_eval(interp, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->as.binary.lhs);
+        rhs = expr_eval(scope, expr->as.binary.rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
             value.as.number = number_add(lhs.as.number, rhs.as.number);
@@ -41,8 +44,8 @@ static struct Value expr_eval(struct Interpreter* const interp, struct Expr* con
         }
         return value;
     case ExprTypeSub:
-        lhs = expr_eval(interp, expr->as.binary.lhs);
-        rhs = expr_eval(interp, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->as.binary.lhs);
+        rhs = expr_eval(scope, expr->as.binary.rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
             value.as.number = number_sub(lhs.as.number, rhs.as.number);
@@ -51,8 +54,8 @@ static struct Value expr_eval(struct Interpreter* const interp, struct Expr* con
         }
         return value;
     case ExprTypeMul:
-        lhs = expr_eval(interp, expr->as.binary.lhs);
-        rhs = expr_eval(interp, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->as.binary.lhs);
+        rhs = expr_eval(scope, expr->as.binary.rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
             value.as.number = number_mul(lhs.as.number, rhs.as.number);
@@ -61,8 +64,8 @@ static struct Value expr_eval(struct Interpreter* const interp, struct Expr* con
         }
         return value;
     case ExprTypeDiv:
-        lhs = expr_eval(interp, expr->as.binary.lhs);
-        rhs = expr_eval(interp, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->as.binary.lhs);
+        rhs = expr_eval(scope, expr->as.binary.rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
             if (rhs.as.number.as._float == 0.f) {
@@ -74,8 +77,8 @@ static struct Value expr_eval(struct Interpreter* const interp, struct Expr* con
         }
         return value;
     case ExprTypeEquals:
-        lhs = expr_eval(interp, expr->as.binary.lhs);
-        rhs = expr_eval(interp, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->as.binary.lhs);
+        rhs = expr_eval(scope, expr->as.binary.rhs);
         value.type = ValueTypeNumber;
         value.as.number.is_float = false;
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
@@ -92,8 +95,8 @@ static struct Value expr_eval(struct Interpreter* const interp, struct Expr* con
         }
         return value;
     case ExprTypeSmallerThen:
-        lhs = expr_eval(interp, expr->as.binary.lhs);
-        rhs = expr_eval(interp, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->as.binary.lhs);
+        rhs = expr_eval(scope, expr->as.binary.rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
             value.as.number = number_smaller(lhs.as.number, rhs.as.number);
@@ -102,8 +105,8 @@ static struct Value expr_eval(struct Interpreter* const interp, struct Expr* con
         }
         return value;
     case ExprTypeBiggerThen:
-        lhs = expr_eval(interp, expr->as.binary.lhs);
-        rhs = expr_eval(interp, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->as.binary.lhs);
+        rhs = expr_eval(scope, expr->as.binary.rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
             value.as.number = number_bigger(lhs.as.number, rhs.as.number);
@@ -111,6 +114,30 @@ static struct Value expr_eval(struct Interpreter* const interp, struct Expr* con
             runtime_error("Invalid operation (>) on types");
         }
         return value;
+    case ExprTypeRoutineCall: {
+        struct Value maybe_routine = scope_get(scope, expr->as.call.routine_name);
+        struct Scope routine_scope;
+        size_t i;
+        if (maybe_routine.type != ValueTypeRoutine) {
+            runtime_error("Call not possible on non-routine");
+        }
+        scope_construct(&routine_scope, scope);
+        // verify the amount of arguments equal the amount of parameters
+        if (maybe_routine.as.routine.amount_parameters != expr->as.call.amount_arguments)
+            runtime_error("Arguments don't match parameters");
+        // set parameters
+        for (i = 0; i < maybe_routine.as.routine.amount_parameters; ++i) {
+            scope_set(&routine_scope,
+                    maybe_routine.as.routine.parameters[i],
+                    expr_eval(scope, expr->as.call.arguments[i]));
+        }
+        for (struct Node **node = maybe_routine.as.routine.block; *node; ++node) {
+            interpreter_interpret_node(&routine_scope, *node);
+        }
+        value.type = ValueTypeString;
+        value.as.string = expr->as.call.routine_name;
+        return value;
+    }
     default:
         assert(0);
     }
@@ -165,56 +192,56 @@ static bool value_as_bool(struct Value const value) {
     }
 }
 
-static void interpreter_interpret_node(struct Interpreter* const interp, struct Node* const node) {
+static void interpreter_interpret_node(struct Scope *scope, struct Node* const node) {
     switch (node->type) {
-    case NodeTypeLog: {
-        struct Value value = expr_eval(interp, node->value.log_value);
-        value_log(value);
+    case NodeTypeLog:
+        value_log(expr_eval(scope, node->value.log_value));
         break;
-    }
     case NodeTypeSet: {
-        map_set(&interp->block.vars, node->value.set.key, expr_eval(interp, node->value.set.expr));
+        scope_set(scope, node->value.set.key, expr_eval(scope, node->value.set.expr));
         break;
     }
     case NodeTypeIf: {
+        struct Scope if_scope;
         struct Value val;
-        if (value_as_bool((val = expr_eval(interp, node->value.if_stat.condition)))) {
+        scope_construct(&if_scope, scope);
+        if (value_as_bool((val = expr_eval(scope, node->value.if_stat.condition)))) {
             for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
-                interpreter_interpret_node(interp, node->value.if_stat.block[i]);
+                interpreter_interpret_node(&if_scope, node->value.if_stat.block[i]);
             }
         } else {
             if (node->value.if_stat.else_block) {
                 for (size_t i = 0; node->value.if_stat.else_block[i]; ++i) {
-                    interpreter_interpret_node(interp, node->value.if_stat.else_block[i]);
+                    interpreter_interpret_node(&if_scope, node->value.if_stat.else_block[i]);
                 }
             }
         }
+        scope_dealloc(&if_scope);
         break;
     }
-    case NodeTypeLoop:
-        while (value_as_bool(expr_eval(interp, node->value.if_stat.condition))) {
+    case NodeTypeLoop: {
+        struct Scope loop_scope;
+        scope_construct(&loop_scope, scope);
+        while (value_as_bool(expr_eval(scope, node->value.if_stat.condition))) {
             for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
-                interpreter_interpret_node(interp, node->value.if_stat.block[i]);
+                interpreter_interpret_node(scope, node->value.if_stat.block[i]);
             }
         }
+        scope_dealloc(&loop_scope);
         break;
+    }
     default:
-        // FIXME: again, wtf??
-        break;
+        assert(0);
     }
 }
 
 void interpret(struct Node **instructions) {
     struct Node *node;
     struct Interpreter interp = {
-        .instructions = instructions,
-        .block = {
-            .depth = 0,
-            .vars = NULL
-        }
+        .instructions = instructions
     };
-    map_construct(&interp.block.vars);
+    scope_construct(&interp.scope, NULL);
     for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
-        interpreter_interpret_node(&interp, node);
+        interpreter_interpret_node(&interp.scope, node);
     }
 }

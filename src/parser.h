@@ -6,11 +6,19 @@
 
 #include <stdbool.h>
 
+struct Expr;
+
 enum ValueType {
     ValueTypeVoid,
     ValueTypeNumber,
     ValueTypeString,
     ValueTypeRoutine
+};
+
+struct RoutineCallExpr {
+    char *routine_name;
+    struct Expr **arguments;
+    size_t amount_arguments;
 };
 
 struct RoutineValue {
@@ -30,6 +38,7 @@ struct Value {
 
 enum ExprType {
     ExprTypeValue = 1,
+    ExprTypeRoutineCall,
     ExprTypeKey,
     ExprTypeAdd,
     ExprTypeSub,
@@ -48,6 +57,7 @@ struct Expr {
         } binary;
         struct Value *value;
         char *key;
+        struct RoutineCallExpr call;
     } as;
 };
 

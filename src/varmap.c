@@ -1,27 +1,29 @@
 #include "varmap.h"
+#include "interpreter.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 
-static size_t map_hash(struct VariableMap *map, char* const to_hash) {
+static size_t scope_hash(struct Scope* const scope, char* const to_hash) {
     size_t value = 0;
     char *cur_idx;
 
     for (cur_idx = to_hash; *cur_idx; ++cur_idx) {
         value *= 256;
         value += *cur_idx;
-        value %= map->allocated;
+        value %= scope->variables.allocated;
     }
 
     return value;
 }
 
-void map_construct(struct VariableMap *map) {
-    map->buckets = NULL;
-    map->allocated = 0;
-    map->pairs = 0;
+void scope_construct(struct Scope* const scope, struct Scope* const parent_scope) {
+    scope->parent = parent_scope;
+    scope->variables.buckets = NULL;
+    scope->variables.allocated = 0;
+    scope->variables.pairs = 0;
 }
 
 /* FIXME: optimise this */
@@ -33,28 +35,27 @@ static void node_delete(struct BucketNode *node) {
     free(node);
 }
 
-void map_dealloc(struct VariableMap *map) {
+void scope_dealloc(struct Scope* const scope) {
     size_t i;
-    for (i = 0; i < map->allocated; ++i)
-        node_delete(map->buckets[i]);
-     free(map);
+    for (i = 0; i < scope->variables.allocated; ++i)
+        node_delete(scope->variables.buckets[i]);
 }
 
-bool map_set(struct VariableMap *map, char *key, struct Value value) {
+bool scope_set(struct Scope* const scope, char *key, struct Value value) {
     struct BucketNode *node;
     struct BucketNode *previous_node;
     size_t hash_result;
 
-    if (map->allocated == 0) {
-        map->buckets = calloc(8, sizeof(struct BucketNode *));
-        if (!map->buckets)
+    if (scope->variables.allocated == 0) {
+        scope->variables.buckets = calloc(8, sizeof(struct BucketNode *));
+        if (!scope->variables.buckets)
             return false;
-        map->allocated = 8;
+        scope->variables.allocated = 8;
     }
 
-    hash_result = map_hash(map, key);
+    hash_result = scope_hash(scope, key);
     previous_node = NULL;
-    for (node = map->buckets[hash_result]; node; node = node->next) {
+    for (node = scope->variables.buckets[hash_result]; node; node = node->next) {
         if (!node->key || strcmp(node->key, key) == 0) {
             /* deallocate value if already exists at key */
             // value_dealloc(&node->value);
@@ -73,26 +74,27 @@ bool map_set(struct VariableMap *map, char *key, struct Value value) {
     node->next = NULL;
 
     if (!previous_node)
-        map->buckets[hash_result] = node;
+        scope->variables.buckets[hash_result] = node;
     else
         previous_node->next = node;
 
-    ++map->pairs;
+    ++scope->variables.pairs;
     return true;
 }
 
-struct Value map_get(struct VariableMap *map, char* const key) {
+struct Value scope_get(struct Scope* const scope, char* const key) {
     struct BucketNode *node;
+    struct Scope *search_scope;
 
-    if (!map->allocated)
-        goto end;
-
-    for (node = map->buckets[map_hash(map, key)]; node; node = node->next) {
-        if (strcmp(key, node->key) == 0)
-            return node->value;
+    for (search_scope = scope; search_scope; search_scope = search_scope->parent) {
+        if (search_scope->variables.allocated == 0)
+            continue;
+        for (node = scope->variables.buckets[scope_hash(scope, key)]; node; node = node->next) {
+            if (strcmp(key, node->key) == 0)
+                return node->value;
+        }
     }
     /* TODO: I should definitely decide if this is a good idea */
-end:
     return (struct Value) {
         .type = ValueTypeVoid
     };
