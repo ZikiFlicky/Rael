@@ -1,0 +1,5 @@
+:a routine() {
+    log 2
+}
+
+:b :a()
