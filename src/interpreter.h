@@ -1,4 +1,4 @@
-#include "varmap.h"
+#include "scope.h"
 #include "parser.h"
 
 struct Interpreter {

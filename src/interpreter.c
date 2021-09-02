@@ -1,5 +1,5 @@
 #include "interpreter.h"
-#include "varmap.h"
+#include "scope.h"
 #include "number.h"
 
 #include <string.h>

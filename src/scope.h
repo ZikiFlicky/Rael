@@ -1,5 +1,5 @@
-#ifndef RAEL_TYPES_H
-#define RAEL_TYPES_H
+#ifndef RAEL_SCOPE_H
+#define RAEL_SCOPE_H
 
 #include "parser.h"
 
@@ -28,4 +28,4 @@ void scope_dealloc(struct Scope* const scope);
 
 struct Value scope_get(struct Scope* const scope, char *key);
 
-#endif /* RAEL_TYPES_H */
+#endif /* RAEL_SCOPE_H */

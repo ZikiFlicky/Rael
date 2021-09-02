@@ -1,4 +1,4 @@
-#include "varmap.h"
+#include "scope.h"
 #include "interpreter.h"
 
 #include <stdlib.h>
