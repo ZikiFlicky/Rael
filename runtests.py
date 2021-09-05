@@ -2,7 +2,7 @@ from os import listdir
 import subprocess
 
 TESTDIR = "tests/"
-RAELPATH = "./rael"
+RAELPATH = "build/rael"
 
 def main():
     files = listdir(TESTDIR)

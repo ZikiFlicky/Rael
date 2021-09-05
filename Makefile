@@ -1,13 +1,28 @@
 CC=gcc
 LINK=-lm
 CFLAGS=-Wall -Wextra -std=c99 -Wno-missing-braces
+
+SRCDIR=src
+MKDIR=mkdir -p
+BUILDDIR=build
 NAME=rael
 RM=rm -f
+RMDIR=rm -rf
 
-all: clean $(NAME)
+OBJECTS=lexer.o parser.o scope.o number.o interpreter.o main.o
 
-$(NAME): src/lexer.c src/number.c src/parser.c src/scope.c src/interpreter.c src/main.c
-	$(CC) $(CFLAGS) -o $(NAME) $^ $(LINK)
+.PHONY: clean all
+
+all: clean $(BUILDDIR)/$(NAME)
+
+$(BUILDDIR):
+	$(MKDIR) $@
+
+$(BUILDDIR)/$(NAME): $(OBJECTS)
+	$(CC) $(CFLAGS) $(BUILDDIR)/* -o $@ $(LINK)
+
+%.o: src/%.c $(BUILDDIR)
+	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
 
 clean:
-	$(RM) $(NAME)
+	$(RMDIR) $(BUILDDIR)
