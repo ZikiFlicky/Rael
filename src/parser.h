@@ -12,27 +12,28 @@ enum ValueType {
     ValueTypeVoid,
     ValueTypeNumber,
     ValueTypeString,
-    ValueTypeRoutine
+    ValueTypeRoutine,
+    ValueTypeStack
 };
 
-struct RoutineCallExpr {
-    char *routine_name;
-    struct Expr **arguments;
-    size_t amount_arguments;
+struct ASTStackValue {
+    size_t length, allocated;
+    struct Expr **entries;
 };
 
-struct RoutineValue {
+struct RaelRoutineValue {
     char **parameters;
     size_t amount_parameters;
     struct Node **block;
 };
 
-struct Value {
+struct ASTValue {
     enum ValueType type;
     union {
         char *string;
         struct NumberExpr number;
-        struct RoutineValue routine;
+        struct RaelRoutineValue routine;
+        struct ASTStackValue stack;
     } as;
 };
 
@@ -49,13 +50,19 @@ enum ExprType {
     ExprTypeBiggerThen
 };
 
+struct RoutineCallExpr {
+    char *routine_name;
+    struct Expr **arguments;
+    size_t amount_arguments;
+};
+
 struct Expr {
     enum ExprType type;
     union {
         struct {
             struct Expr *lhs, *rhs;
         } binary;
-        struct Value *value;
+        struct ASTValue *value;
         char *key;
         struct RoutineCallExpr call;
     } as;

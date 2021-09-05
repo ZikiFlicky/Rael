@@ -41,7 +41,7 @@ void scope_dealloc(struct Scope* const scope) {
         node_delete(scope->variables.buckets[i]);
 }
 
-bool scope_set(struct Scope* const scope, char *key, struct Value value) {
+bool scope_set(struct Scope* const scope, char *key, struct RaelValue value) {
     struct BucketNode *node;
     struct BucketNode *previous_node;
     size_t hash_result;
@@ -82,7 +82,7 @@ bool scope_set(struct Scope* const scope, char *key, struct Value value) {
     return true;
 }
 
-struct Value scope_get(struct Scope* const scope, char* const key) {
+struct RaelValue scope_get(struct Scope* const scope, char* const key) {
     struct BucketNode *node;
     struct Scope *search_scope;
 
@@ -95,7 +95,7 @@ struct Value scope_get(struct Scope* const scope, char* const key) {
         }
     }
     /* TODO: I should definitely decide if this is a good idea */
-    return (struct Value) {
+    return (struct RaelValue) {
         .type = ValueTypeVoid
     };
 }

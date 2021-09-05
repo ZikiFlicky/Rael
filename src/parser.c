@@ -18,7 +18,7 @@ typedef enum Precedence {
 
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Node *parser_parse_node(struct Parser* const parser);
-static struct Value *parser_parse_node_routine(struct Parser* const parser);
+static struct ASTValue *parser_parse_node_routine(struct Parser* const parser);
 
 static inline bool parser_error(const struct Parser* const parser, const char* const error_message) {
     fprintf(stderr, "ParserError: %s. on line: %ld, column: %ld\n",
@@ -52,14 +52,71 @@ static void parser_maybe_expect_newline(struct Parser* const parser) {
     }
 }
 
+static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
+    struct ASTValue *value;
+    struct Lexer old_state = parser->lexer;
+    struct ASTStackValue stack = {
+        .allocated = 0,
+        .length = 0,
+        .entries = NULL
+    };
+    if (!lexer_tokenize(&parser->lexer)) {
+        return NULL;
+    }
+    if (parser->lexer.token.name != TokenNameLeftCur) {
+        parser->lexer = old_state;
+        return NULL;
+    }
+    parser_maybe_expect_newline(parser);
+    for (;;) {
+        struct Expr *expr = parser_parse_expr(parser);
+        parser_maybe_expect_newline(parser);
+        if (lexer_tokenize(&parser->lexer)) {
+            switch (parser->lexer.token.name) {
+            case TokenNameRightCur:
+                if (expr) {
+                    if (stack.allocated == 0) {
+                        stack.entries = malloc((stack.allocated = 8) * sizeof(struct Expr*));
+                    } else {
+                        stack.entries = realloc(stack.entries, (stack.allocated += 3) * sizeof(struct Expr*));
+                    }
+                    stack.entries[stack.length++] = expr;
+                }
+                goto loop_end;
+            case TokenNameComma:
+                break;
+            default:
+                goto backtrack;
+            }
+        } else {
+            parser_error(parser, "Encountered an unexpected end-of-file while parsing a stack");
+        }
+        if (stack.allocated == 0) {
+            stack.entries = malloc((stack.allocated = 8) * sizeof(struct Expr*));
+        } else {
+            stack.entries = realloc(stack.entries, (stack.allocated += 3) * sizeof(struct Expr*));
+        }
+        stack.entries[stack.length++] = expr;
+    }
+loop_end:
+    value = malloc(sizeof(struct ASTValue));
+    value->type = ValueTypeStack;
+    value->as.stack = stack;
+    return value;
+backtrack:
+    parser->lexer = old_state;
+    return NULL;
+}
+
 static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     struct Expr *expr;
     struct Lexer old_state = parser->lexer;
-    struct Value *routine;
-    if ((routine = parser_parse_node_routine(parser))) {
+    struct ASTValue *value;
+    if ((value = parser_parse_node_routine(parser)) ||
+        (value = parser_parse_stack(parser))) {
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
-        expr->as.value = routine; 
+        expr->as.value = value;
         return expr;
     }
     if (!lexer_tokenize(&parser->lexer))
@@ -95,7 +152,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         else
             number.as._int = as_int;
         expr->type = ExprTypeValue;
-        expr->as.value = malloc(sizeof(struct Value));
+        expr->as.value = malloc(sizeof(struct ASTValue));
         expr->as.value->type = ValueTypeNumber;
         expr->as.value->as.number = number;
         return expr;
@@ -107,7 +164,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         strncpy(string, parser->lexer.token.string, parser->lexer.token.length);
         string[parser->lexer.token.length] = '\0';
         expr->type = ExprTypeValue;
-        expr->as.value = malloc(sizeof(struct Value));
+        expr->as.value = malloc(sizeof(struct ASTValue));
         expr->as.value->type = ValueTypeString;
         expr->as.value->as.string = string;
         return expr;
@@ -123,7 +180,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     case TokenNameVoid:
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
-        expr->as.value = malloc(sizeof(struct Value));
+        expr->as.value = malloc(sizeof(struct ASTValue));
         expr->as.value->type = ValueTypeVoid;
         return expr;
     default:
@@ -131,7 +188,6 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         return NULL;
     }
 }
-
 
 static enum ExprType token_name_to_expr_type(const enum TokenName type) {
     switch (type) {
@@ -429,9 +485,9 @@ static struct Node **parser_parse_block(struct Parser* const parser) {
     return nodes;
 }
 
-static struct Value *parser_parse_node_routine(struct Parser* const parser) {
-    struct Value *value;
-    struct RoutineValue decl;
+static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
+    struct ASTValue *value;
+    struct RaelRoutineValue decl;
     struct Lexer old_state = parser->lexer;
     // is there something?
     if (!lexer_tokenize(&parser->lexer))
@@ -488,7 +544,7 @@ static struct Value *parser_parse_node_routine(struct Parser* const parser) {
     if (!(decl.block = parser_parse_block(parser))) {
         parser_error(parser, "Expected block after routine decleration");
     }
-    value = malloc(sizeof(struct Value));
+    value = malloc(sizeof(struct ASTValue));
     value->type = ValueTypeRoutine;
     value->as.routine = decl;
     return value;

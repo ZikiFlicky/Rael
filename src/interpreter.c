@@ -5,22 +5,56 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
-#include <math.h>
 #include <stdlib.h>
 
 
 static void interpreter_interpret_node(struct Scope *scope, struct Node* const node);
+static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr);
 
 void runtime_error(const char* const error_message) {
     printf("RuntimeError: %s.\n", error_message);
     exit(1);
 }
 
-static struct Value expr_eval(struct Scope *scope, struct Expr* const expr) {
-    struct Value lhs, rhs, value;
+static struct RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
+    struct RaelValue out_value = {
+        .type = value.type
+    };
+    switch (value.type) {
+    case ValueTypeNumber:
+        out_value.as.number = value.as.number;
+        break;
+    case ValueTypeString:
+        // FIXME: optimise this (already parse as a RaelString)
+        out_value.as.string.value = value.as.string;
+        out_value.as.string.length = strlen(value.as.string);
+        break;
+    case ValueTypeRoutine:
+        out_value.as.routine = value.as.routine;
+        break;
+    case ValueTypeStack:
+        out_value.as.stack = (struct RaelStackValue) {
+            .length = value.as.stack.length,
+            .allocated = value.as.stack.length,
+            .values = malloc(value.as.stack.length * sizeof(struct RaelValue))
+        };
+        for (size_t i = 0; i < value.as.stack.length; ++i) {
+            out_value.as.stack.values[i] = expr_eval(scope, value.as.stack.entries[i]);
+        }
+        break;
+    case ValueTypeVoid:
+        break;
+    default:
+        assert(0);
+    }
+    return out_value;
+}
+
+static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
+    struct RaelValue lhs, rhs, value;
     switch (expr->type) {
     case ExprTypeValue:
-        return *expr->as.value;
+        return value_eval(scope, *expr->as.value);
     case ExprTypeKey:
         return scope_get(scope, expr->as.key);
     case ExprTypeAdd:
@@ -30,15 +64,16 @@ static struct Value expr_eval(struct Scope *scope, struct Expr* const expr) {
             value.type = ValueTypeNumber;
             value.as.number = number_add(lhs.as.number, rhs.as.number);
         } else if (lhs.type == ValueTypeString && rhs.type == ValueTypeString) {
-            // FIXME: optimise this
-            char *new_string;
-            size_t s_lhs = strlen(lhs.as.string), s_rhs = strlen(rhs.as.string);
-            new_string = malloc((s_lhs + s_rhs + 1) * sizeof(char));
-            strcpy(new_string, lhs.as.string);
-            strcpy(new_string + s_lhs, rhs.as.string);
-            new_string[s_lhs + s_rhs] = '\0';
+            struct RaelStringValue string;
+            // set length to the sum of added strings' lengths
+            string.length = lhs.as.string.length + rhs.as.string.length;
+            // allocate the length + 1 for null termination and copy strings into it
+            string.value = malloc((string.length + 1) * sizeof(char));
+            strcpy(string.value, lhs.as.string.value);
+            strcpy(string.value + lhs.as.string.length, rhs.as.string.value);
+            string.value[string.length] = '\0';
             value.type = ValueTypeString;
-            value.as.string = new_string;
+            value.as.string = string;
         } else {
             runtime_error("Invalid operation (+) on types");
         }
@@ -85,10 +120,13 @@ static struct Value expr_eval(struct Scope *scope, struct Expr* const expr) {
             value.as.number = number_eq(lhs.as.number, rhs.as.number);
         } else if (lhs.type == ValueTypeString && rhs.type == ValueTypeString) {
             // if they have the same pointer, they must be equal
-            if (lhs.as.string == rhs.as.string) {
+            if (lhs.as.string.value == rhs.as.string.value) {
                 value.as.number.as._int = 1;
             } else {
-                value.as.number.as._int = strcmp(lhs.as.string, rhs.as.string) == 0;
+                if (lhs.as.string.length == rhs.as.string.length)
+                    value.as.number.as._int = strcmp(lhs.as.string.value, rhs.as.string.value) == 0;
+                else
+                    value.as.number.as._int = 0; // if lengths don't match, the strings don't match
             }
         } else {
             value.as.number.as._int = 0;
@@ -115,7 +153,7 @@ static struct Value expr_eval(struct Scope *scope, struct Expr* const expr) {
         }
         return value;
     case ExprTypeRoutineCall: {
-        struct Value maybe_routine = scope_get(scope, expr->as.call.routine_name);
+        struct RaelValue maybe_routine = scope_get(scope, expr->as.call.routine_name);
         struct Scope routine_scope;
         size_t i;
         if (maybe_routine.type != ValueTypeRoutine) {
@@ -134,8 +172,8 @@ static struct Value expr_eval(struct Scope *scope, struct Expr* const expr) {
         for (struct Node **node = maybe_routine.as.routine.block; *node; ++node) {
             interpreter_interpret_node(&routine_scope, *node);
         }
-        value.type = ValueTypeString;
-        value.as.string = expr->as.call.routine_name;
+        // TODO: add return statement and put the return value here
+        value.type = ValueTypeVoid;
         return value;
     }
     default:
@@ -143,7 +181,7 @@ static struct Value expr_eval(struct Scope *scope, struct Expr* const expr) {
     }
 }
 
-static void value_log(struct Value value) {
+static void value_log_as_original(struct RaelValue value) {
     switch (value.type) {
     case ValueTypeNumber:
         if (value.as.number.is_float) {
@@ -153,7 +191,11 @@ static void value_log(struct Value value) {
         }
         break;
     case ValueTypeString:
-        printf("%s", value.as.string);
+        // %.*s gives some warning when using size_t (it expects ints)
+        putchar('"');
+        for (size_t i = 0; i < value.as.string.length; ++i)
+            putchar(value.as.string.value[i]);
+        putchar('"');
         break;
     case ValueTypeVoid:
         printf("Void");
@@ -167,19 +209,47 @@ static void value_log(struct Value value) {
         }
         printf(")");
         break;
+    case ValueTypeStack:
+        printf("{ ");
+        for (size_t i = 0; i < value.as.stack.length; ++i) {
+            if (i > 0)
+                printf(", ");
+            value_log_as_original(value.as.stack.values[i]);
+        }
+        printf(" }");
+        break;
+    default:
+        assert(0);
+    }
+}
+
+static void value_log(struct RaelValue value) {
+    // only strings are printed differently when `log`ed then inside an array
+    switch (value.type) {
+    case ValueTypeString:
+        // %.*s gives some warning when using size_t (it expects ints)
+        for (size_t i = 0; i < value.as.string.length; ++i)
+            putchar(value.as.string.value[i]);
+        break;
+    case ValueTypeRoutine:
+    case ValueTypeNumber:
+    case ValueTypeVoid:
+    case ValueTypeStack:
+        value_log_as_original(value);
+        break;
     default:
         assert(0);
     }
     printf("\n");
 }
 
-/* is the value booleanly true? like Python's bool */
-static bool value_as_bool(struct Value const value) {
+/* is the value booleanly true? like Python's bool() operator */
+static bool value_as_bool(struct RaelValue const value) {
     switch (value.type) {
     case ValueTypeVoid:
         return false;
     case ValueTypeString:
-        return value.as.string[0] != '\0';
+        return value.as.string.length != 0;
     case ValueTypeNumber:
         if (value.as.number.is_float)
             return value.as.number.as._float != 0.0f;
@@ -203,7 +273,7 @@ static void interpreter_interpret_node(struct Scope *scope, struct Node* const n
     }
     case NodeTypeIf: {
         struct Scope if_scope;
-        struct Value val;
+        struct RaelValue val;
         scope_construct(&if_scope, scope);
         if (value_as_bool((val = expr_eval(scope, node->value.if_stat.condition)))) {
             for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
