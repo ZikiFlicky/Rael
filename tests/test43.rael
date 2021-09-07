@@ -1,0 +1,4 @@
+:abc routine() {
+    log 22 + 2
+}
+:abc()

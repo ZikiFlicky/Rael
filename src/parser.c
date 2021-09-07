@@ -398,13 +398,28 @@ static struct Node *parser_parse_node_set(struct Parser* const parser) {
     key_token = parser->lexer.token;
     // expect an expression after "log"
     if (!(expr = parser_parse_expr(parser))) {
-        parser_error(parser, "Expected an expression after \"log\"");
+        parser->lexer = old_state;
+        return NULL;
     }
     parser_expect_newline(parser);
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeSet;
     node->value.set.key = token_allocate_key(&key_token);
     node->value.set.expr = expr;
+    return node;
+}
+
+static struct Node *parser_parse_node_pure(struct Parser* const parser) {
+    struct Node *node;
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_expr(parser)))
+        return NULL;
+
+    parser_expect_newline(parser);
+    node = malloc(sizeof(struct Node));
+    node->type = NodeTypePureExpr;
+    node->value.pure = expr;
     return node;
 }
 
@@ -603,6 +618,7 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
 static struct Node *parser_parse_node(struct Parser* const parser) {
     struct Node *node;
     if ((node = parser_parse_node_set(parser))     ||
+        (node = parser_parse_node_pure(parser))    ||
         (node = parser_parse_node_log(parser))     ||
         (node = parser_parse_if_statement(parser)) ||
         (node = parser_parse_loop(parser))) {

@@ -300,6 +300,9 @@ static void interpreter_interpret_node(struct Scope *scope, struct Node* const n
         scope_dealloc(&loop_scope);
         break;
     }
+    case NodeTypePureExpr:
+        expr_eval(scope, node->value.pure);
+        break;
     default:
         assert(0);
     }
