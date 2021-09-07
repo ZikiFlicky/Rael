@@ -81,14 +81,12 @@ bool scope_set(struct Scope* const scope, char *key, struct RaelValue value) {
     return true;
 }
 
-struct RaelValue scope_get(struct Scope* const scope, char* const key) {
-    struct BucketNode *node;
-    struct Scope *search_scope;
-
-    for (search_scope = scope; search_scope; search_scope = search_scope->parent) {
-        if (search_scope->variables.allocated == 0)
+struct RaelValue scope_get(struct Scope *scope, char* const key) {
+    for (; scope; scope = scope->parent) {
+        if (scope->variables.allocated == 0)
             continue;
-        for (node = scope->variables.buckets[scope_hash(scope, key)]; node; node = node->next) {
+        // iterate bucket nodes
+        for (struct BucketNode *node = scope->variables.buckets[scope_hash(scope, key)]; node; node = node->next) {
             if (strcmp(key, node->key) == 0)
                 return node->value;
         }
