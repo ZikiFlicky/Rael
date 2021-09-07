@@ -1,11 +1,12 @@
 #include "lexer.h"
 #include "parser.h"
-#include "interpreter.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+
+void interpret(struct Node **instructions);
 
 static void print_help(void) {
     printf("./ech --file [file]\n");

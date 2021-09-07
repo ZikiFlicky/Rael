@@ -1,4 +1,3 @@
-#include "interpreter.h"
 #include "scope.h"
 #include "number.h"
 
@@ -7,6 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+struct Interpreter {
+    struct Node **instructions;
+    size_t idx;
+    struct Scope scope;
+};
 
 static void interpreter_interpret_node(struct Scope *scope, struct Node* const node);
 static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr);

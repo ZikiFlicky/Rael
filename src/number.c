@@ -1,8 +1,9 @@
 #include "number.h"
-#include "interpreter.h"
 
 #include <math.h>
 #include <stdlib.h>
+
+void runtime_error(const char* const error_message);
 
 struct NumberExpr number_add(struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
