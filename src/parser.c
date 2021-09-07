@@ -9,13 +9,6 @@
 #include <math.h>
 #include <assert.h>
 
-typedef enum Precedence {
-    PrecedenceLowest = 1,
-    PrecedenceComparison,
-    PrecedenceSum,
-    PrecedenceProduct
-} Precedence;
-
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Node *parser_parse_node(struct Parser* const parser);
 static struct ASTValue *parser_parse_node_routine(struct Parser* const parser);
@@ -189,46 +182,6 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     }
 }
 
-static enum ExprType token_name_to_expr_type(const enum TokenName type) {
-    switch (type) {
-    case TokenNameEquals:
-        return ExprTypeEquals;
-    case TokenNameSmallerThan:
-        return ExprTypeSmallerThen;
-    case TokenNameBiggerThan:
-        return ExprTypeBiggerThen;
-    case TokenNameAdd:
-        return ExprTypeAdd;
-    case TokenNameSub:
-        return ExprTypeSub;
-    case TokenNameMul:
-        return ExprTypeMul;
-    case TokenNameDiv:
-        return ExprTypeDiv;
-    default:
-        assert(0);
-    }
-}
-
-static Precedence token_name_to_precedence(const enum TokenName name) {
-    switch (name) {
-    case TokenNameEquals:
-    case TokenNameSmallerThan:
-    case TokenNameBiggerThan:
-        return PrecedenceComparison;
-    case TokenNameAdd:
-    case TokenNameSub:
-        return PrecedenceSum;
-    case TokenNameMul:
-    case TokenNameDiv:
-        return PrecedenceProduct;
-    case TokenNameLeftParen:
-        return PrecedenceLowest;
-    default:
-        assert(0);
-    }
-}
-
 /** routine call is:
  *    :key(arguments, seperated, by, a, comma)
  *  example:
@@ -296,110 +249,137 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr(struct Parser* const parser) {
-    struct Token operator_stack[256];
-    struct Expr* output_stack[256];
-    struct Expr* expr_stack[256];
-    struct Lexer last_state;
-    size_t op_idx = 0, out_idx = 0, expr_idx = 0;
-    while (true) {
-        last_state = parser->lexer;
-        if ((output_stack[out_idx] = parser_parse_routine_call(parser)) ||
-            (output_stack[out_idx] = parser_parse_literal_expr(parser))) {
-            ++out_idx;
-            continue;
-        }
-        if (!lexer_tokenize(&parser->lexer))
-            break;
-        switch (parser->lexer.token.name) {
-        case TokenNameLeftParen:
-            operator_stack[op_idx++] = parser->lexer.token;
-            continue;
-        case TokenNameRightParen:
-            // FIXME: this feels a bit inefficient
-            if (op_idx == 0) {
-                parser->lexer = last_state;
-                goto end;
-            }
-            // make sure there is a left paren
-            for (size_t i = op_idx - 1; operator_stack[i].name != TokenNameLeftParen; --i) {
-                // if there is no left paren, deconsume the `)`
-                if (i == 0) {
-                    parser->lexer = last_state;
-                    goto end;
-                }
-            }
-            // pop tokens into output_stack until reached `(`
-            while (operator_stack[--op_idx].name != TokenNameLeftParen) {
-                output_stack[out_idx] = malloc(sizeof(struct Expr));
-                output_stack[out_idx]->type = token_name_to_expr_type(operator_stack[op_idx].name);
-                ++out_idx;
-            }
-            continue;
-        case TokenNameAdd:
-        case TokenNameSub:
-        case TokenNameMul:
-        case TokenNameDiv:
-        case TokenNameEquals:
-        case TokenNameSmallerThan:
-        case TokenNameBiggerThan:
-            // if the new precedence is smaller or equal to the last precedence,
-            // pop last operator into output_stack 
-            if (op_idx > 0 &&
-                    token_name_to_precedence(parser->lexer.token.name) <= token_name_to_precedence(operator_stack[op_idx-1].name)) {
-                // pop operations into output_stack
-                output_stack[out_idx] = malloc(sizeof(struct Expr));
-                output_stack[out_idx]->type = token_name_to_expr_type(operator_stack[--op_idx].name);
-                ++out_idx;
-            }
-            // push operator to stack
-            operator_stack[op_idx++] = parser->lexer.token;
-            continue;
-        default:
-            parser->lexer = last_state;
-        }
-        break;
-    }
-end:
-    // pop remaining into output_stack
-    for (size_t i = 1; i <= op_idx; ++i) {
-        output_stack[out_idx] = malloc(sizeof(struct Expr));
-        output_stack[out_idx]->type = token_name_to_expr_type(operator_stack[op_idx-i].name);
-        ++out_idx;
-    }
-    for (size_t i = 0; i < out_idx; ++i) {
-        switch (output_stack[i]->type) {
-        case ExprTypeAdd:
-        case ExprTypeSub:
-        case ExprTypeMul:
-        case ExprTypeDiv:
-        case ExprTypeEquals:
-        case ExprTypeSmallerThen:
-        case ExprTypeBiggerThen: {
-            struct Expr *expr;
-            if (expr_idx < 2) {
-                parser_error(parser, "Expected operator between operands");
-            }
-            expr = output_stack[i];
-            expr->as.binary.lhs = expr_stack[expr_idx-2];
-            expr->as.binary.rhs = expr_stack[expr_idx-1];
-            expr_stack[expr_idx -= 2] = expr;
-            ++expr_idx;
-            break;
-        }
-        default:
-            expr_stack[expr_idx++] = output_stack[i];
-            break;
-        }
-    }
-    if (expr_idx == 0) {
-        parser->lexer = last_state;
+static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_routine_call(parser)) &&
+        !(expr = parser_parse_literal_expr(parser))) {
         return NULL;
     }
-    if (expr_idx != 1) {
-        parser_error(parser, "Expected operator between operands");
+
+    for (;;) {
+        struct Expr *new_expr;
+        struct Lexer backtrack = parser->lexer;
+
+        if (lexer_tokenize(&parser->lexer)) {
+            switch (parser->lexer.token.name) {
+            case TokenNameMul:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeMul;
+                new_expr->as.binary.lhs = expr;
+                if (!(new_expr->as.binary.rhs = parser_parse_routine_call(parser)) &&
+                    !(new_expr->as.binary.rhs = parser_parse_literal_expr(parser))) {
+                    parser_error(parser, "Expected a value after '*'");
+                }
+                break;
+            case TokenNameDiv:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeDiv;
+                new_expr->as.binary.lhs = expr;
+                if (!(new_expr->as.binary.rhs = parser_parse_routine_call(parser)) &&
+                    !(new_expr->as.binary.rhs = parser_parse_literal_expr(parser))) {
+                    parser_error(parser, "Expected a value after '/'");
+                }
+                break;
+            default:
+                parser->lexer = backtrack;
+                goto loop_end;
+            } 
+        } else {
+            break;
+        }
+
+        expr = new_expr;
     }
-    return expr_stack[0];
+loop_end:
+    return expr;
+}
+
+static struct Expr *parser_parse_expr_sum(struct Parser* const parser) {
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_expr_product(parser)))
+        return NULL;
+
+    for (;;) {
+        struct Expr *new_expr;
+        struct Lexer backtrack = parser->lexer;
+
+        if (lexer_tokenize(&parser->lexer)) {
+            switch (parser->lexer.token.name) {
+            case TokenNameAdd:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeAdd;
+                new_expr->as.binary.lhs = expr;
+                if (!(new_expr->as.binary.rhs = parser_parse_expr_product(parser)))
+                    parser_error(parser, "Expected a value after '+'");
+                break;
+            case TokenNameSub:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeSub;
+                new_expr->as.binary.lhs = expr;
+                if (!(new_expr->as.binary.rhs = parser_parse_expr_product(parser)))
+                    parser_error(parser, "Expected a value after '-'");
+                break;
+            default:
+                parser->lexer = backtrack;
+                goto loop_end;
+            }
+        } else {
+            break;
+        }
+
+        expr = new_expr;
+    }
+loop_end:
+    return expr;
+}
+
+static struct Expr *parser_parse_expr(struct Parser* const parser) {
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_expr_sum(parser)))
+        return NULL;
+
+    for (;;) {
+        struct Expr *new_expr;
+        struct Lexer backtrack = parser->lexer;
+
+        if (lexer_tokenize(&parser->lexer)) {
+            switch (parser->lexer.token.name) {
+            case TokenNameEquals:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeEquals;
+                new_expr->as.binary.lhs = expr;
+                if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
+                    parser_error(parser, "Expected a value after '='");
+                break;
+            case TokenNameSmallerThan:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeSmallerThen;
+                new_expr->as.binary.lhs = expr;
+                if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
+                    parser_error(parser, "Expected a value after '<'");
+                break;
+            case TokenNameBiggerThan:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeBiggerThen;
+                new_expr->as.binary.lhs = expr;
+                if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
+                    parser_error(parser, "Expected a value after '>'");
+                break;
+            default:
+                parser->lexer = backtrack;
+                goto loop_end;
+            }
+        } else {
+            break;
+        }
+
+        expr = new_expr;
+    }
+loop_end:
+    return expr;
 }
 
 static struct Node *parser_parse_node_set(struct Parser* const parser) {
