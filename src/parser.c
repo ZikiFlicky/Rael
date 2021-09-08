@@ -36,13 +36,15 @@ static void parser_expect_newline(struct Parser* const parser) {
     }
 }
 
-static void parser_maybe_expect_newline(struct Parser* const parser) {
+static bool parser_maybe_expect_newline(struct Parser* const parser) {
     struct Lexer last_state = parser->lexer;
     if (lexer_tokenize(&parser->lexer)) {
         if (parser->lexer.token.name != TokenNameNewline) {
             parser->lexer = last_state;
+            return false;
         }
     }
+    return true;
 }
 
 static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
@@ -446,6 +448,33 @@ static struct Node *parser_parse_node_log(struct Parser* const parser) {
     return node;
 }
 
+static struct Node *parser_parse_node_return(struct Parser* const parser) {
+    struct Lexer old_state = parser->lexer;
+    struct Node *node;
+    struct Expr *expr;
+
+    if (!lexer_tokenize(&parser->lexer))
+        return NULL;
+
+    if (parser->lexer.token.name != TokenNameCaret) {
+        parser->lexer = old_state;
+        return NULL;
+    }
+
+    if (parser_maybe_expect_newline(parser)) {
+        expr = NULL;
+    } else if ((expr = parser_parse_expr(parser))) {
+        parser_expect_newline(parser);
+    } else {
+        parser_error(parser, "Expected an expression or nothing after \"^\"");
+    }
+
+    node = malloc(sizeof(struct Node));
+    node->type = NodeTypeReturn;
+    node->value.return_value = expr;
+    return node;
+}
+
 static struct Node **parser_parse_block(struct Parser* const parser) {
     struct Lexer old_state = parser->lexer;
     struct Node **nodes;
@@ -621,7 +650,8 @@ static struct Node *parser_parse_node(struct Parser* const parser) {
         (node = parser_parse_node_pure(parser))    ||
         (node = parser_parse_node_log(parser))     ||
         (node = parser_parse_if_statement(parser)) ||
-        (node = parser_parse_loop(parser))) {
+        (node = parser_parse_loop(parser))         ||
+        (node = parser_parse_node_return(parser))) {
         return node;
     }
     return NULL;

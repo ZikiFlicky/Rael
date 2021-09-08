@@ -1,0 +1,6 @@
+:hello_world routine() {
+    ^
+    log "Hello World!"
+}
+
+:hello_world()

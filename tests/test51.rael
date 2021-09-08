@@ -1,0 +1,7 @@
+:a routine() {
+    ^
+    ^ 23
+    log "Hello World!"
+}
+
+log :a()

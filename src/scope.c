@@ -25,19 +25,16 @@ void scope_construct(struct Scope* const scope, struct Scope* const parent_scope
     scope->variables.pairs = 0;
 }
 
-/* FIXME: optimise this */
-static void node_delete(struct BucketNode *node) {
-    if (!node)
-        return;
-    free(node->key);
-    node_delete(node->next);
-    free(node);
-}
-
 void scope_dealloc(struct Scope* const scope) {
-    size_t i;
-    for (i = 0; i < scope->variables.allocated; ++i)
-        node_delete(scope->variables.buckets[i]);
+    for (size_t i = 0; i < scope->variables.allocated; ++i) {
+        struct BucketNode *next_node;
+        for (struct BucketNode *node = scope->variables.buckets[i]; node; node = next_node) {
+            next_node = node->next;
+            // free(node->key);
+            // TODO: also free node->value
+            free(node);
+        }
+    }
 }
 
 bool scope_set(struct Scope* const scope, char *key, struct RaelValue value) {

@@ -12,8 +12,9 @@ struct Interpreter {
     struct Scope scope;
 };
 
-static void interpreter_interpret_node(struct Scope *scope, struct Node* const node);
+static bool interpreter_interpret_node(struct Scope *scope, struct Node* const node, struct RaelValue *returned_value);
 static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr);
+static void value_log(struct RaelValue value);
 
 void runtime_error(const char* const error_message) {
     printf("RuntimeError: %s.\n", error_message);
@@ -107,9 +108,6 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         rhs = expr_eval(scope, expr->as.binary.rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
-            if (rhs.as.number.as._float == 0.f) {
-                runtime_error("Haha! no. you are not dividing by zero. Have a great day!");
-            }
             value.as.number = number_div(lhs.as.number, rhs.as.number);
         } else {
             runtime_error("Invalid operation (/) on types");
@@ -160,24 +158,32 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         struct RaelValue maybe_routine = scope_get(scope, expr->as.call.routine_name);
         struct Scope routine_scope;
         size_t i;
-        if (maybe_routine.type != ValueTypeRoutine) {
+        // default is to return a void
+        value.type = ValueTypeVoid;
+
+        if (maybe_routine.type != ValueTypeRoutine)
             runtime_error("Call not possible on non-routine");
-        }
+
         scope_construct(&routine_scope, scope);
-        // verify the amount of arguments equal the amount of parameters
+
+        // verify the amount of arguments equals the amount of parameters
         if (maybe_routine.as.routine.amount_parameters != expr->as.call.amount_arguments)
             runtime_error("Arguments don't match parameters");
-        // set parameters
+
+        // set parameters as variables
         for (i = 0; i < maybe_routine.as.routine.amount_parameters; ++i) {
             scope_set(&routine_scope,
                     maybe_routine.as.routine.parameters[i],
                     expr_eval(scope, expr->as.call.arguments[i]));
         }
+
         for (struct Node **node = maybe_routine.as.routine.block; *node; ++node) {
-            interpreter_interpret_node(&routine_scope, *node);
+            // if got a return statement
+            if (interpreter_interpret_node(&routine_scope, *node, &value))
+                break;
         }
-        // TODO: add return statement and put the return value here
-        value.type = ValueTypeVoid;
+
+        scope_dealloc(&routine_scope);
         return value;
     }
     default:
@@ -231,7 +237,6 @@ static void value_log(struct RaelValue value) {
     // only strings are printed differently when `log`ed then inside an array
     switch (value.type) {
     case ValueTypeString:
-        // %.*s gives some warning when using size_t (it expects ints)
         for (size_t i = 0; i < value.as.string.length; ++i)
             putchar(value.as.string.value[i]);
         break;
@@ -266,7 +271,12 @@ static bool value_as_bool(struct RaelValue const value) {
     }
 }
 
-static void interpreter_interpret_node(struct Scope *scope, struct Node* const node) {
+/*
+    returns true if got a return statement
+*/
+static bool interpreter_interpret_node(struct Scope *scope, struct Node* const node, struct RaelValue *returned_value) {
+    bool had_return = false;
+
     switch (node->type) {
     case NodeTypeLog:
         value_log(expr_eval(scope, node->value.log_value));
@@ -281,12 +291,18 @@ static void interpreter_interpret_node(struct Scope *scope, struct Node* const n
         scope_construct(&if_scope, scope);
         if (value_as_bool((val = expr_eval(scope, node->value.if_stat.condition)))) {
             for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
-                interpreter_interpret_node(&if_scope, node->value.if_stat.block[i]);
+                if (interpreter_interpret_node(&if_scope, node->value.if_stat.block[i], returned_value)) {
+                    had_return = true;
+                    break;
+                }
             }
         } else {
             if (node->value.if_stat.else_block) {
                 for (size_t i = 0; node->value.if_stat.else_block[i]; ++i) {
-                    interpreter_interpret_node(&if_scope, node->value.if_stat.else_block[i]);
+                    if (interpreter_interpret_node(&if_scope, node->value.if_stat.else_block[i], returned_value)) {
+                        had_return = true;
+                        break;
+                    }
                 }
             }
         }
@@ -296,9 +312,13 @@ static void interpreter_interpret_node(struct Scope *scope, struct Node* const n
     case NodeTypeLoop: {
         struct Scope loop_scope;
         scope_construct(&loop_scope, scope);
+
         while (value_as_bool(expr_eval(scope, node->value.if_stat.condition))) {
             for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
-                interpreter_interpret_node(scope, node->value.if_stat.block[i]);
+                if (interpreter_interpret_node(scope, node->value.if_stat.block[i], returned_value)) {
+                    had_return = true;
+                    break;
+                }
             }
         }
         scope_dealloc(&loop_scope);
@@ -307,9 +327,20 @@ static void interpreter_interpret_node(struct Scope *scope, struct Node* const n
     case NodeTypePureExpr:
         expr_eval(scope, node->value.pure);
         break;
+    case NodeTypeReturn:
+        if (returned_value) {
+            if (node->value.return_value) {
+                *returned_value = expr_eval(scope, node->value.return_value);
+            } else {
+                returned_value->type = ValueTypeVoid;
+            }
+        }
+        had_return = true;
+        break;
     default:
         assert(0);
     }
+    return had_return;
 }
 
 void interpret(struct Node **instructions) {
@@ -319,6 +350,7 @@ void interpret(struct Node **instructions) {
     };
     scope_construct(&interp.scope, NULL);
     for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
-        interpreter_interpret_node(&interp.scope, node);
+        if (interpreter_interpret_node(&interp.scope, node, NULL))
+            runtime_error("'^' outside a routine is not permitted");
     }
 }

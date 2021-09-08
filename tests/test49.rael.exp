@@ -1,0 +1,2 @@
+32
+RuntimeError: '^' outside a routine is not permitted.

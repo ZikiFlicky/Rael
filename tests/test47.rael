@@ -1,0 +1,14 @@
+:__fib routine(:n, :1, :2) {
+    if :n = 0 {
+        ^:1
+    } else {
+        ^:__fib(:n - 1, :2, :1 + :2)
+    }
+}
+
+:fib routine(:n) {
+    ^:__fib(:n, 1, 1)
+}
+
+:res :fib(10)
+log :res

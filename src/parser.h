@@ -74,6 +74,7 @@ enum NodeType {
     NodeTypeIf,
     NodeTypeLoop,
     NodeTypePureExpr,
+    NodeTypeReturn,
 };
 
 struct IfStatementNode {
@@ -98,6 +99,7 @@ struct Node {
         struct IfStatementNode if_stat;
         struct LoopNode loop;
         struct Expr *pure;
+        struct Expr *return_value;
     } value;
 };
 
