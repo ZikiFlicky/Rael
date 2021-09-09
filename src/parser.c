@@ -429,22 +429,50 @@ static struct Node *parser_parse_node_log(struct Parser* const parser) {
     struct Lexer old_state = parser->lexer;
     struct Node *node;
     struct Expr *expr;
-    // is there nothing?
+    struct Expr **exprs_ary;
+    size_t allocated, idx = 0;
+
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
-    // doesn't start with "log"
+
     if (parser->lexer.token.name != TokenNameLog) {
         parser->lexer = old_state;
         return NULL;
     }
-    // expect an expression after "log"
-    if (!(expr = parser_parse_expr(parser))) {
-        parser_error(parser, "Expected an expression after \"log\"");
+
+    if (!(expr = parser_parse_expr(parser)))
+        parser_error(parser, "Expected at least one expression after \"log\"");
+    
+    exprs_ary = malloc(((allocated = 1) + 1) * sizeof(struct Expr*));
+    exprs_ary[idx++] = expr;
+
+    for (;;) {
+        if (!lexer_tokenize(&parser->lexer))
+            break;
+        switch (parser->lexer.token.name) {
+        case TokenNameComma:
+            if ((expr = parser_parse_expr(parser))) {
+                if (idx == allocated) {
+                    exprs_ary = realloc(exprs_ary, ((allocated += 4) + 1) * sizeof(struct Expr *));
+                }
+                exprs_ary[idx++] = expr;
+            } else {
+                parser_error(parser, "Expected expression after comma in log node");
+            }
+            break;
+        case TokenNameNewline:
+            goto loop_end;
+        default:
+            parser_error(parser, "Expected a comma or newline after expression in log");
+        }
     }
-    parser_expect_newline(parser);
+loop_end:
+    exprs_ary[idx] = NULL;
+
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLog;
-    node->value.log_value = expr;
+    node->value.log_values = exprs_ary;
+
     return node;
 }
 

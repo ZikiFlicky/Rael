@@ -240,16 +240,9 @@ static void value_log(struct RaelValue value) {
         for (size_t i = 0; i < value.as.string.length; ++i)
             putchar(value.as.string.value[i]);
         break;
-    case ValueTypeRoutine:
-    case ValueTypeNumber:
-    case ValueTypeVoid:
-    case ValueTypeStack:
-        value_log_as_original(value);
-        break;
     default:
-        assert(0);
+        value_log_as_original(value);
     }
-    printf("\n");
 }
 
 /* is the value booleanly true? like Python's bool() operator */
@@ -279,7 +272,12 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
 
     switch (node->type) {
     case NodeTypeLog:
-        value_log(expr_eval(scope, node->value.log_value));
+        value_log(expr_eval(scope, node->value.log_values[0]));
+        for (size_t i = 1; node->value.log_values[i]; ++i) {
+            printf(" ");
+            value_log(expr_eval(scope, node->value.log_values[i]));
+        }
+        printf("\n");
         break;
     case NodeTypeSet: {
         scope_set(scope, node->value.set.key, expr_eval(scope, node->value.set.expr));
@@ -288,6 +286,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
     case NodeTypeIf: {
         struct Scope if_scope;
         struct RaelValue val;
+
         scope_construct(&if_scope, scope);
         if (value_as_bool((val = expr_eval(scope, node->value.if_stat.condition)))) {
             for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
@@ -348,6 +347,7 @@ void interpret(struct Node **instructions) {
     struct Interpreter interp = {
         .instructions = instructions
     };
+
     scope_construct(&interp.scope, NULL);
     for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
         if (interpreter_interpret_node(&interp.scope, node, NULL))

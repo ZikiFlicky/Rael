@@ -91,7 +91,7 @@ struct LoopNode {
 struct Node {
     enum NodeType type;
     union {
-        struct Expr *log_value;
+        struct Expr **log_values;
         struct {
             char *key;
             struct Expr *expr;    
