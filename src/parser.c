@@ -1,12 +1,12 @@
 #include "parser.h"
 #include "lexer.h"
 #include "number.h"
+#include "value.h"
 
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include <assert.h>
 
 static struct Expr *parser_parse_expr(struct Parser* const parser);
@@ -153,11 +153,12 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         return expr;
     }
     case TokenNameString: {
-        char *string;
+        struct RaelStringValue string;
+
+        string.value = malloc((string.length = parser->lexer.token.length) * sizeof(char));
+        strncpy(string.value, parser->lexer.token.string, parser->lexer.token.length);
+
         expr = malloc(sizeof(struct Expr));
-        string = malloc((parser->lexer.token.length + 1) * sizeof(char));
-        strncpy(string, parser->lexer.token.string, parser->lexer.token.length);
-        string[parser->lexer.token.length] = '\0';
         expr->type = ExprTypeValue;
         expr->as.value = malloc(sizeof(struct ASTValue));
         expr->as.value->type = ValueTypeString;

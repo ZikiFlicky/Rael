@@ -3,6 +3,7 @@
 
 #include "lexer.h"
 #include "number.h"
+#include "string.h"
 
 #include <stdbool.h>
 
@@ -30,7 +31,7 @@ struct RaelRoutineValue {
 struct ASTValue {
     enum ValueType type;
     union {
-        char *string;
+        struct RaelStringValue string;
         struct NumberExpr number;
         struct RaelRoutineValue routine;
         struct ASTStackValue stack;

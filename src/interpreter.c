@@ -30,9 +30,7 @@ static struct RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
         out_value.as.number = value.as.number;
         break;
     case ValueTypeString:
-        // FIXME: optimise this (already parse as a RaelString)
-        out_value.as.string.value = value.as.string;
-        out_value.as.string.length = strlen(value.as.string);
+        out_value.as.string = value.as.string;
         break;
     case ValueTypeRoutine:
         out_value.as.routine = value.as.routine;

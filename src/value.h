@@ -3,13 +3,9 @@
 
 #include "parser.h"
 #include "number.h"
+#include "string.h"
 
 #include <stddef.h>
-
-struct RaelStringValue {
-    char *value;
-    size_t length;
-};
 
 struct RaelStackValue {
     struct RaelValue *values;
