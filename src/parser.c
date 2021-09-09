@@ -251,11 +251,33 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
     return expr;
 }
 
+static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
+    struct Expr *expr;
+    struct Lexer backtrack;
+
+    if ((expr = parser_parse_routine_call(parser)) ||
+        (expr = parser_parse_literal_expr(parser))) {
+        return expr;
+    }
+    backtrack = parser->lexer;
+    if (!lexer_tokenize(&parser->lexer))
+        return NULL;
+    if (parser->lexer.token.name != TokenNameLeftParen) {
+        parser->lexer = backtrack;
+        return NULL;
+    }
+    expr = parser_parse_expr(parser);
+    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen) {
+        parser->lexer = backtrack;
+        return NULL;
+    }
+    return expr;
+}
+
 static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_routine_call(parser)) &&
-        !(expr = parser_parse_literal_expr(parser))) {
+    if (!(expr = parser_parse_expr_single(parser))) {
         return NULL;
     }
 
@@ -269,8 +291,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeMul;
                 new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_routine_call(parser)) &&
-                    !(new_expr->as.binary.rhs = parser_parse_literal_expr(parser))) {
+                if (!(new_expr->as.binary.rhs = parser_parse_expr_single(parser))) {
                     parser_error(parser, "Expected a value after '*'");
                 }
                 break;
@@ -278,8 +299,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeDiv;
                 new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_routine_call(parser)) &&
-                    !(new_expr->as.binary.rhs = parser_parse_literal_expr(parser))) {
+                if (!(new_expr->as.binary.rhs = parser_parse_expr_single(parser))) {
                     parser_error(parser, "Expected a value after '/'");
                 }
                 break;

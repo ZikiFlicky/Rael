@@ -157,7 +157,6 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
     case ExprTypeRoutineCall: {
         struct RaelValue maybe_routine = scope_get(scope, expr->as.call.routine_name);
         struct Scope routine_scope;
-        size_t i;
         // default is to return a void
         value.type = ValueTypeVoid;
 
@@ -171,7 +170,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
             runtime_error("Arguments don't match parameters");
 
         // set parameters as variables
-        for (i = 0; i < maybe_routine.as.routine.amount_parameters; ++i) {
+        for (size_t i = 0; i < maybe_routine.as.routine.amount_parameters; ++i) {
             scope_set(&routine_scope,
                     maybe_routine.as.routine.parameters[i],
                     expr_eval(scope, expr->as.call.arguments[i]));
