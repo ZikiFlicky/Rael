@@ -195,10 +195,10 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
     struct Lexer old_state = parser->lexer;
     struct Token key_token;
     struct Expr *argument;
-    // is there something?
+
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
-    // verify it starts with a key
+
     if (parser->lexer.token.name != TokenNameKey) {
         parser->lexer = old_state;
         return NULL;
@@ -214,7 +214,7 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
         call.arguments = malloc((allocated = 4) * sizeof(struct Expr*));
         call.amount_arguments = 0;
         call.arguments[call.amount_arguments++] = argument;
-        while (true) {
+        for (;;) {
             // verify you can tokenize
             if (!lexer_tokenize(&parser->lexer))
                 parser_error(parser, "Unexpected EOF");
@@ -592,20 +592,24 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
             // tokenize
             if (!lexer_tokenize(&parser->lexer))
                 parser_error(parser, "Unexpected EOF");
-            // if the token is ')', you can exit the loop
+
             if (parser->lexer.token.name == TokenNameRightParen)
                 break;
-            // if there is no comma, error
+
             if (parser->lexer.token.name != TokenNameComma)
                 parser_error(parser, "Expected Comma");
-            // tokenize
+
             if (!lexer_tokenize(&parser->lexer))
                 parser_error(parser, "Unexpected EOF");
-            // reallocate if needed
+
             if (decl.amount_parameters == allocated) {
                 decl.parameters = realloc(decl.parameters, (allocated += 3)*sizeof(struct Expr*));
             }
-            // parse expression
+            for (size_t parameter = 0; parameter < decl.amount_parameters; ++parameter) {
+                if (strncmp(parser->lexer.token.string, decl.parameters[parameter], parser->lexer.token.length) == 0) {
+                    parser_error(parser, "Duplicate parameter on routine decleration");
+                }
+            }
             decl.parameters[decl.amount_parameters++] = token_allocate_key(&parser->lexer.token);
         }
         break;
