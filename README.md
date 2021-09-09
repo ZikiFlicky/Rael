@@ -5,17 +5,23 @@ The language is made for people who prefer not to name their variables.
 
 Rael was started, but not finished in [LangJam](https://github.com/langjam/jam0001).
 
+The name Rael has no actual meaning, if you were wondering ;)
+
 ## Dependencies
-* Git - to clone this repository
-* GNU Make - to build the project
-* GCC - any C99 compiler should work, though
-* Python 2.7 or higher - for running tests
+* Git - to clone this repository (you can also just download it manually if you want)
+* GNU Make - to build the project on unix systems
+* GCC or Clang - any decent C99 compiler should work, though
+* Python 2.7 or higher - for running tests (`runtests.py`)
 
-Note: this was tested only on Linux (Ubuntu 20.04).
+The default compiler is GCC, but it can be changed in the makefile's configuration
+at the top to whatever you like.
 
-The language doesn't use Linux specific things, so it should work on other platforms, too.
+Note: the language was only tested on Linux (Ubuntu 20.04, to be exact).
 
-For build problems and questions, please open an issue.
+The language doesn't use Linux/unix specific libraries in the actual language's code, but it does use
+build tools that are unix specific. With a bit of effort it could be ported to other platforms, too.
+
+For build problems and questions regarding the language, please open an issue on this GitHub page.
 
 ## Build
 To build, run `make`.
@@ -23,20 +29,9 @@ To build, run `make`.
 To run the tests, run `python runtests.py`
 
 ## Usage
-To run a file, `./rael --file filename.rael`
+To run a file, `build/rael --file filename.rael`
 
 ## Examples
-### Fibonacci:
-```rael
-:n 22
-:1 1
-:2 1
-:3 0
-loop :n {
-    log :2
-    :3 :1 + :2
-    :1 :2
-    :2 :3
-    :n :n - 1 %% decrease :n by 1
-}
-```
+Examples can be found in the examples directory.
+
+They can be run like this: `build/rael --file examples/beer.rael`
