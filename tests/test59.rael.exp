@@ -1,1 +1,3 @@
-ParserError: Duplicate parameter on routine decleration. on line: 1, column: 21
+Error [1:22]: Duplicate parameter on routine decleration
+| :123 routine(:1, :2, :2) {
+|                      ^

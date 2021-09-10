@@ -17,14 +17,27 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr);
 static void value_log(struct RaelValue value);
 
 void rael_error(struct State state, const char* const error_message) {
+    // advance all whitespace
+    while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
+        ++state.column;
+        ++state.stream_pos;
+    }
     printf("Error [%zu:%zu]: %s\n", state.line, state.column, error_message);
     printf("| ");
     for (int i = -state.column + 1; state.stream_pos[i] && state.stream_pos[i] != '\n'; ++i) {
-        putchar(state.stream_pos[i]);
+        if (state.stream_pos[i] == '\t') {
+            printf("    ");
+        } else {
+            putchar(state.stream_pos[i]);
+        }
     }
     printf("\n| ");
     for (size_t i = 0; i < state.column - 1; ++i) {
-        putchar(' ');
+        if (state.stream_pos[-state.column + i] == '\t') {
+            printf("    ");
+        } else {
+            putchar(' ');
+        }
     }
     printf("^\n");
     exit(1);
