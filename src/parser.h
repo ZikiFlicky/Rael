@@ -59,6 +59,7 @@ struct RoutineCallExpr {
 
 struct Expr {
     enum ExprType type;
+    struct State state;
     union {
         struct {
             struct Expr *lhs, *rhs;
@@ -91,6 +92,7 @@ struct LoopNode {
 
 struct Node {
     enum NodeType type;
+    struct State state;
     union {
         struct Expr **log_values;
         struct {

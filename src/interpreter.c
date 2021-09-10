@@ -16,8 +16,9 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
 static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr);
 static void value_log(struct RaelValue value);
 
-void runtime_error(const char* const error_message) {
-    printf("RuntimeError: %s.\n", error_message);
+void runtime_error(struct State state, const char* const error_message) {
+    printf("RuntimeError: %s. line: %zu, column: %zu\n",
+            error_message, state.line, state.column);
     exit(1);
 }
 
@@ -75,7 +76,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
             value.type = ValueTypeString;
             value.as.string = string;
         } else {
-            runtime_error("Invalid operation (+) on types");
+            runtime_error(expr->state, "Invalid operation (+) on types");
         }
         return value;
     case ExprTypeSub:
@@ -85,7 +86,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
             value.type = ValueTypeNumber;
             value.as.number = number_sub(lhs.as.number, rhs.as.number);
         } else {
-            runtime_error("Invalid operation (-) on types");
+            runtime_error(expr->state, "Invalid operation (-) on types");
         }
         return value;
     case ExprTypeMul:
@@ -95,7 +96,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
             value.type = ValueTypeNumber;
             value.as.number = number_mul(lhs.as.number, rhs.as.number);
         } else {
-            runtime_error("Invalid operation (*) on types");
+            runtime_error(expr->state, "Invalid operation (*) on types");
         }
         return value;
     case ExprTypeDiv:
@@ -103,9 +104,9 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         rhs = expr_eval(scope, expr->as.binary.rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
-            value.as.number = number_div(lhs.as.number, rhs.as.number);
+            value.as.number = number_div(expr->state, lhs.as.number, rhs.as.number);
         } else {
-            runtime_error("Invalid operation (/) on types");
+            runtime_error(expr->state, "Invalid operation (/) on types");
         }
         return value;
     case ExprTypeEquals:
@@ -136,7 +137,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
             value.type = ValueTypeNumber;
             value.as.number = number_smaller(lhs.as.number, rhs.as.number);
         } else {
-            runtime_error("Invalid operation (<) on types");
+            runtime_error(expr->state, "Invalid operation (<) on types");
         }
         return value;
     case ExprTypeBiggerThen:
@@ -146,7 +147,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
             value.type = ValueTypeNumber;
             value.as.number = number_bigger(lhs.as.number, rhs.as.number);
         } else {
-            runtime_error("Invalid operation (>) on types");
+            runtime_error(expr->state, "Invalid operation (>) on types");
         }
         return value;
     case ExprTypeRoutineCall: {
@@ -156,13 +157,13 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         value.type = ValueTypeVoid;
 
         if (maybe_routine.type != ValueTypeRoutine)
-            runtime_error("Call not possible on non-routine");
+            runtime_error(expr->state, "Call not possible on non-routine");
 
         scope_construct(&routine_scope, scope);
 
         // verify the amount of arguments equals the amount of parameters
         if (maybe_routine.as.routine.amount_parameters != expr->as.call.amount_arguments)
-            runtime_error("Arguments don't match parameters");
+            runtime_error(expr->state, "Arguments don't match parameters");
 
         // set parameters as variables
         for (size_t i = 0; i < maybe_routine.as.routine.amount_parameters; ++i) {
@@ -345,6 +346,6 @@ void interpret(struct Node **instructions) {
     scope_construct(&interp.scope, NULL);
     for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
         if (interpreter_interpret_node(&interp.scope, node, NULL))
-            runtime_error("'^' outside a routine is not permitted");
+            runtime_error(node->state, "'^' outside a routine is not permitted");
     }
 }

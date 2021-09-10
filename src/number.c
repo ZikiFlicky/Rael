@@ -1,9 +1,10 @@
 #include "number.h"
+#include "parser.h"
 
 #include <math.h>
 #include <stdlib.h>
 
-void runtime_error(const char* const error_message);
+void runtime_error(struct State state, const char* const error_message);
 
 struct NumberExpr number_add(struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
@@ -59,27 +60,27 @@ struct NumberExpr number_mul(struct NumberExpr a, struct NumberExpr b) {
     return res;
 }
 
-struct NumberExpr number_div(struct NumberExpr a, struct NumberExpr b) {
+struct NumberExpr number_div(struct State state, struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
     if (a.is_float && b.is_float) {
         res.is_float = true;
         if (b.as._float == 0.f)
-            runtime_error("Division by zero");
+            runtime_error(state, "Division by zero");
         res.as._float = a.as._float / b.as._float;
     } else if (a.is_float && !b.is_float) {
         res.is_float = true;
         if (b.as._int == 0)
-            runtime_error("Division by zero");
+            runtime_error(state, "Division by zero");
         res.as._float = a.as._float / (double)b.as._int;
     } else if (!a.is_float && b.is_float) {
         res.is_float = true;
         if (b.as._float == 0.f)
-            runtime_error("Division by zero");
+            runtime_error(state, "Division by zero");
         res.as._float = (double)a.as._int / b.as._float;
     } else {
         div_t division;
         if (b.as._int == 0)
-            runtime_error("Division by zero");
+            runtime_error(state, "Division by zero");
         division = div(a.as._int, b.as._int);
         if (division.rem == 0) {
             res.is_float = false;

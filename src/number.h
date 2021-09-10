@@ -1,6 +1,8 @@
 #ifndef RAEL_NUMBER_H
 #define RAEL_NUMBER_H
 
+#include "lexer.h"
+
 #include <stdbool.h>
 
 struct NumberExpr {
@@ -17,7 +19,7 @@ struct NumberExpr number_sub(struct NumberExpr a, struct NumberExpr b);
 
 struct NumberExpr number_mul(struct NumberExpr a, struct NumberExpr b);
 
-struct NumberExpr number_div(struct NumberExpr a, struct NumberExpr b);
+struct NumberExpr number_div(struct State state, struct NumberExpr a, struct NumberExpr b);
 
 struct NumberExpr number_eq(struct NumberExpr a, struct NumberExpr b);
 

@@ -43,7 +43,16 @@ struct Lexer {
     size_t column;
 };
 
+struct State {
+    char *stream_pos;
+    size_t line, column;
+};
+
 bool lexer_tokenize(struct Lexer* const lexer);
+
+struct State lexer_dump_state(struct Lexer* const lexer);
+
+void lexer_load_state(struct Lexer* const lexer, struct State state);
 
 char *token_allocate_key(struct Token* const token);
 

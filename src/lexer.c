@@ -224,6 +224,20 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     return false;
 }
 
+struct State lexer_dump_state(struct Lexer* const lexer) {
+    struct State state;
+    state.column = lexer->column;
+    state.line = lexer->line;
+    state.stream_pos = lexer->stream;
+    return state;
+}
+
+void lexer_load_state(struct Lexer* const lexer, struct State state) {
+    lexer->column = state.column;
+    lexer->line = state.line;
+    lexer->stream = state.stream_pos;
+}
+
 char *token_allocate_key(struct Token* const token) {
     char *key;
     assert(token->name == TokenNameKey);
