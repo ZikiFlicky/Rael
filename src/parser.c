@@ -435,11 +435,16 @@ static struct Node *parser_parse_node_set(struct Parser* const parser) {
 static struct Node *parser_parse_node_pure(struct Parser* const parser) {
     struct Node *node;
     struct Expr *expr;
+    struct Lexer last_state = parser->lexer;
 
     if (!(expr = parser_parse_expr(parser)))
         return NULL;
 
-    parser_expect_newline(parser);
+    if (!parser_maybe_expect_newline(parser)) {
+        parser->lexer = last_state;
+        return NULL;
+    }
+
     node = malloc(sizeof(struct Node));
     node->type = NodeTypePureExpr;
     node->value.pure = expr;
@@ -699,8 +704,8 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
 
 static struct Node *parser_parse_node(struct Parser* const parser) {
     struct Node *node;
-    if ((node = parser_parse_node_set(parser))     ||
-        (node = parser_parse_node_pure(parser))    ||
+    if ((node = parser_parse_node_pure(parser))    ||
+        (node = parser_parse_node_set(parser))     ||
         (node = parser_parse_node_log(parser))     ||
         (node = parser_parse_if_statement(parser)) ||
         (node = parser_parse_loop(parser))         ||
