@@ -18,7 +18,7 @@ def main():
             else:
                 with open(TESTDIR + exp_file, "r") as f:
                     try:
-                        output = subprocess.check_output("{} --file {}".format(RAELPATH, TESTDIR + file),
+                        output = subprocess.check_output("{} {}".format(RAELPATH, TESTDIR + file),
                             shell=True, stderr=subprocess.STDOUT).decode()
                     except subprocess.CalledProcessError as ex:
                         output = ex.output

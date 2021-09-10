@@ -9,8 +9,10 @@
 void interpret(struct Node **instructions);
 
 static void print_help(void) {
-    printf("./ech --file [file]\n");
-    printf("./ech --string \"string of code\"\n");
+    puts("Welcome to the Rael programming language!");
+    puts("usage: build/rael [[--help | -h] | [--string | -s] string | file]");
+    puts("  --string or -s: interprets a string of code");
+    puts("  --help or -h:   shows this help message");
 }
 
 static char *load_file(const char* const filename) {
@@ -43,17 +45,15 @@ int main(int argc, char **argv) {
             goto not_enough_arguments;
         if (!(stream_base = argv[1]))
             return 0;
-    } else if (strcmp(argv[0], "--file") == 0 || strcmp(argv[0], "-f") == 0) {
-        if (argc == 1)
-            goto not_enough_arguments;
-        if (!(stream_base = load_file(argv[1]))) {
-            perror(argv[1]);
+    } else if (strcmp(argv[0], "--help") == 0 || strcmp(argv[0], "-h") == 0) {
+        print_help();
+        return 0;
+    } else {
+        if (!(stream_base = load_file(argv[0]))) {
+            perror(argv[0]);
             return 1;
         }
         do_free = true;
-    } else {
-        print_help();
-        return 1;
     }
     interpret(parse(stream_base));
     if (do_free)
