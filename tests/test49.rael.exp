@@ -1,2 +1,4 @@
 32
-RuntimeError: '^' outside a routine is not permitted. line: 1, column: 1
+Error [3:5]: '^' outside a routine is not permitted
+|     ^ "21"
+|     ^

@@ -1,0 +1,3 @@
+Error [1:1]: Division by zero
+| 7 / 0
+| ^

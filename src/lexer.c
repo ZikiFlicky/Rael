@@ -7,9 +7,24 @@
 #include <string.h>
 #include <assert.h>
 
-static inline bool lexer_error(const struct Lexer* const lexer, const char* const error_message) {
-    printf("LexerError: %s. on line: %ld, column: %ld\n", error_message, lexer->line, lexer->column);
-    exit(1);
+void rael_error(struct State state, const char* const error_message);
+
+struct State lexer_dump_state(struct Lexer* const lexer) {
+    struct State state;
+    state.column = lexer->column;
+    state.line = lexer->line;
+    state.stream_pos = lexer->stream;
+    return state;
+}
+
+void lexer_load_state(struct Lexer* const lexer, struct State state) {
+    lexer->column = state.column;
+    lexer->line = state.line;
+    lexer->stream = state.stream_pos;
+}
+
+static inline void lexer_error(struct Lexer* const lexer, const char* const error_message) {
+    rael_error(lexer_dump_state(lexer), error_message);
 }
 
 static inline bool is_identifier_char(const char c) {
@@ -78,9 +93,8 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         lexer->token.string = lexer->stream;
         lexer->token.length = 0;
         lexer->token.name = TokenNameKey;
-        if (!is_identifier_char(lexer->stream[0])) {
+        if (!is_identifier_char(lexer->stream[0]))
             lexer_error(lexer, "Unexpected character after ':'");
-        }
         do {
             ++lexer->stream;
             ++lexer->column;
@@ -128,30 +142,35 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         lexer->token.name = TokenNameAdd;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '-') {
         lexer->token.name = TokenNameSub;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '*') {
         lexer->token.name = TokenNameMul;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '/') {
         lexer->token.name = TokenNameDiv;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '(') {
         lexer->token.name = TokenNameLeftParen;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == ')') {
@@ -164,42 +183,49 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         lexer->token.name = TokenNameComma;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '{') {
         lexer->token.name = TokenNameLeftCur;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '}') {
         lexer->token.name = TokenNameRightCur;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '=') {
         lexer->token.name = TokenNameEquals;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '<') {
         lexer->token.name = TokenNameSmallerThan;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '>') {
         lexer->token.name = TokenNameBiggerThan;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == '^') {
         lexer->token.name = TokenNameCaret;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     // try to tokenize `log`
@@ -222,20 +248,6 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         return true;
     lexer_error(lexer, "Unrecognized token");
     return false;
-}
-
-struct State lexer_dump_state(struct Lexer* const lexer) {
-    struct State state;
-    state.column = lexer->column;
-    state.line = lexer->line;
-    state.stream_pos = lexer->stream;
-    return state;
-}
-
-void lexer_load_state(struct Lexer* const lexer, struct State state) {
-    lexer->column = state.column;
-    lexer->line = state.line;
-    lexer->stream = state.stream_pos;
 }
 
 char *token_allocate_key(struct Token* const token) {

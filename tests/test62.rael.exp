@@ -1,1 +1,3 @@
-RuntimeError: Invalid operation (*) on types. line: 2, column: 8
+Error [2:8]: Invalid operation (-) on types
+|     :a 2 - "1"
+|        ^
