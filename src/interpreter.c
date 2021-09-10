@@ -68,13 +68,10 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
             value.as.number = number_add(lhs.as.number, rhs.as.number);
         } else if (lhs.type == ValueTypeString && rhs.type == ValueTypeString) {
             struct RaelStringValue string;
-            // set length to the sum of added strings' lengths
             string.length = lhs.as.string.length + rhs.as.string.length;
-            // allocate the length + 1 for null termination and copy strings into it
-            string.value = malloc((string.length + 1) * sizeof(char));
+            string.value = malloc(string.length * sizeof(char));
             strcpy(string.value, lhs.as.string.value);
             strcpy(string.value + lhs.as.string.length, rhs.as.string.value);
-            string.value[string.length] = '\0';
             value.type = ValueTypeString;
             value.as.string = string;
         } else {
