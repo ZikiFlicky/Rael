@@ -1,0 +1,10 @@
+:1 routine() {
+    log :thing
+}
+
+:2 routine() {
+    :thing 2626
+    :1()
+}
+
+:2()

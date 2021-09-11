@@ -93,3 +93,16 @@ struct RaelValue scope_get(struct Scope *scope, char* const key) {
         .type = ValueTypeVoid
     };
 }
+
+struct Scope *scope_get_key_scope(struct Scope *scope, char* const key) {
+    for (; scope; scope = scope->parent) {
+        if (scope->variables.allocated == 0)
+            continue;
+        // iterate bucket nodes
+        for (struct BucketNode *node = scope->variables.buckets[scope_hash(scope, key)]; node; node = node->next) {
+            if (strcmp(key, node->key) == 0)
+                return scope;
+        }
+    }
+    return NULL;
+}

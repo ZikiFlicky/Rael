@@ -174,13 +174,16 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
     case ExprTypeRoutineCall: {
         struct RaelValue maybe_routine = scope_get(scope, expr->as.call.routine_name);
         struct Scope routine_scope;
-        // default is to return a void
+
         value.type = ValueTypeVoid;
+
+        // FIXME: this feels very hackish
+        scope_construct(&routine_scope, scope_get_key_scope(scope, expr->as.call.routine_name));
+
+        maybe_routine = scope_get(&routine_scope, expr->as.call.routine_name);
 
         if (maybe_routine.type != ValueTypeRoutine)
             rael_error(expr->state, "Call not possible on non-routine");
-
-        scope_construct(&routine_scope, scope);
 
         // verify the amount of arguments equals the amount of parameters
         if (maybe_routine.as.routine.amount_parameters != expr->as.call.amount_arguments)
@@ -194,7 +197,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         }
 
         for (struct Node **node = maybe_routine.as.routine.block; *node; ++node) {
-            // if got a return statement
+            // if got a return statement, break
             if (interpreter_interpret_node(&routine_scope, *node, &value))
                 break;
         }

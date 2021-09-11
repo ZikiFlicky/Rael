@@ -258,13 +258,13 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
 
 static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     struct Expr *expr;
-    struct State backtrack;
+    struct State backtrack = lexer_dump_state(&parser->lexer);;
 
     if ((expr = parser_parse_routine_call(parser)) ||
         (expr = parser_parse_literal_expr(parser))) {
+        expr->state = backtrack;
         return expr;
     }
-    backtrack = lexer_dump_state(&parser->lexer);
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
     if (parser->lexer.token.name != TokenNameLeftParen) {
