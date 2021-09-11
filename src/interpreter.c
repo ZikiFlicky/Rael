@@ -205,6 +205,29 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         scope_dealloc(&routine_scope);
         return value;
     }
+    case ExprTypeAt:
+        lhs = expr_eval(scope, expr->as.binary.lhs);
+        rhs = expr_eval(scope, expr->as.binary.rhs);
+        if (lhs.type == ValueTypeStack) {
+            if (rhs.type == ValueTypeNumber) {
+                if (rhs.as.number.is_float) {
+                    rael_error(expr->as.binary.rhs->state, "Float index is not allowed");
+                }
+                if (rhs.as.number.as._int < 0) {
+                    rael_error(expr->as.binary.rhs->state, "A negative index is not allowed");
+                }
+                // should be safe (verified that it is >= 0)
+                if ((size_t)rhs.as.number.as._int >= lhs.as.stack.length) {
+                    rael_error(expr->as.binary.rhs->state, "Index too big");
+                }
+                value = lhs.as.stack.values[rhs.as.number.as._int];
+            } else {
+                rael_error(expr->as.binary.rhs->state, "Expected number");
+            }
+        } else {
+            rael_error(expr->as.binary.lhs->state, "Expected stack on the left of 'at'");
+        }
+        return value;
     default:
         assert(0);
     }
@@ -253,7 +276,7 @@ static void value_log_as_original(struct RaelValue value) {
 }
 
 static void value_log(struct RaelValue value) {
-    // only strings are printed differently when `log`ed then inside an array
+    // only strings are printed differently when `log`ed then inside a stack
     switch (value.type) {
     case ValueTypeString:
         for (size_t i = 0; i < value.as.string.length; ++i)

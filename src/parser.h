@@ -48,7 +48,8 @@ enum ExprType {
     ExprTypeDiv,
     ExprTypeEquals,
     ExprTypeSmallerThen,
-    ExprTypeBiggerThen
+    ExprTypeBiggerThen,
+    ExprTypeAt
 };
 
 struct RoutineCallExpr {

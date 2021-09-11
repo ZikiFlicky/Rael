@@ -1,0 +1,3 @@
+Error [2:15]: Expected number
+| log :array at "string"
+|               ^

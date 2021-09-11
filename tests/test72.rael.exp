@@ -1,0 +1,3 @@
+Error [2:5]: Expected stack on the left of 'at'
+| log 12312 at 123
+|     ^
