@@ -1,0 +1,3 @@
+Error [8:11]: Division by zero
+|         1 / :n
+|           ^

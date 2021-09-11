@@ -276,6 +276,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
         lexer_load_state(&parser->lexer, backtrack);
         return NULL;
     }
+    expr->state = backtrack;
     return expr;
 }
 
@@ -297,7 +298,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr->type = ExprTypeMul;
                 new_expr->as.binary.lhs = expr;
                 if (!(new_expr->as.binary.rhs = parser_parse_expr_single(parser))) {
-                    parser_error(parser, "Expected a value after '*'");
+                    rael_error(backtrack, "Expected a value after '*'");
                 }
                 break;
             case TokenNameDiv:
@@ -305,7 +306,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr->type = ExprTypeDiv;
                 new_expr->as.binary.lhs = expr;
                 if (!(new_expr->as.binary.rhs = parser_parse_expr_single(parser))) {
-                    parser_error(parser, "Expected a value after '/'");
+                    rael_error(backtrack, "Expected a value after '/'");
                 }
                 break;
             default:
@@ -340,14 +341,14 @@ static struct Expr *parser_parse_expr_sum(struct Parser* const parser) {
                 new_expr->type = ExprTypeAdd;
                 new_expr->as.binary.lhs = expr;
                 if (!(new_expr->as.binary.rhs = parser_parse_expr_product(parser)))
-                    parser_error(parser, "Expected a value after '+'");
+                    rael_error(backtrack, "Expected a value after '+'");
                 break;
             case TokenNameSub:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeSub;
                 new_expr->as.binary.lhs = expr;
                 if (!(new_expr->as.binary.rhs = parser_parse_expr_product(parser)))
-                    parser_error(parser, "Expected a value after '-'");
+                    rael_error(backtrack, "Expected a value after '-'");
                 break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);
@@ -366,15 +367,13 @@ loop_end:
 
 static struct Expr *parser_parse_expr(struct Parser* const parser) {
     struct Expr *expr;
-    struct State backtrack = lexer_dump_state(&parser->lexer);
 
     if (!(expr = parser_parse_expr_sum(parser)))
         return NULL;
-    expr->state = backtrack;
 
     for (;;) {
         struct Expr *new_expr;
-        backtrack = lexer_dump_state(&parser->lexer);
+        struct State backtrack = lexer_dump_state(&parser->lexer);
 
         if (lexer_tokenize(&parser->lexer)) {
             switch (parser->lexer.token.name) {
@@ -383,21 +382,21 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
                 new_expr->type = ExprTypeEquals;
                 new_expr->as.binary.lhs = expr;
                 if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
-                    parser_error(parser, "Expected a value after '='");
+                    rael_error(backtrack, "Expected a value after '='");
                 break;
             case TokenNameSmallerThan:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeSmallerThen;
                 new_expr->as.binary.lhs = expr;
                 if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
-                    parser_error(parser, "Expected a value after '<'");
+                    rael_error(backtrack, "Expected a value after '<'");
                 break;
             case TokenNameBiggerThan:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeBiggerThen;
                 new_expr->as.binary.lhs = expr;
                 if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
-                    parser_error(parser, "Expected a value after '>'");
+                    rael_error(backtrack, "Expected a value after '>'");
                 break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);

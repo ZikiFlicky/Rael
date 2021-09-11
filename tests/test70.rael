@@ -1,0 +1,16 @@
+:0 routine() {
+    ^0
+}
+
+:main routine() {
+    :n 9
+    loop 1 {
+        1 / :n
+        if :n = :0() {
+            ^
+        }
+        :n :n - 1
+    }
+}
+
+:main()

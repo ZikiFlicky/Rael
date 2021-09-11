@@ -97,7 +97,7 @@ struct Node {
         struct Expr **log_values;
         struct {
             char *key;
-            struct Expr *expr;    
+            struct Expr *expr;
         } set;
         struct IfStatementNode if_stat;
         struct LoopNode loop;
