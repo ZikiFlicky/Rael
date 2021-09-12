@@ -75,6 +75,31 @@ static struct RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
     return out_value;
 }
 
+static struct RaelValue *stack_value_at(struct Scope *scope, struct Expr *expr) {
+    struct RaelValue lhs, rhs;
+
+    assert(expr->type == ExprTypeAt);
+    lhs = expr_eval(scope, expr->as.binary.lhs);
+    rhs = expr_eval(scope, expr->as.binary.rhs);
+
+    if (lhs.type != ValueTypeStack) {
+        rael_error(expr->as.binary.lhs->state, "Expected stack on the left of 'at'");
+    }
+    if (rhs.type != ValueTypeNumber) {
+        rael_error(expr->as.binary.rhs->state, "Expected number");
+    }
+    if (rhs.as.number.is_float) {
+        rael_error(expr->as.binary.rhs->state, "Float index is not allowed");
+    }
+    if (rhs.as.number.as._int < 0) {
+        rael_error(expr->as.binary.rhs->state, "A negative index is not allowed");
+    }
+    if ((size_t)rhs.as.number.as._int >= lhs.as.stack.length) {
+        rael_error(expr->as.binary.rhs->state, "Index too big");
+    }
+    return &lhs.as.stack.values[rhs.as.number.as._int];
+}
+
 static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
     struct RaelValue lhs, rhs, value;
     switch (expr->type) {
@@ -206,28 +231,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         return value;
     }
     case ExprTypeAt:
-        lhs = expr_eval(scope, expr->as.binary.lhs);
-        rhs = expr_eval(scope, expr->as.binary.rhs);
-        if (lhs.type == ValueTypeStack) {
-            if (rhs.type == ValueTypeNumber) {
-                if (rhs.as.number.is_float) {
-                    rael_error(expr->as.binary.rhs->state, "Float index is not allowed");
-                }
-                if (rhs.as.number.as._int < 0) {
-                    rael_error(expr->as.binary.rhs->state, "A negative index is not allowed");
-                }
-                // should be safe (verified that it is >= 0)
-                if ((size_t)rhs.as.number.as._int >= lhs.as.stack.length) {
-                    rael_error(expr->as.binary.rhs->state, "Index too big");
-                }
-                value = lhs.as.stack.values[rhs.as.number.as._int];
-            } else {
-                rael_error(expr->as.binary.rhs->state, "Expected number");
-            }
-        } else {
-            rael_error(expr->as.binary.lhs->state, "Expected stack on the left of 'at'");
-        }
-        return value;
+        return *stack_value_at(scope, expr);
     default:
         assert(0);
     }
@@ -321,10 +325,19 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
         }
         printf("\n");
         break;
-    case NodeTypeSet: {
-        scope_set(scope, node->value.set.key, expr_eval(scope, node->value.set.expr));
+    case NodeTypeSet:
+        switch (node->value.set.set_type) {
+        case SetTypeAtExpr: {
+            *stack_value_at(scope, node->value.set.as.at) = expr_eval(scope, node->value.set.expr);
+            break;
+        }
+        case SetTypeKey:
+            scope_set(scope, node->value.set.as.key, expr_eval(scope, node->value.set.expr));
+            break;
+        default:
+            assert(0);
+        }
         break;
-    }
     case NodeTypeIf: {
         struct Scope if_scope;
         struct RaelValue val;

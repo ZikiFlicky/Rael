@@ -452,27 +452,45 @@ loop_end:
 static struct Node *parser_parse_node_set(struct Parser* const parser) {
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node *node;
-    struct Expr *expr;
-    struct Token key_token;
-    // is there nothing?
-    if (!lexer_tokenize(&parser->lexer))
-        return NULL;
-    // doesn't start with "log"
-    if (parser->lexer.token.name != TokenNameKey) {
+    struct Expr *expr, *at_set;
+
+    if ((at_set = parser_parse_expr_at(parser)) && at_set->type == ExprTypeAt) {
+        // parse rhs
+        if (!(expr = parser_parse_expr(parser))) {
+            lexer_load_state(&parser->lexer, backtrack);
+            return NULL;
+        }
+        parser_expect_newline(parser);
+        node = malloc(sizeof(struct Node));
+        node->type = NodeTypeSet;
+        node->value.set.set_type = SetTypeAtExpr;
+        node->value.set.as.at = at_set;
+        node->value.set.expr = expr;
+    } else {
+        struct Token key_token;
         lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
+        // is there nothing?
+        if (!lexer_tokenize(&parser->lexer))
+            return NULL;
+        // doesn't start with "log"
+        if (parser->lexer.token.name != TokenNameKey) {
+            lexer_load_state(&parser->lexer, backtrack);
+            return NULL;
+        }
+        key_token = parser->lexer.token;
+        // expect an expression after key
+        if (!(expr = parser_parse_expr(parser))) {
+            lexer_load_state(&parser->lexer, backtrack);
+            return NULL;
+        }
+        parser_expect_newline(parser);
+        node = malloc(sizeof(struct Node));
+        node->type = NodeTypeSet;
+        node->value.set.set_type = SetTypeKey;
+        node->value.set.as.key = token_allocate_key(&key_token);
+        node->value.set.expr = expr;
     }
-    key_token = parser->lexer.token;
-    // expect an expression after "log"
-    if (!(expr = parser_parse_expr(parser))) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
-    parser_expect_newline(parser);
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypeSet;
-    node->value.set.key = token_allocate_key(&key_token);
-    node->value.set.expr = expr;
+    node->state = backtrack;
     return node;
 }
 

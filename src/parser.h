@@ -97,7 +97,14 @@ struct Node {
     union {
         struct Expr **log_values;
         struct {
-            char *key;
+            enum {
+                SetTypeAtExpr = 1,
+                SetTypeKey
+            } set_type;
+            union {
+                struct Expr *at;
+                char *key;
+            } as;
             struct Expr *expr;
         } set;
         struct IfStatementNode if_stat;
