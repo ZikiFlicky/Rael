@@ -177,6 +177,7 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         lexer->token.name = TokenNameRightParen;
         lexer->token.length = 1;
         lexer->token.string = lexer->stream++;
+        ++lexer->column;
         return true;
     }
     if (lexer->stream[0] == ',') {
