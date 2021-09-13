@@ -16,11 +16,11 @@ struct RaelStackValue {
 struct RaelValue {
     enum ValueType type;
     union {
-        struct NumberExpr number;
-        struct RaelStringValue string;
-        struct RaelRoutineValue routine;
-        struct RaelStackValue stack;
-    } as;
+        struct NumberExpr as_number;
+        struct RaelStringValue as_string;
+        struct RaelRoutineValue as_routine;
+        struct RaelStackValue as_stack;
+    };
 };
 
 #endif

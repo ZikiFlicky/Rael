@@ -31,11 +31,11 @@ struct RaelRoutineValue {
 struct ASTValue {
     enum ValueType type;
     union {
-        struct RaelStringValue string;
-        struct NumberExpr number;
-        struct RaelRoutineValue routine;
-        struct ASTStackValue stack;
-    } as;
+        struct RaelStringValue as_string;
+        struct NumberExpr as_number;
+        struct RaelRoutineValue as_routine;
+        struct ASTStackValue as_stack;
+    };
 };
 
 enum ExprType {
@@ -64,11 +64,11 @@ struct Expr {
     union {
         struct {
             struct Expr *lhs, *rhs;
-        } binary;
-        struct ASTValue *value;
-        char *key;
-        struct RoutineCallExpr call;
-    } as;
+        };
+        struct ASTValue *as_value;
+        char *as_key;
+        struct RoutineCallExpr as_call;
+    };
 };
 
 enum NodeType {
@@ -102,16 +102,16 @@ struct Node {
                 SetTypeKey
             } set_type;
             union {
-                struct Expr *at;
-                char *key;
-            } as;
+                struct Expr *as_at_stat;
+                char *as_key;
+            };
             struct Expr *expr;
         } set;
         struct IfStatementNode if_stat;
         struct LoopNode loop;
         struct Expr *pure;
         struct Expr *return_value;
-    } value;
+    };
 };
 
 struct Parser {

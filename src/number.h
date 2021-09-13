@@ -8,9 +8,9 @@
 struct NumberExpr {
     bool is_float;
     union {
-        int _int;
-        double _float;
-    } as;
+        int as_int;
+        double as_float;
+    };
 };
 
 struct NumberExpr number_add(struct NumberExpr a, struct NumberExpr b);

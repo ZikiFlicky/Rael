@@ -49,22 +49,22 @@ static struct RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
     };
     switch (value.type) {
     case ValueTypeNumber:
-        out_value.as.number = value.as.number;
+        out_value.as_number = value.as_number;
         break;
     case ValueTypeString:
-        out_value.as.string = value.as.string;
+        out_value.as_string = value.as_string;
         break;
     case ValueTypeRoutine:
-        out_value.as.routine = value.as.routine;
+        out_value.as_routine = value.as_routine;
         break;
     case ValueTypeStack:
-        out_value.as.stack = (struct RaelStackValue) {
-            .length = value.as.stack.length,
-            .allocated = value.as.stack.length,
-            .values = malloc(value.as.stack.length * sizeof(struct RaelValue))
+        out_value.as_stack = (struct RaelStackValue) {
+            .length = value.as_stack.length,
+            .allocated = value.as_stack.length,
+            .values = malloc(value.as_stack.length * sizeof(struct RaelValue))
         };
-        for (size_t i = 0; i < value.as.stack.length; ++i) {
-            out_value.as.stack.values[i] = expr_eval(scope, value.as.stack.entries[i]);
+        for (size_t i = 0; i < value.as_stack.length; ++i) {
+            out_value.as_stack.values[i] = expr_eval(scope, value.as_stack.entries[i]);
         }
         break;
     case ValueTypeVoid:
@@ -79,149 +79,149 @@ static struct RaelValue *stack_value_at(struct Scope *scope, struct Expr *expr) 
     struct RaelValue lhs, rhs;
 
     assert(expr->type == ExprTypeAt);
-    lhs = expr_eval(scope, expr->as.binary.lhs);
-    rhs = expr_eval(scope, expr->as.binary.rhs);
+    lhs = expr_eval(scope, expr->lhs);
+    rhs = expr_eval(scope, expr->rhs);
 
     if (lhs.type != ValueTypeStack) {
-        rael_error(expr->as.binary.lhs->state, "Expected stack on the left of 'at'");
+        rael_error(expr->lhs->state, "Expected stack on the left of 'at'");
     }
     if (rhs.type != ValueTypeNumber) {
-        rael_error(expr->as.binary.rhs->state, "Expected number");
+        rael_error(expr->rhs->state, "Expected number");
     }
-    if (rhs.as.number.is_float) {
-        rael_error(expr->as.binary.rhs->state, "Float index is not allowed");
+    if (rhs.as_number.is_float) {
+        rael_error(expr->rhs->state, "Float index is not allowed");
     }
-    if (rhs.as.number.as._int < 0) {
-        rael_error(expr->as.binary.rhs->state, "A negative index is not allowed");
+    if (rhs.as_number.as_int < 0) {
+        rael_error(expr->rhs->state, "A negative index is not allowed");
     }
-    if ((size_t)rhs.as.number.as._int >= lhs.as.stack.length) {
-        rael_error(expr->as.binary.rhs->state, "Index too big");
+    if ((size_t)rhs.as_number.as_int >= lhs.as_stack.length) {
+        rael_error(expr->rhs->state, "Index too big");
     }
-    return &lhs.as.stack.values[rhs.as.number.as._int];
+    return &lhs.as_stack.values[rhs.as_number.as_int];
 }
 
 static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
     struct RaelValue lhs, rhs, value;
     switch (expr->type) {
     case ExprTypeValue:
-        return value_eval(scope, *expr->as.value);
+        return value_eval(scope, *expr->as_value);
     case ExprTypeKey:
-        return scope_get(scope, expr->as.key);
+        return scope_get(scope, expr->as_key);
     case ExprTypeAdd:
-        lhs = expr_eval(scope, expr->as.binary.lhs);
-        rhs = expr_eval(scope, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
-            value.as.number = number_add(lhs.as.number, rhs.as.number);
+            value.as_number = number_add(lhs.as_number, rhs.as_number);
         } else if (lhs.type == ValueTypeString && rhs.type == ValueTypeString) {
             struct RaelStringValue string;
-            string.length = lhs.as.string.length + rhs.as.string.length;
+            string.length = lhs.as_string.length + rhs.as_string.length;
             string.value = malloc(string.length * sizeof(char));
-            strcpy(string.value, lhs.as.string.value);
-            strcpy(string.value + lhs.as.string.length, rhs.as.string.value);
+            strcpy(string.value, lhs.as_string.value);
+            strcpy(string.value + lhs.as_string.length, rhs.as_string.value);
             value.type = ValueTypeString;
-            value.as.string = string;
+            value.as_string = string;
         } else {
             rael_error(expr->state, "Invalid operation (+) on types");
         }
         return value;
     case ExprTypeSub:
-        lhs = expr_eval(scope, expr->as.binary.lhs);
-        rhs = expr_eval(scope, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
-            value.as.number = number_sub(lhs.as.number, rhs.as.number);
+            value.as_number = number_sub(lhs.as_number, rhs.as_number);
         } else {
             rael_error(expr->state, "Invalid operation (-) on types");
         }
         return value;
     case ExprTypeMul:
-        lhs = expr_eval(scope, expr->as.binary.lhs);
-        rhs = expr_eval(scope, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
-            value.as.number = number_mul(lhs.as.number, rhs.as.number);
+            value.as_number = number_mul(lhs.as_number, rhs.as_number);
         } else {
             rael_error(expr->state, "Invalid operation (*) on types");
         }
         return value;
     case ExprTypeDiv:
-        lhs = expr_eval(scope, expr->as.binary.lhs);
-        rhs = expr_eval(scope, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
-            value.as.number = number_div(expr->state, lhs.as.number, rhs.as.number);
+            value.as_number = number_div(expr->state, lhs.as_number, rhs.as_number);
         } else {
             rael_error(expr->state, "Invalid operation (/) on types");
         }
         return value;
     case ExprTypeEquals:
-        lhs = expr_eval(scope, expr->as.binary.lhs);
-        rhs = expr_eval(scope, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
         value.type = ValueTypeNumber;
-        value.as.number.is_float = false;
+        value.as_number.is_float = false;
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
-            value.as.number = number_eq(lhs.as.number, rhs.as.number);
+            value.as_number = number_eq(lhs.as_number, rhs.as_number);
         } else if (lhs.type == ValueTypeString && rhs.type == ValueTypeString) {
             // if they have the same pointer, they must be equal
-            if (lhs.as.string.value == rhs.as.string.value) {
-                value.as.number.as._int = 1;
+            if (lhs.as_string.value == rhs.as_string.value) {
+                value.as_number.as_int = 1;
             } else {
-                if (lhs.as.string.length == rhs.as.string.length)
-                    value.as.number.as._int = strcmp(lhs.as.string.value, rhs.as.string.value) == 0;
+                if (lhs.as_string.length == rhs.as_string.length)
+                    value.as_number.as_int = strcmp(lhs.as_string.value, rhs.as_string.value) == 0;
                 else
-                    value.as.number.as._int = 0; // if lengths don't match, the strings don't match
+                    value.as_number.as_int = 0; // if lengths don't match, the strings don't match
             }
         } else {
-            value.as.number.as._int = 0;
+            value.as_number.as_int = 0;
         }
         return value;
     case ExprTypeSmallerThen:
-        lhs = expr_eval(scope, expr->as.binary.lhs);
-        rhs = expr_eval(scope, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
-            value.as.number = number_smaller(lhs.as.number, rhs.as.number);
+            value.as_number = number_smaller(lhs.as_number, rhs.as_number);
         } else {
             rael_error(expr->state, "Invalid operation (<) on types");
         }
         return value;
     case ExprTypeBiggerThen:
-        lhs = expr_eval(scope, expr->as.binary.lhs);
-        rhs = expr_eval(scope, expr->as.binary.rhs);
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
         if (lhs.type == ValueTypeNumber && rhs.type == ValueTypeNumber) {
             value.type = ValueTypeNumber;
-            value.as.number = number_bigger(lhs.as.number, rhs.as.number);
+            value.as_number = number_bigger(lhs.as_number, rhs.as_number);
         } else {
             rael_error(expr->state, "Invalid operation (>) on types");
         }
         return value;
     case ExprTypeRoutineCall: {
-        struct RaelValue maybe_routine = scope_get(scope, expr->as.call.routine_name);
+        struct RaelValue maybe_routine = scope_get(scope, expr->as_call.routine_name);
         struct Scope routine_scope;
 
         value.type = ValueTypeVoid;
 
         // FIXME: this feels very hackish
-        scope_construct(&routine_scope, scope_get_key_scope(scope, expr->as.call.routine_name));
+        scope_construct(&routine_scope, scope_get_key_scope(scope, expr->as_call.routine_name));
 
-        maybe_routine = scope_get(&routine_scope, expr->as.call.routine_name);
+        maybe_routine = scope_get(&routine_scope, expr->as_call.routine_name);
 
         if (maybe_routine.type != ValueTypeRoutine)
             rael_error(expr->state, "Call not possible on non-routine");
 
         // verify the amount of arguments equals the amount of parameters
-        if (maybe_routine.as.routine.amount_parameters != expr->as.call.amount_arguments)
+        if (maybe_routine.as_routine.amount_parameters != expr->as_call.amount_arguments)
             rael_error(expr->state, "Arguments don't match parameters");
 
         // set parameters as variables
-        for (size_t i = 0; i < maybe_routine.as.routine.amount_parameters; ++i) {
+        for (size_t i = 0; i < maybe_routine.as_routine.amount_parameters; ++i) {
             scope_set(&routine_scope,
-                    maybe_routine.as.routine.parameters[i],
-                    expr_eval(scope, expr->as.call.arguments[i]));
+                    maybe_routine.as_routine.parameters[i],
+                    expr_eval(scope, expr->as_call.arguments[i]));
         }
 
-        for (struct Node **node = maybe_routine.as.routine.block; *node; ++node) {
+        for (struct Node **node = maybe_routine.as_routine.block; *node; ++node) {
             // if got a return statement, break
             if (interpreter_interpret_node(&routine_scope, *node, &value))
                 break;
@@ -240,17 +240,17 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
 static void value_log_as_original(struct RaelValue value) {
     switch (value.type) {
     case ValueTypeNumber:
-        if (value.as.number.is_float) {
-            printf("%f", value.as.number.as._float);
+        if (value.as_number.is_float) {
+            printf("%f", value.as_number.as_float);
         } else {
-            printf("%d", value.as.number.as._int);
+            printf("%d", value.as_number.as_int);
         }
         break;
     case ValueTypeString:
         // %.*s gives some warning when using size_t (it expects ints)
         putchar('"');
-        for (size_t i = 0; i < value.as.string.length; ++i)
-            putchar(value.as.string.value[i]);
+        for (size_t i = 0; i < value.as_string.length; ++i)
+            putchar(value.as_string.value[i]);
         putchar('"');
         break;
     case ValueTypeVoid:
@@ -258,19 +258,19 @@ static void value_log_as_original(struct RaelValue value) {
         break;
     case ValueTypeRoutine:
         printf("routine(");
-        if (value.as.routine.amount_parameters > 0) {
-            printf(":%s", value.as.routine.parameters[0]);
-            for (size_t i = 1; i < value.as.routine.amount_parameters; ++i)
-                printf(", :%s", value.as.routine.parameters[i]);
+        if (value.as_routine.amount_parameters > 0) {
+            printf(":%s", value.as_routine.parameters[0]);
+            for (size_t i = 1; i < value.as_routine.amount_parameters; ++i)
+                printf(", :%s", value.as_routine.parameters[i]);
         }
         printf(")");
         break;
     case ValueTypeStack:
         printf("{ ");
-        for (size_t i = 0; i < value.as.stack.length; ++i) {
+        for (size_t i = 0; i < value.as_stack.length; ++i) {
             if (i > 0)
                 printf(", ");
-            value_log_as_original(value.as.stack.values[i]);
+            value_log_as_original(value.as_stack.values[i]);
         }
         printf(" }");
         break;
@@ -283,8 +283,8 @@ static void value_log(struct RaelValue value) {
     // only strings are printed differently when `log`ed then inside a stack
     switch (value.type) {
     case ValueTypeString:
-        for (size_t i = 0; i < value.as.string.length; ++i)
-            putchar(value.as.string.value[i]);
+        for (size_t i = 0; i < value.as_string.length; ++i)
+            putchar(value.as_string.value[i]);
         break;
     default:
         value_log_as_original(value);
@@ -297,12 +297,12 @@ static bool value_as_bool(struct RaelValue const value) {
     case ValueTypeVoid:
         return false;
     case ValueTypeString:
-        return value.as.string.length != 0;
+        return value.as_string.length != 0;
     case ValueTypeNumber:
-        if (value.as.number.is_float)
-            return value.as.number.as._float != 0.0f;
+        if (value.as_number.is_float)
+            return value.as_number.as_float != 0.0f;
         else
-            return value.as.number.as._int != 0;
+            return value.as_number.as_int != 0;
     case ValueTypeRoutine:
         return true;
     default:
@@ -318,21 +318,21 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
 
     switch (node->type) {
     case NodeTypeLog:
-        value_log(expr_eval(scope, node->value.log_values[0]));
-        for (size_t i = 1; node->value.log_values[i]; ++i) {
+        value_log(expr_eval(scope, node->log_values[0]));
+        for (size_t i = 1; node->log_values[i]; ++i) {
             printf(" ");
-            value_log(expr_eval(scope, node->value.log_values[i]));
+            value_log(expr_eval(scope, node->log_values[i]));
         }
         printf("\n");
         break;
     case NodeTypeSet:
-        switch (node->value.set.set_type) {
+        switch (node->set.set_type) {
         case SetTypeAtExpr: {
-            *stack_value_at(scope, node->value.set.as.at) = expr_eval(scope, node->value.set.expr);
+            *stack_value_at(scope, node->set.as_at_stat) = expr_eval(scope, node->set.expr);
             break;
         }
         case SetTypeKey:
-            scope_set(scope, node->value.set.as.key, expr_eval(scope, node->value.set.expr));
+            scope_set(scope, node->set.as_key, expr_eval(scope, node->set.expr));
             break;
         default:
             assert(0);
@@ -343,17 +343,17 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
         struct RaelValue val;
 
         scope_construct(&if_scope, scope);
-        if (value_as_bool((val = expr_eval(scope, node->value.if_stat.condition)))) {
-            for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
-                if (interpreter_interpret_node(&if_scope, node->value.if_stat.block[i], returned_value)) {
+        if (value_as_bool((val = expr_eval(scope, node->if_stat.condition)))) {
+            for (size_t i = 0; node->if_stat.block[i]; ++i) {
+                if (interpreter_interpret_node(&if_scope, node->if_stat.block[i], returned_value)) {
                     had_return = true;
                     break;
                 }
             }
         } else {
-            if (node->value.if_stat.else_block) {
-                for (size_t i = 0; node->value.if_stat.else_block[i]; ++i) {
-                    if (interpreter_interpret_node(&if_scope, node->value.if_stat.else_block[i], returned_value)) {
+            if (node->if_stat.else_block) {
+                for (size_t i = 0; node->if_stat.else_block[i]; ++i) {
+                    if (interpreter_interpret_node(&if_scope, node->if_stat.else_block[i], returned_value)) {
                         had_return = true;
                         break;
                     }
@@ -367,9 +367,9 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
         struct Scope loop_scope;
         scope_construct(&loop_scope, scope);
 
-        while (value_as_bool(expr_eval(scope, node->value.if_stat.condition))) {
-            for (size_t i = 0; node->value.if_stat.block[i]; ++i) {
-                if (interpreter_interpret_node(scope, node->value.if_stat.block[i], returned_value)) {
+        while (value_as_bool(expr_eval(scope, node->if_stat.condition))) {
+            for (size_t i = 0; node->if_stat.block[i]; ++i) {
+                if (interpreter_interpret_node(scope, node->if_stat.block[i], returned_value)) {
                     had_return = true;
                     break;
                 }
@@ -379,12 +379,12 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
         break;
     }
     case NodeTypePureExpr:
-        expr_eval(scope, node->value.pure);
+        expr_eval(scope, node->pure);
         break;
     case NodeTypeReturn:
         if (returned_value) {
-            if (node->value.return_value) {
-                *returned_value = expr_eval(scope, node->value.return_value);
+            if (node->return_value) {
+                *returned_value = expr_eval(scope, node->return_value);
             } else {
                 returned_value->type = ValueTypeVoid;
             }

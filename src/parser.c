@@ -96,7 +96,7 @@ static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
 loop_end:
     value = malloc(sizeof(struct ASTValue));
     value->type = ValueTypeStack;
-    value->as.stack = stack;
+    value->as_stack = stack;
     return value;
 backtrack:
     lexer_load_state(&parser->lexer, backtrack);
@@ -112,7 +112,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         (value = parser_parse_stack(parser))) {
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
-        expr->as.value = value;
+        expr->as_value = value;
         return expr;
     }
 
@@ -144,13 +144,13 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
                 as_float /= 10;
         }
         if (number.is_float)
-            number.as._float = as_float;
+            number.as_float = as_float;
         else
-            number.as._int = as_int;
+            number.as_int = as_int;
         expr->type = ExprTypeValue;
-        expr->as.value = malloc(sizeof(struct ASTValue));
-        expr->as.value->type = ValueTypeNumber;
-        expr->as.value->as.number = number;
+        expr->as_value = malloc(sizeof(struct ASTValue));
+        expr->as_value->type = ValueTypeNumber;
+        expr->as_value->as_number = number;
         return expr;
     }
     case TokenNameString: {
@@ -161,24 +161,24 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
-        expr->as.value = malloc(sizeof(struct ASTValue));
-        expr->as.value->type = ValueTypeString;
-        expr->as.value->as.string = string;
+        expr->as_value = malloc(sizeof(struct ASTValue));
+        expr->as_value->type = ValueTypeString;
+        expr->as_value->as_string = string;
         return expr;
     }
     case TokenNameKey: {
         char *key;
         expr = malloc(sizeof(struct Expr));
         key = token_allocate_key(&parser->lexer.token);
-        expr->as.key = key;
+        expr->as_key = key;
         expr->type = ExprTypeKey;
         return expr;
     }
     case TokenNameVoid:
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
-        expr->as.value = malloc(sizeof(struct ASTValue));
-        expr->as.value->type = ValueTypeVoid;
+        expr->as_value = malloc(sizeof(struct ASTValue));
+        expr->as_value->type = ValueTypeVoid;
         return expr;
     default:
         lexer_load_state(&parser->lexer, backtrack);
@@ -252,7 +252,7 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
     call.routine_name = token_allocate_key(&key_token);
     expr = malloc(sizeof(struct Expr));
     expr->type = ExprTypeRoutineCall;
-    expr->as.call = call;
+    expr->as_call = call;
     return expr;
 }
 
@@ -296,8 +296,8 @@ static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
             case TokenNameAt:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeAt;
-                new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_expr_single(parser))) {
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     rael_error(backtrack, "Expected a value after 'at'");
                 }
                 break;
@@ -332,16 +332,16 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
             case TokenNameMul:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeMul;
-                new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_expr_at(parser))) {
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_at(parser))) {
                     rael_error(backtrack, "Expected a value after '*'");
                 }
                 break;
             case TokenNameDiv:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeDiv;
-                new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_expr_at(parser))) {
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_at(parser))) {
                     rael_error(backtrack, "Expected a value after '/'");
                 }
                 break;
@@ -375,15 +375,15 @@ static struct Expr *parser_parse_expr_sum(struct Parser* const parser) {
             case TokenNameAdd:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeAdd;
-                new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_expr_product(parser)))
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_product(parser)))
                     rael_error(backtrack, "Expected a value after '+'");
                 break;
             case TokenNameSub:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeSub;
-                new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_expr_product(parser)))
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_product(parser)))
                     rael_error(backtrack, "Expected a value after '-'");
                 break;
             default:
@@ -416,22 +416,22 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
             case TokenNameEquals:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeEquals;
-                new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_sum(parser)))
                     rael_error(backtrack, "Expected a value after '='");
                 break;
             case TokenNameSmallerThan:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeSmallerThen;
-                new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_sum(parser)))
                     rael_error(backtrack, "Expected a value after '<'");
                 break;
             case TokenNameBiggerThan:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeBiggerThen;
-                new_expr->as.binary.lhs = expr;
-                if (!(new_expr->as.binary.rhs = parser_parse_expr_sum(parser)))
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_sum(parser)))
                     rael_error(backtrack, "Expected a value after '>'");
                 break;
             default:
@@ -463,9 +463,9 @@ static struct Node *parser_parse_node_set(struct Parser* const parser) {
         parser_expect_newline(parser);
         node = malloc(sizeof(struct Node));
         node->type = NodeTypeSet;
-        node->value.set.set_type = SetTypeAtExpr;
-        node->value.set.as.at = at_set;
-        node->value.set.expr = expr;
+        node->set.set_type = SetTypeAtExpr;
+        node->set.as_at_stat = at_set;
+        node->set.expr = expr;
     } else {
         struct Token key_token;
         lexer_load_state(&parser->lexer, backtrack);
@@ -486,9 +486,9 @@ static struct Node *parser_parse_node_set(struct Parser* const parser) {
         parser_expect_newline(parser);
         node = malloc(sizeof(struct Node));
         node->type = NodeTypeSet;
-        node->value.set.set_type = SetTypeKey;
-        node->value.set.as.key = token_allocate_key(&key_token);
-        node->value.set.expr = expr;
+        node->set.set_type = SetTypeKey;
+        node->set.as_key = token_allocate_key(&key_token);
+        node->set.expr = expr;
     }
     node->state = backtrack;
     return node;
@@ -509,7 +509,7 @@ static struct Node *parser_parse_node_pure(struct Parser* const parser) {
 
     node = malloc(sizeof(struct Node));
     node->type = NodeTypePureExpr;
-    node->value.pure = expr;
+    node->pure = expr;
     return node;
 }
 
@@ -559,7 +559,7 @@ loop_end:
 
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLog;
-    node->value.log_values = exprs_ary;
+    node->log_values = exprs_ary;
 
     return node;
 }
@@ -587,7 +587,7 @@ static struct Node *parser_parse_node_return(struct Parser* const parser) {
 
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeReturn;
-    node->value.return_value = expr;
+    node->return_value = expr;
     return node;
 }
 
@@ -703,7 +703,7 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
 
     value = malloc(sizeof(struct ASTValue));
     value->type = ValueTypeRoutine;
-    value->as.routine = decl;
+    value->as_routine = decl;
     return value;
 }
 
@@ -745,7 +745,7 @@ static struct Node *parser_parse_if_statement(struct Parser* const parser) {
     }
     parser_maybe_expect_newline(parser);
 end:
-    node->value.if_stat = if_stat;
+    node->if_stat = if_stat;
     return node;
 }
 
@@ -773,7 +773,7 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
     parser_maybe_expect_newline(parser);
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLoop;
-    node->value.loop = loop;
+    node->loop = loop;
     return node;
 }
 
