@@ -103,13 +103,57 @@ backtrack:
     return NULL;
 }
 
+static struct ASTValue *parser_parse_number(struct Parser* const parser) {
+    struct State backtrack = lexer_dump_state(&parser->lexer);
+    struct ASTValue *value;
+    struct NumberExpr number;
+    double as_float = 0.f;
+    int as_int = 0;
+
+    number.is_float = false;
+
+    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameNumber) {
+        lexer_load_state(&parser->lexer, backtrack);
+        return NULL;
+    }
+
+    value = malloc(sizeof(struct ASTValue));
+    for (size_t i = 0; i < parser->lexer.token.length; ++i) {
+        if (parser->lexer.token.string[i] == '.') {
+            if (!number.is_float) {
+                number.is_float = true;
+                continue;
+            }
+        }
+        if (!number.is_float) {
+            as_int *= 10;
+            as_int += parser->lexer.token.string[i] - '0';
+        }
+        as_float *= 10;
+        as_float += parser->lexer.token.string[i] - '0';
+        if (number.is_float)
+            as_float /= 10;
+    }
+
+    if (number.is_float)
+        number.as_float = as_float;
+    else
+        number.as_int = as_int;
+
+    value->type = ValueTypeNumber;
+    value->as_number = number;
+
+    return value;
+}
+
 static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     struct Expr *expr;
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct ASTValue *value;
 
     if ((value = parser_parse_node_routine(parser)) ||
-        (value = parser_parse_stack(parser))) {
+        (value = parser_parse_stack(parser))        ||
+        (value = parser_parse_number(parser))) {
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
         expr->as_value = value;
@@ -120,39 +164,6 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         return NULL;
 
     switch (parser->lexer.token.name) {
-    case TokenNameNumber: {
-        struct NumberExpr number = {
-            .is_float = false,
-        };
-        double as_float = 0.f;
-        int as_int = 0;
-        expr = malloc(sizeof(struct Expr));
-        for (size_t i = 0; i < parser->lexer.token.length; ++i) {
-            if (parser->lexer.token.string[i] == '.') {
-                if (!number.is_float) {
-                    number.is_float = true;
-                    continue;
-                }
-            }
-            if (!number.is_float) {
-                as_int *= 10;
-                as_int += parser->lexer.token.string[i] - '0';
-            }
-            as_float *= 10;
-            as_float += parser->lexer.token.string[i] - '0';
-            if (number.is_float)
-                as_float /= 10;
-        }
-        if (number.is_float)
-            number.as_float = as_float;
-        else
-            number.as_int = as_int;
-        expr->type = ExprTypeValue;
-        expr->as_value = malloc(sizeof(struct ASTValue));
-        expr->as_value->type = ValueTypeNumber;
-        expr->as_value->as_number = number;
-        return expr;
-    }
     case TokenNameString: {
         struct RaelStringValue string;
 
