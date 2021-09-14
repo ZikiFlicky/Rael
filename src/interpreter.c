@@ -43,9 +43,15 @@ void rael_error(struct State state, const char* const error_message) {
     exit(1);
 }
 
+static struct RaelValue *value_create(enum ValueType type) {
+    struct RaelValue *value = malloc(sizeof(struct RaelValue));
+    value->type = type;
+    return value;
+}
+
 static struct RaelValue *value_eval(struct Scope *scope, struct ASTValue value) {
-    struct RaelValue *out_value = malloc(sizeof(struct RaelValue));
-    out_value->type = value.type;
+    struct RaelValue *out_value = value_create(value.type);
+
     switch (value.type) {
     case ValueTypeNumber:
         out_value->as_number = value.as_number;
@@ -108,8 +114,6 @@ static struct RaelValue *value_at(struct Scope *scope, struct Expr *expr) {
     lhs = expr_eval(scope, expr->lhs);
     rhs = expr_eval(scope, expr->rhs);
 
-    value = malloc(sizeof(struct RaelValue));
-
     if (lhs->type == ValueTypeStack) {
         value_verify_is_number_int(expr->rhs->state, rhs);
         if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length)
@@ -119,7 +123,7 @@ static struct RaelValue *value_at(struct Scope *scope, struct Expr *expr) {
         value_verify_is_number_int(expr->rhs->state, rhs);
         if ((size_t)rhs->as_number.as_int >= lhs->as_string.length)
             rael_error(expr->rhs->state, "Index too big");
-        value->type = ValueTypeString;
+        value = value_create(ValueTypeString);
         value->as_string.length = 1;
         value->as_string.value = malloc(1 * sizeof(char));
         value->as_string.value[0] = lhs->as_string.value[rhs->as_number.as_int];
@@ -143,8 +147,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         rhs = expr_eval(scope, expr->rhs);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = malloc(sizeof(struct RaelValue));
-            value->type = ValueTypeNumber;
+            value = value_create(ValueTypeNumber);
             value->as_number = number_add(lhs->as_number, rhs->as_number);
         } else if (lhs->type == ValueTypeString && rhs->type == ValueTypeString) {
             struct RaelStringValue string;
@@ -155,8 +158,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
             strncpy(string.value, lhs->as_string.value, lhs->as_string.length);
             strncpy(string.value + lhs->as_string.length, rhs->as_string.value, rhs->as_string.length);
 
-            value = malloc(sizeof(struct RaelValue));
-            value->type = ValueTypeString;
+            value = value_create(ValueTypeString);
             value->as_string = string;
         } else {
             rael_error(expr->state, "Invalid operation (+) on types");
@@ -168,8 +170,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         rhs = expr_eval(scope, expr->rhs);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = malloc(sizeof(struct RaelValue));
-            value->type = ValueTypeNumber;
+            value = value_create(ValueTypeNumber);
             value->as_number = number_sub(lhs->as_number, rhs->as_number);
         } else {
             rael_error(expr->state, "Invalid operation (-) on types");
@@ -181,8 +182,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         rhs = expr_eval(scope, expr->rhs);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = malloc(sizeof(struct RaelValue));
-            value->type = ValueTypeNumber;
+            value = value_create(ValueTypeNumber);
             value->as_number = number_mul(lhs->as_number, rhs->as_number);
         } else {
             rael_error(expr->state, "Invalid operation (*) on types");
@@ -194,8 +194,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         rhs = expr_eval(scope, expr->rhs);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = malloc(sizeof(struct RaelValue));
-            value->type = ValueTypeNumber;
+            value = value_create(ValueTypeNumber);
             value->as_number = number_div(expr->state, lhs->as_number, rhs->as_number);
         } else {
             rael_error(expr->state, "Invalid operation (/) on types");
@@ -205,8 +204,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         lhs = expr_eval(scope, expr->lhs);
         rhs = expr_eval(scope, expr->rhs);
 
-        value = malloc(sizeof(struct RaelValue));
-        value->type = ValueTypeNumber;
+        value = value_create(ValueTypeNumber);
         value->as_number.is_float = false;
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
@@ -230,8 +228,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         rhs = expr_eval(scope, expr->rhs);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = malloc(sizeof(struct RaelValue));
-            value->type = ValueTypeNumber;
+            value = value_create(ValueTypeNumber);
             value->as_number = number_smaller(lhs->as_number, rhs->as_number);
         } else {
             rael_error(expr->state, "Invalid operation (<) on types");
@@ -241,8 +238,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         lhs = expr_eval(scope, expr->lhs);
         rhs = expr_eval(scope, expr->rhs);
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = malloc(sizeof(struct RaelValue));
-            value->type = ValueTypeNumber;
+            value = value_create(ValueTypeNumber);
             value->as_number = number_bigger(lhs->as_number, rhs->as_number);
         } else {
             rael_error(expr->state, "Invalid operation (>) on types");
@@ -252,8 +248,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         struct RaelValue *maybe_routine = scope_get(scope, expr->as_call.routine_name);
         struct Scope routine_scope;
 
-        value = malloc(sizeof(struct RaelValue));
-        value->type = ValueTypeVoid;
+        value = value_create(ValueTypeVoid);
 
         // FIXME: this feels very hackish
         scope_construct(&routine_scope, scope_get_key_scope(scope, expr->as_call.routine_name));
@@ -314,8 +309,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
             rael_error(expr->as_single->state, "Unsupported type for 'sizeof' operation");
         }
 
-        value = malloc(sizeof(struct RaelValue));
-        value->type = ValueTypeNumber;
+        value = value_create(ValueTypeNumber);
         value->as_number = (struct NumberExpr) {
             .is_float = false,
             .as_int = size
