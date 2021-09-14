@@ -280,46 +280,10 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
-    struct Expr *expr;
-
-    if (!(expr = parser_parse_expr_single(parser))) {
-        return NULL;
-    }
-
-    for (;;) {
-        struct Expr *new_expr;
-        struct State backtrack = lexer_dump_state(&parser->lexer);
-
-        if (lexer_tokenize(&parser->lexer)) {
-            switch (parser->lexer.token.name) {
-            case TokenNameAt:
-                new_expr = malloc(sizeof(struct Expr));
-                new_expr->type = ExprTypeAt;
-                new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
-                    rael_error(backtrack, "Expected a value after 'at'");
-                }
-                break;
-            default:
-                lexer_load_state(&parser->lexer, backtrack);
-                goto loop_end;
-            } 
-        } else {
-            break;
-        }
-
-        new_expr->state = backtrack;
-        expr = new_expr;
-    }
-loop_end:
-    return expr;
-}
-
 static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_expr_at(parser))) {
+    if (!(expr = parser_parse_expr_single(parser))) {
         return NULL;
     }
 
@@ -333,7 +297,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeMul;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_at(parser))) {
+                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     rael_error(backtrack, "Expected a value after '*'");
                 }
                 break;
@@ -341,7 +305,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeDiv;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_at(parser))) {
+                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     rael_error(backtrack, "Expected a value after '/'");
                 }
                 break;
@@ -449,10 +413,46 @@ loop_end:
     return expr;
 }
 
+static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_expr_comparison(parser))) {
+        return NULL;
+    }
+
+    for (;;) {
+        struct Expr *new_expr;
+        struct State backtrack = lexer_dump_state(&parser->lexer);
+
+        if (lexer_tokenize(&parser->lexer)) {
+            switch (parser->lexer.token.name) {
+            case TokenNameAt:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeAt;
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_comparison(parser))) {
+                    rael_error(backtrack, "Expected a value after 'at'");
+                }
+                break;
+            default:
+                lexer_load_state(&parser->lexer, backtrack);
+                goto loop_end;
+            } 
+        } else {
+            break;
+        }
+
+        new_expr->state = backtrack;
+        expr = new_expr;
+    }
+loop_end:
+    return expr;
+}
+
 static struct Expr *parser_parse_expr(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_expr_comparison(parser)))
+    if (!(expr = parser_parse_expr_at(parser)))
         return NULL;
 
     for (;;) {
@@ -465,7 +465,7 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeRedirect;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_comparison(parser)))
+                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     rael_error(backtrack, "Expected a value after '<<'");
                 break;
             default:
