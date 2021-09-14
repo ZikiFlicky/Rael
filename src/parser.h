@@ -49,7 +49,8 @@ enum ExprType {
     ExprTypeEquals,
     ExprTypeSmallerThen,
     ExprTypeBiggerThen,
-    ExprTypeAt
+    ExprTypeAt,
+    ExprTypeRedirect
 };
 
 struct RoutineCallExpr {

@@ -209,10 +209,18 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         return true;
     }
     if (lexer->stream[0] == '<') {
-        lexer->token.name = TokenNameSmallerThan;
-        lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
-        ++lexer->column;
+        if (lexer->stream[1] == '<') {
+            lexer->token.name = TokenNameRedirect;
+            lexer->token.length = 2;
+            lexer->token.string = lexer->stream;
+            lexer->stream += 2;
+            lexer->column += 2;
+        } else {
+            lexer->token.name = TokenNameSmallerThan;
+            lexer->token.length = 1;
+            lexer->token.string = lexer->stream++;
+            ++lexer->column;
+        }
         return true;
     }
     if (lexer->stream[0] == '>') {

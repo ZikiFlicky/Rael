@@ -401,7 +401,7 @@ loop_end:
     return expr;
 }
 
-static struct Expr *parser_parse_expr(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_sum(parser)))
@@ -433,6 +433,40 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_sum(parser)))
                     rael_error(backtrack, "Expected a value after '>'");
+                break;
+            default:
+                lexer_load_state(&parser->lexer, backtrack);
+                goto loop_end;
+            }
+        } else {
+            break;
+        }
+
+        new_expr->state = backtrack;
+        expr = new_expr;
+    }
+loop_end:
+    return expr;
+}
+
+static struct Expr *parser_parse_expr(struct Parser* const parser) {
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_expr_comparison(parser)))
+        return NULL;
+
+    for (;;) {
+        struct Expr *new_expr;
+        struct State backtrack = lexer_dump_state(&parser->lexer);
+
+        if (lexer_tokenize(&parser->lexer)) {
+            switch (parser->lexer.token.name) {
+            case TokenNameRedirect:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeRedirect;
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_comparison(parser)))
+                    rael_error(backtrack, "Expected a value after '<<'");
                 break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);

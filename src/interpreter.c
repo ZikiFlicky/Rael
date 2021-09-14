@@ -58,13 +58,14 @@ static struct RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
         out_value.as_routine = value.as_routine;
         break;
     case ValueTypeStack:
-        out_value.as_stack = (struct RaelStackValue) {
+        out_value.as_stack = malloc(sizeof(struct RaelStackValue));
+        *out_value.as_stack = (struct RaelStackValue) {
             .length = value.as_stack.length,
             .allocated = value.as_stack.length,
             .values = malloc(value.as_stack.length * sizeof(struct RaelValue))
         };
         for (size_t i = 0; i < value.as_stack.length; ++i) {
-            out_value.as_stack.values[i] = expr_eval(scope, value.as_stack.entries[i]);
+            out_value.as_stack->values[i] = expr_eval(scope, value.as_stack.entries[i]);
         }
         break;
     case ValueTypeVoid:
@@ -94,10 +95,10 @@ static struct RaelValue *stack_value_at(struct Scope *scope, struct Expr *expr) 
     if (rhs.as_number.as_int < 0) {
         rael_error(expr->rhs->state, "A negative index is not allowed");
     }
-    if ((size_t)rhs.as_number.as_int >= lhs.as_stack.length) {
+    if ((size_t)rhs.as_number.as_int >= lhs.as_stack->length) {
         rael_error(expr->rhs->state, "Index too big");
     }
-    return &lhs.as_stack.values[rhs.as_number.as_int];
+    return &lhs.as_stack->values[rhs.as_number.as_int];
 }
 
 static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
@@ -232,6 +233,17 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
     }
     case ExprTypeAt:
         return *stack_value_at(scope, expr);
+    case ExprTypeRedirect:
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
+        if (lhs.type != ValueTypeStack) {
+            rael_error(expr->lhs->state, "Expected a stack value");
+        }
+        if (lhs.as_stack->length == lhs.as_stack->allocated) {
+            lhs.as_stack->values = realloc(lhs.as_stack->values, (lhs.as_stack->allocated += 8) * sizeof(struct RaelValue));
+        }
+        lhs.as_stack->values[lhs.as_stack->length++] = rhs;
+        return rhs;
     default:
         assert(0);
     }
@@ -267,10 +279,10 @@ static void value_log_as_original(struct RaelValue value) {
         break;
     case ValueTypeStack:
         printf("{ ");
-        for (size_t i = 0; i < value.as_stack.length; ++i) {
+        for (size_t i = 0; i < value.as_stack->length; ++i) {
             if (i > 0)
                 printf(", ");
-            value_log_as_original(value.as_stack.values[i]);
+            value_log_as_original(value.as_stack->values[i]);
         }
         printf(" }");
         break;

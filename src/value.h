@@ -19,7 +19,7 @@ struct RaelValue {
         struct NumberExpr as_number;
         struct RaelStringValue as_string;
         struct RaelRoutineValue as_routine;
-        struct RaelStackValue as_stack;
+        struct RaelStackValue *as_stack;
     };
 };
 

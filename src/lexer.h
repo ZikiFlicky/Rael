@@ -28,7 +28,8 @@ enum TokenName {
     TokenNameLoop,
     TokenNameVoid,
     TokenNameCaret,
-    TokenNameAt
+    TokenNameAt,
+    TokenNameRedirect
 };
 
 struct Token {
