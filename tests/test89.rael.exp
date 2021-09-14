@@ -1,0 +1,3 @@
+Error [1:17]: Index too big
+| log "string" at 8
+|                 ^

@@ -76,29 +76,58 @@ static struct RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
     return out_value;
 }
 
-static struct RaelValue *stack_value_at(struct Scope *scope, struct Expr *expr) {
+static void value_verify_is_number_int(struct State number_state, struct RaelValue number) {
+    if (number.type != ValueTypeNumber)
+        rael_error(number_state, "Expected number");
+    if (number.as_number.is_float)
+        rael_error(number_state, "Float index is not allowed");
+    if (number.as_number.as_int < 0)
+        rael_error(number_state, "A negative index is not allowed");
+}
+
+static void stack_set(struct Scope *scope, struct Expr *expr, struct RaelValue value) {
     struct RaelValue lhs, rhs;
 
     assert(expr->type == ExprTypeAt);
     lhs = expr_eval(scope, expr->lhs);
     rhs = expr_eval(scope, expr->rhs);
 
-    if (lhs.type != ValueTypeStack) {
-        rael_error(expr->lhs->state, "Expected stack on the left of 'at'");
-    }
-    if (rhs.type != ValueTypeNumber) {
-        rael_error(expr->rhs->state, "Expected number");
-    }
-    if (rhs.as_number.is_float) {
-        rael_error(expr->rhs->state, "Float index is not allowed");
-    }
-    if (rhs.as_number.as_int < 0) {
-        rael_error(expr->rhs->state, "A negative index is not allowed");
-    }
-    if ((size_t)rhs.as_number.as_int >= lhs.as_stack->length) {
+    if (lhs.type != ValueTypeStack)
+        rael_error(expr->lhs->state, "Expected stack on the left of 'at' when setting value");
+
+    value_verify_is_number_int(expr->rhs->state, rhs);
+
+    if ((size_t)rhs.as_number.as_int >= lhs.as_stack->length)
         rael_error(expr->rhs->state, "Index too big");
+
+    lhs.as_stack->values[rhs.as_number.as_int] = value;
+}
+
+static struct RaelValue value_at(struct Scope *scope, struct Expr *expr) {
+    struct RaelValue lhs, rhs, value;
+
+    assert(expr->type == ExprTypeAt);
+    lhs = expr_eval(scope, expr->lhs);
+    rhs = expr_eval(scope, expr->rhs);
+
+    if (lhs.type == ValueTypeStack) {
+        value_verify_is_number_int(expr->rhs->state, rhs);
+        if ((size_t)rhs.as_number.as_int >= lhs.as_stack->length)
+            rael_error(expr->rhs->state, "Index too big");
+        value = lhs.as_stack->values[rhs.as_number.as_int];
+    } else if (lhs.type == ValueTypeString) {
+        value_verify_is_number_int(expr->rhs->state, rhs);
+        if ((size_t)rhs.as_number.as_int >= lhs.as_string.length)
+            rael_error(expr->rhs->state, "Index too big");
+        value.type = ValueTypeString;
+        value.as_string.length = 1;
+        value.as_string.value = malloc(1 * sizeof(char));
+        value.as_string.value[0] = lhs.as_string.value[rhs.as_number.as_int];
+    } else {
+        rael_error(expr->lhs->state, "Expected string or stack on the left of 'at'");
     }
-    return &lhs.as_stack->values[rhs.as_number.as_int];
+
+    return value;
 }
 
 static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
@@ -233,7 +262,7 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         return value;
     }
     case ExprTypeAt:
-        return *stack_value_at(scope, expr);
+        return value_at(scope, expr);
     case ExprTypeRedirect:
         lhs = expr_eval(scope, expr->lhs);
         rhs = expr_eval(scope, expr->rhs);
@@ -359,7 +388,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
     case NodeTypeSet:
         switch (node->set.set_type) {
         case SetTypeAtExpr: {
-            *stack_value_at(scope, node->set.as_at_stat) = expr_eval(scope, node->set.expr);
+            stack_set(scope, node->set.as_at_stat, expr_eval(scope, node->set.expr));
             break;
         }
         case SetTypeKey:
