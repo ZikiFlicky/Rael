@@ -31,7 +31,7 @@ void scope_dealloc(struct Scope* const scope) {
         for (struct BucketNode *node = scope->variables.buckets[i]; node; node = next_node) {
             next_node = node->next;
             // free(node->key);
-            // TODO: also free node->value
+            value_delete(node->value);
             free(node);
         }
     }
@@ -54,7 +54,7 @@ bool scope_set(struct Scope* const scope, char *key, struct RaelValue *value) {
     for (node = scope->variables.buckets[hash_result]; node; node = node->next) {
         if (!node->key || strcmp(node->key, key) == 0) {
             /* deallocate value if already exists at key */
-            // value_dealloc(&node->value);
+            // value_delete(node->value);
             node->key = key;
             node->value = value;
             return true;
@@ -68,6 +68,7 @@ bool scope_set(struct Scope* const scope, char *key, struct RaelValue *value) {
     node->key = key;
     node->value = value;
     node->next = NULL;
+    ++node->value->amount_references;
 
     if (!previous_node)
         scope->variables.buckets[hash_result] = node;
@@ -79,8 +80,6 @@ bool scope_set(struct Scope* const scope, char *key, struct RaelValue *value) {
 }
 
 struct RaelValue *scope_get(struct Scope *scope, char* const key) {
-    struct RaelValue *value;
-
     for (; scope; scope = scope->parent) {
         if (scope->variables.allocated == 0)
             continue;
@@ -91,10 +90,7 @@ struct RaelValue *scope_get(struct Scope *scope, char* const key) {
         }
     }
 
-    /* TODO: I should definitely decide if this is a good idea */
-    value = malloc(sizeof(struct RaelValue));
-    value->type = ValueTypeVoid;
-    return value;
+    return value_create(ValueTypeVoid);
 }
 
 struct Scope *scope_get_key_scope(struct Scope *scope, char* const key) {

@@ -43,10 +43,37 @@ void rael_error(struct State state, const char* const error_message) {
     exit(1);
 }
 
-static struct RaelValue *value_create(enum ValueType type) {
+struct RaelValue *value_create(enum ValueType type) {
     struct RaelValue *value = malloc(sizeof(struct RaelValue));
     value->type = type;
+    value->amount_references = 0;
     return value;
+}
+
+void value_delete(struct RaelValue *value) {
+    if (value->amount_references == 0) {
+        printf("deallocated:\n");
+        value_log(value);
+        switch (value->type) {
+        case ValueTypeRoutine:
+            break;
+        case ValueTypeStack:
+            for (size_t i = 0; i < value->as_stack.length; ++i) {
+                value_delete(value->as_stack.values[i]);
+            }
+            free(value->as_stack.values);
+            break;
+        case ValueTypeString:
+            if (value->as_string.length)
+                free(value->as_string.value);
+            break;
+        default:
+            break;
+        }
+        free(value);
+    } else {
+        --value->amount_references;
+    }
 }
 
 static struct RaelValue *value_eval(struct Scope *scope, struct ASTValue value) {
