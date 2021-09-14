@@ -37,7 +37,7 @@ void scope_dealloc(struct Scope* const scope) {
     }
 }
 
-bool scope_set(struct Scope* const scope, char *key, struct RaelValue value) {
+bool scope_set(struct Scope* const scope, char *key, struct RaelValue *value) {
     struct BucketNode *node;
     struct BucketNode *previous_node;
     size_t hash_result;
@@ -78,7 +78,9 @@ bool scope_set(struct Scope* const scope, char *key, struct RaelValue value) {
     return true;
 }
 
-struct RaelValue scope_get(struct Scope *scope, char* const key) {
+struct RaelValue *scope_get(struct Scope *scope, char* const key) {
+    struct RaelValue *value;
+
     for (; scope; scope = scope->parent) {
         if (scope->variables.allocated == 0)
             continue;
@@ -88,10 +90,11 @@ struct RaelValue scope_get(struct Scope *scope, char* const key) {
                 return node->value;
         }
     }
+
     /* TODO: I should definitely decide if this is a good idea */
-    return (struct RaelValue) {
-        .type = ValueTypeVoid
-    };
+    value = malloc(sizeof(struct RaelValue));
+    value->type = ValueTypeVoid;
+    return value;
 }
 
 struct Scope *scope_get_key_scope(struct Scope *scope, char* const key) {

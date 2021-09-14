@@ -8,7 +8,7 @@
 #include <stddef.h>
 
 struct RaelStackValue {
-    struct RaelValue *values;
+    struct RaelValue **values;
     size_t length, allocated;
 };
 
