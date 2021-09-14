@@ -267,15 +267,28 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     }
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
-    if (parser->lexer.token.name != TokenNameLeftParen) {
+    if (parser->lexer.token.name == TokenNameSizeof) {
+        struct Expr *sizeof_value;
+
+        if (!(sizeof_value = parser_parse_expr_single(parser))) {
+            parser_error(parser, "Expected value after 'sizeof'");
+        }
+
+        expr = malloc(sizeof(struct Expr));
+        expr->type = ExprTypeSizeof;
+        expr->as_single = sizeof_value;
+    } else if (parser->lexer.token.name == TokenNameLeftParen) {
+        // FIXME: verify that there is actually an expression
+        expr = parser_parse_expr(parser);
+        if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen) {
+            lexer_load_state(&parser->lexer, backtrack);
+            return NULL;
+        }
+    } else {
         lexer_load_state(&parser->lexer, backtrack);
         return NULL;
     }
-    expr = parser_parse_expr(parser);
-    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
+
     expr->state = backtrack;
     return expr;
 }

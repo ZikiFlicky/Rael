@@ -1,0 +1,2 @@
+:stack { "entry1", "entry2", "entry3" }
+log sizeof :stack

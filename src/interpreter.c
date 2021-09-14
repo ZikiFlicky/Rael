@@ -102,7 +102,8 @@ static struct RaelValue *stack_value_at(struct Scope *scope, struct Expr *expr) 
 }
 
 static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
-    struct RaelValue lhs, rhs, value;
+    struct RaelValue lhs, rhs, single, value;
+
     switch (expr->type) {
     case ExprTypeValue:
         return value_eval(scope, *expr->as_value);
@@ -244,6 +245,24 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
         }
         lhs.as_stack->values[lhs.as_stack->length++] = rhs;
         return rhs;
+    case ExprTypeSizeof:
+        value.type = ValueTypeNumber;
+        value.as_number.is_float = false;
+        single = expr_eval(scope, expr->as_single);
+        switch (single.type) {
+        case ValueTypeStack:
+            // FIXME: not exactly safe
+            value.as_number.as_int = (int)single.as_stack->length;
+            break;
+        case ValueTypeString:
+            // FIXME: also unsafe
+            value.as_number.as_int = (int)single.as_string.length;
+            break;
+        default:
+            rael_error(expr->as_single->state, "Unsupported type for 'sizeof' operation");
+            break;
+        }
+        return value;
     default:
         assert(0);
     }

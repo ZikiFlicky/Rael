@@ -258,6 +258,9 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     // try to tokenize `at`
     if (lexer_match_keyword(lexer, "at", 2, TokenNameAt))
         return true;
+    // try to tokenize `sizeof`
+    if (lexer_match_keyword(lexer, "sizeof", 6, TokenNameSizeof))
+        return true;
     lexer_error(lexer, "Unrecognized token");
     return false;
 }

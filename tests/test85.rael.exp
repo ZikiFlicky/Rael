@@ -1,0 +1,3 @@
+Error [1:12]: Unsupported type for 'sizeof' operation
+| log sizeof 123
+|            ^

@@ -50,7 +50,8 @@ enum ExprType {
     ExprTypeSmallerThen,
     ExprTypeBiggerThen,
     ExprTypeAt,
-    ExprTypeRedirect
+    ExprTypeRedirect,
+    ExprTypeSizeof
 };
 
 struct RoutineCallExpr {
@@ -66,6 +67,7 @@ struct Expr {
         struct {
             struct Expr *lhs, *rhs;
         };
+        struct Expr *as_single;
         struct ASTValue *as_value;
         char *as_key;
         struct RoutineCallExpr as_call;
