@@ -57,14 +57,13 @@ static struct RaelValue *value_eval(struct Scope *scope, struct ASTValue value) 
         out_value->as_routine = value.as_routine;
         break;
     case ValueTypeStack:
-        out_value->as_stack = malloc(sizeof(struct RaelStackValue));
-        *out_value->as_stack = (struct RaelStackValue) {
+        out_value->as_stack = (struct RaelStackValue) {
             .length = value.as_stack.length,
             .allocated = value.as_stack.length,
             .values = malloc(value.as_stack.length * sizeof(struct RaelValue))
         };
         for (size_t i = 0; i < value.as_stack.length; ++i) {
-            out_value->as_stack->values[i] = expr_eval(scope, value.as_stack.entries[i]);
+            out_value->as_stack.values[i] = expr_eval(scope, value.as_stack.entries[i]);
         }
         break;
     case ValueTypeVoid:
@@ -96,10 +95,10 @@ static void stack_set(struct Scope *scope, struct Expr *expr, struct RaelValue *
 
     value_verify_is_number_int(expr->rhs->state, rhs);
 
-    if ((size_t)rhs->as_number.as_int >= lhs->as_stack->length)
+    if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length)
         rael_error(expr->rhs->state, "Index too big");
 
-    lhs->as_stack->values[rhs->as_number.as_int] = value;
+    lhs->as_stack.values[rhs->as_number.as_int] = value;
 }
 
 static struct RaelValue *value_at(struct Scope *scope, struct Expr *expr) {
@@ -113,9 +112,9 @@ static struct RaelValue *value_at(struct Scope *scope, struct Expr *expr) {
 
     if (lhs->type == ValueTypeStack) {
         value_verify_is_number_int(expr->rhs->state, rhs);
-        if ((size_t)rhs->as_number.as_int >= lhs->as_stack->length)
+        if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length)
             rael_error(expr->rhs->state, "Index too big");
-        value = lhs->as_stack->values[rhs->as_number.as_int];
+        value = lhs->as_stack.values[rhs->as_number.as_int];
     } else if (lhs->type == ValueTypeString) {
         value_verify_is_number_int(expr->rhs->state, rhs);
         if ((size_t)rhs->as_number.as_int >= lhs->as_string.length)
@@ -293,11 +292,11 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         if (lhs->type != ValueTypeStack) {
             rael_error(expr->lhs->state, "Expected a stack value");
         }
-        if (lhs->as_stack->length == lhs->as_stack->allocated) {
-            lhs->as_stack->values = realloc(lhs->as_stack->values, (lhs->as_stack->allocated += 8) * sizeof(struct RaelValue));
+        if (lhs->as_stack.length == lhs->as_stack.allocated) {
+            lhs->as_stack.values = realloc(lhs->as_stack.values, (lhs->as_stack.allocated += 8) * sizeof(struct RaelValue));
         }
 
-        lhs->as_stack->values[lhs->as_stack->length++] = rhs;
+        lhs->as_stack.values[lhs->as_stack.length++] = rhs;
         return rhs;
     case ExprTypeSizeof: {
         int size;
@@ -306,7 +305,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         // FIXME: those int conversions aren't really safe
         switch (single->type) {
         case ValueTypeStack:
-            size = (int)single->as_stack->length;
+            size = (int)single->as_stack.length;
             break;
         case ValueTypeString:
             size = (int)single->as_string.length;
@@ -359,10 +358,10 @@ static void value_log_as_original(struct RaelValue *value) {
         break;
     case ValueTypeStack:
         printf("{ ");
-        for (size_t i = 0; i < value->as_stack->length; ++i) {
+        for (size_t i = 0; i < value->as_stack.length; ++i) {
             if (i > 0)
                 printf(", ");
-            value_log_as_original(value->as_stack->values[i]);
+            value_log_as_original(value->as_stack.values[i]);
         }
         printf(" }");
         break;
