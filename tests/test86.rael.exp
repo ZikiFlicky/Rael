@@ -1,0 +1,3 @@
+Error [1:2]: Expected an expression after left paren
+| (
+|  ^
