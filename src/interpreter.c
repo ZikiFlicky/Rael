@@ -52,8 +52,6 @@ struct RaelValue *value_create(enum ValueType type) {
 
 void value_delete(struct RaelValue *value) {
     if (value->amount_references == 0) {
-        printf("deallocated:\n");
-        value_log(value);
         switch (value->type) {
         case ValueTypeRoutine:
             break;
