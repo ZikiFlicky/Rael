@@ -118,8 +118,8 @@ static struct RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) 
             struct RaelStringValue string;
             string.length = lhs.as_string.length + rhs.as_string.length;
             string.value = malloc(string.length * sizeof(char));
-            strcpy(string.value, lhs.as_string.value);
-            strcpy(string.value + lhs.as_string.length, rhs.as_string.value);
+            strncpy(string.value, lhs.as_string.value, lhs.as_string.length);
+            strncpy(string.value + lhs.as_string.length, rhs.as_string.value, rhs.as_string.length);
             value.type = ValueTypeString;
             value.as_string = string;
         } else {
