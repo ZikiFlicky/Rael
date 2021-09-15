@@ -31,7 +31,7 @@ void scope_dealloc(struct Scope* const scope) {
         for (struct BucketNode *node = scope->variables.buckets[i]; node; node = next_node) {
             next_node = node->next;
             // free(node->key);
-            value_delete(node->value);
+            value_dereference(node->value);
             free(node);
         }
     }
@@ -54,8 +54,8 @@ bool scope_set(struct Scope* const scope, char *key, RaelValue value) {
     previous_node = NULL;
     for (node = scope->variables.buckets[hash_result]; node; node = node->next) {
         if (!node->key || strcmp(node->key, key) == 0) {
-            /* deallocate value if already exists at key */
-            value_delete(node->value); // remove reference
+            // dereference current value at position if already exists at key
+            value_dereference(node->value);
             node->key = key;
             node->value = value;
             return true;
@@ -86,7 +86,7 @@ RaelValue scope_get(struct Scope *scope, char* const key) {
         // iterate bucket nodes
         for (struct BucketNode *node = scope->variables.buckets[scope_hash(scope, key)]; node; node = node->next) {
             if (strcmp(key, node->key) == 0) {
-                ++node->value->amount_references;
+                ++node->value->reference_count;
                 return node->value;
             }
         }

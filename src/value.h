@@ -19,7 +19,7 @@ struct RaelStackValue {
 // the dynamic value abstraction layer
 struct RaelValue {
     enum ValueType type;
-    size_t amount_references;
+    size_t reference_count;
     union {
         struct NumberExpr as_number;
         struct RaelStringValue as_string;
@@ -30,6 +30,6 @@ struct RaelValue {
 
 RaelValue value_create(enum ValueType type);
 
-void value_delete(RaelValue value);
+void value_dereference(RaelValue value);
 
 #endif
