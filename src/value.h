@@ -7,8 +7,12 @@
 
 #include <stddef.h>
 
+struct RaelValue;
+
+typedef struct RaelValue* RaelValue;
+
 struct RaelStackValue {
-    struct RaelValue **values;
+    RaelValue *values;
     size_t length, allocated;
 };
 
@@ -24,8 +28,8 @@ struct RaelValue {
     };
 };
 
-struct RaelValue *value_create(enum ValueType type);
+RaelValue value_create(enum ValueType type);
 
-void value_delete(struct RaelValue *value);
+void value_delete(RaelValue value);
 
 #endif

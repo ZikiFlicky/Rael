@@ -12,9 +12,9 @@ struct Interpreter {
     struct Scope scope;
 };
 
-static bool interpreter_interpret_node(struct Scope *scope, struct Node* const node, struct RaelValue **returned_value);
-static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr);
-static void value_log(struct RaelValue *value);
+static bool interpreter_interpret_node(struct Scope *scope, struct Node* const node, RaelValue *returned_value);
+static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr);
+static void value_log(RaelValue value);
 
 void rael_error(struct State state, const char* const error_message) {
     // advance all whitespace
@@ -43,15 +43,15 @@ void rael_error(struct State state, const char* const error_message) {
     exit(1);
 }
 
-struct RaelValue *value_create(enum ValueType type) {
-    struct RaelValue *value = malloc(sizeof(struct RaelValue));
+RaelValue value_create(enum ValueType type) {
+    RaelValue value = malloc(sizeof(struct RaelValue));
     value->type = type;
-    value->amount_references = 0;
+    value->amount_references = 1;
     return value;
 }
 
-void value_delete(struct RaelValue *value) {
-    if (value->amount_references == 0) {
+void value_delete(RaelValue value) {
+    if (value->amount_references == 1) {
         switch (value->type) {
         case ValueTypeRoutine:
             break;
@@ -74,8 +74,8 @@ void value_delete(struct RaelValue *value) {
     }
 }
 
-static struct RaelValue *value_eval(struct Scope *scope, struct ASTValue value) {
-    struct RaelValue *out_value = value_create(value.type);
+static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
+    RaelValue out_value = value_create(value.type);
 
     switch (value.type) {
     case ValueTypeNumber:
@@ -102,10 +102,12 @@ static struct RaelValue *value_eval(struct Scope *scope, struct ASTValue value) 
     default:
         assert(0);
     }
+
+    ++out_value->amount_references;
     return out_value;
 }
 
-static void value_verify_is_number_int(struct State number_state, struct RaelValue *number) {
+static void value_verify_is_number_int(struct State number_state, RaelValue number) {
     if (number->type != ValueTypeNumber)
         rael_error(number_state, "Expected number");
     if (number->as_number.is_float)
@@ -114,8 +116,8 @@ static void value_verify_is_number_int(struct State number_state, struct RaelVal
         rael_error(number_state, "A negative index is not allowed");
 }
 
-static void stack_set(struct Scope *scope, struct Expr *expr, struct RaelValue *value) {
-    struct RaelValue *lhs, *rhs;
+static void stack_set(struct Scope *scope, struct Expr *expr, RaelValue value) {
+    RaelValue lhs, rhs;
 
     assert(expr->type == ExprTypeAt);
     lhs = expr_eval(scope, expr->lhs);
@@ -136,8 +138,8 @@ static void stack_set(struct Scope *scope, struct Expr *expr, struct RaelValue *
     lhs->as_stack.values[rhs->as_number.as_int] = value;
 }
 
-static struct RaelValue *value_at(struct Scope *scope, struct Expr *expr) {
-    struct RaelValue *lhs, *rhs, *value;
+static RaelValue value_at(struct Scope *scope, struct Expr *expr) {
+    RaelValue lhs, rhs, value;
 
     assert(expr->type == ExprTypeAt);
     lhs = expr_eval(scope, expr->lhs);
@@ -163,11 +165,12 @@ static struct RaelValue *value_at(struct Scope *scope, struct Expr *expr) {
     value_delete(lhs); // delete reference
     value_delete(rhs); // delete reference
 
+    ++value->amount_references;
     return value;
 }
 
-static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr) {
-    struct RaelValue *lhs, *rhs, *single, *value;
+static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
+    RaelValue lhs, rhs, single, value;
 
     switch (expr->type) {
     case ExprTypeValue:
@@ -299,7 +302,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
 
         return value;
     case ExprTypeRoutineCall: {
-        struct RaelValue *maybe_routine = scope_get(scope, expr->as_call.routine_name);
+        RaelValue maybe_routine = scope_get(scope, expr->as_call.routine_name);
         struct Scope routine_scope;
         value = NULL;
 
@@ -377,7 +380,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
     }
 }
 
-static void value_log_as_original(struct RaelValue *value) {
+static void value_log_as_original(RaelValue value) {
     switch (value->type) {
     case ValueTypeNumber:
         if (value->as_number.is_float) {
@@ -421,7 +424,7 @@ static void value_log_as_original(struct RaelValue *value) {
     }
 }
 
-static void value_log(struct RaelValue *value) {
+static void value_log(RaelValue value) {
     // only strings are printed differently when `log`ed then inside a stack
     switch (value->type) {
     case ValueTypeString:
@@ -455,12 +458,12 @@ static bool value_as_bool(struct RaelValue const *value) {
 /*
     returns true if got a return statement
 */
-static bool interpreter_interpret_node(struct Scope *scope, struct Node* const node, struct RaelValue **returned_value) {
+static bool interpreter_interpret_node(struct Scope *scope, struct Node* const node, RaelValue *returned_value) {
     bool had_return = false;
 
     switch (node->type) {
     case NodeTypeLog: {
-        struct RaelValue *value;
+        RaelValue value;
         value_log((value = expr_eval(scope, node->log_values[0])));
         value_delete(value); // dereference
         for (size_t i = 1; node->log_values[i]; ++i) {
@@ -486,7 +489,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
         break;
     case NodeTypeIf: {
         struct Scope if_scope;
-        struct RaelValue *val;
+        RaelValue val;
 
         scope_construct(&if_scope, scope);
         if (value_as_bool((val = expr_eval(scope, node->if_stat.condition)))) {
@@ -512,7 +515,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
     }
     case NodeTypeLoop: {
         struct Scope loop_scope;
-        struct RaelValue *condition;
+        RaelValue condition;
         scope_construct(&loop_scope, scope);
 
         while (value_as_bool((condition = expr_eval(scope, node->if_stat.condition)))) {

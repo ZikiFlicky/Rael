@@ -11,7 +11,7 @@ struct VariableMap {
     struct BucketNode {
         struct BucketNode *next;
         char *key;
-        struct RaelValue *value;
+        RaelValue value;
     } **buckets;
     size_t allocated, pairs;
 };
@@ -23,11 +23,11 @@ struct Scope {
 
 void scope_construct(struct Scope* const scope, struct Scope* const parent_scope); 
 
-bool scope_set(struct Scope *scope, char *key, struct RaelValue *value);
+bool scope_set(struct Scope *scope, char *key, RaelValue value);
 
 void scope_dealloc(struct Scope* const scope);
 
-struct RaelValue *scope_get(struct Scope* const scope, char *key);
+RaelValue scope_get(struct Scope* const scope, char *key);
 
 struct Scope *scope_get_key_scope(struct Scope *scope, char* const key);
 

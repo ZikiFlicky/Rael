@@ -38,7 +38,7 @@ void scope_dealloc(struct Scope* const scope) {
     free(scope->variables.buckets);
 }
 
-bool scope_set(struct Scope* const scope, char *key, struct RaelValue *value) {
+bool scope_set(struct Scope* const scope, char *key, RaelValue value) {
     struct BucketNode *node;
     struct BucketNode *previous_node;
     size_t hash_result;
@@ -79,7 +79,7 @@ bool scope_set(struct Scope* const scope, char *key, struct RaelValue *value) {
     return true;
 }
 
-struct RaelValue *scope_get(struct Scope *scope, char* const key) {
+RaelValue scope_get(struct Scope *scope, char* const key) {
     for (; scope; scope = scope->parent) {
         if (scope->variables.allocated == 0)
             continue;
