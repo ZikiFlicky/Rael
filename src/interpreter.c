@@ -59,7 +59,7 @@ void value_delete(struct RaelValue *value) {
             for (size_t i = 0; i < value->as_stack.length; ++i) {
                 value_delete(value->as_stack.values[i]);
             }
-            free(value->as_stack.values);
+            // free(value->as_stack.values);
             break;
         case ValueTypeString:
             if (value->as_string.length)
@@ -129,6 +129,10 @@ static void stack_set(struct Scope *scope, struct Expr *expr, struct RaelValue *
     if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length)
         rael_error(expr->rhs->state, "Index too big");
 
+    value_delete(lhs); // delete reference
+    value_delete(rhs); // delete reference
+    // dereference current value at position
+    value_delete(lhs->as_stack.values[rhs->as_number.as_int]);
     lhs->as_stack.values[rhs->as_number.as_int] = value;
 }
 
@@ -155,6 +159,9 @@ static struct RaelValue *value_at(struct Scope *scope, struct Expr *expr) {
     } else {
         rael_error(expr->lhs->state, "Expected string or stack on the left of 'at'");
     }
+
+    value_delete(lhs); // delete reference
+    value_delete(rhs); // delete reference
 
     return value;
 }
@@ -189,6 +196,9 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
             rael_error(expr->state, "Invalid operation (+) on types");
         }
 
+        value_delete(lhs); // remove reference
+        value_delete(rhs); // remove reference
+
         return value;
     case ExprTypeSub:
         lhs = expr_eval(scope, expr->lhs);
@@ -201,6 +211,9 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
             rael_error(expr->state, "Invalid operation (-) on types");
         }
 
+        value_delete(lhs); // remove reference
+        value_delete(rhs); // remove reference
+
         return value;
     case ExprTypeMul:
         lhs = expr_eval(scope, expr->lhs);
@@ -212,6 +225,9 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         } else {
             rael_error(expr->state, "Invalid operation (*) on types");
         }
+
+        value_delete(lhs); // remove reference
+        value_delete(rhs); // remove reference
 
         return value;
     case ExprTypeDiv:
@@ -247,6 +263,10 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         } else {
             value->as_number.as_int = 0;
         }
+
+        value_delete(lhs); // remove reference
+        value_delete(rhs); // remove reference
+
         return value;
     case ExprTypeSmallerThen:
         lhs = expr_eval(scope, expr->lhs);
@@ -258,35 +278,40 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         } else {
             rael_error(expr->state, "Invalid operation (<) on types");
         }
+
+        value_delete(lhs); // remove reference
+        value_delete(rhs); // remove reference
+
         return value;
     case ExprTypeBiggerThen:
         lhs = expr_eval(scope, expr->lhs);
         rhs = expr_eval(scope, expr->rhs);
+
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value = value_create(ValueTypeNumber);
             value->as_number = number_bigger(lhs->as_number, rhs->as_number);
         } else {
             rael_error(expr->state, "Invalid operation (>) on types");
         }
+
+        value_delete(lhs); // remove reference
+        value_delete(rhs); // remove reference
+
         return value;
     case ExprTypeRoutineCall: {
         struct RaelValue *maybe_routine = scope_get(scope, expr->as_call.routine_name);
         struct Scope routine_scope;
-
-        value = value_create(ValueTypeVoid);
+        value = NULL;
 
         // FIXME: this feels very hackish
         scope_construct(&routine_scope, scope_get_key_scope(scope, expr->as_call.routine_name));
 
         maybe_routine = scope_get(&routine_scope, expr->as_call.routine_name);
-
         if (maybe_routine->type != ValueTypeRoutine)
             rael_error(expr->state, "Call not possible on non-routine");
-
         // verify the amount of arguments equals the amount of parameters
         if (maybe_routine->as_routine.amount_parameters != expr->as_call.amount_arguments)
             rael_error(expr->state, "Arguments don't match parameters");
-
         // set parameters as variables
         for (size_t i = 0; i < maybe_routine->as_routine.amount_parameters; ++i) {
             scope_set(&routine_scope,
@@ -301,7 +326,9 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         }
 
         scope_dealloc(&routine_scope);
-        return value;
+        if (value)
+            return value;
+        return value_create(ValueTypeVoid);
     }
     case ExprTypeAt:
         return value_at(scope, expr);
@@ -317,6 +344,7 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
         }
 
         lhs->as_stack.values[lhs->as_stack.length++] = rhs;
+        value_delete(lhs); // remove reference
         return rhs;
     case ExprTypeSizeof: {
         int size;
@@ -339,6 +367,8 @@ static struct RaelValue *expr_eval(struct Scope *scope, struct Expr* const expr)
             .is_float = false,
             .as_int = size
         };
+
+        value_delete(single); // remove reference
 
         return value;
     }
@@ -429,14 +459,18 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
     bool had_return = false;
 
     switch (node->type) {
-    case NodeTypeLog:
-        value_log(expr_eval(scope, node->log_values[0]));
+    case NodeTypeLog: {
+        struct RaelValue *value;
+        value_log((value = expr_eval(scope, node->log_values[0])));
+        value_delete(value); // dereference
         for (size_t i = 1; node->log_values[i]; ++i) {
             printf(" ");
-            value_log(expr_eval(scope, node->log_values[i]));
+            value_log((value = expr_eval(scope, node->log_values[i])));
+            value_delete(value); // dereference
         }
         printf("\n");
         break;
+    }
     case NodeTypeSet:
         switch (node->set.set_type) {
         case SetTypeAtExpr: {
@@ -456,6 +490,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
 
         scope_construct(&if_scope, scope);
         if (value_as_bool((val = expr_eval(scope, node->if_stat.condition)))) {
+            value_delete(val); // dereference value just after evaluation
             for (size_t i = 0; node->if_stat.block[i]; ++i) {
                 if (interpreter_interpret_node(&if_scope, node->if_stat.block[i], returned_value)) {
                     had_return = true;
@@ -477,9 +512,11 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
     }
     case NodeTypeLoop: {
         struct Scope loop_scope;
+        struct RaelValue *condition;
         scope_construct(&loop_scope, scope);
 
-        while (value_as_bool(expr_eval(scope, node->if_stat.condition))) {
+        while (value_as_bool((condition = expr_eval(scope, node->if_stat.condition)))) {
+            value_delete(condition);
             for (size_t i = 0; node->if_stat.block[i]; ++i) {
                 if (interpreter_interpret_node(scope, node->if_stat.block[i], returned_value)) {
                     had_return = true;
@@ -491,14 +528,14 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
         break;
     }
     case NodeTypePureExpr:
-        expr_eval(scope, node->pure);
+        value_delete(expr_eval(scope, node->pure)); // dereference right after
         break;
     case NodeTypeReturn:
         if (returned_value) {
             if (node->return_value) {
                 *returned_value = expr_eval(scope, node->return_value);
             } else {
-                (*returned_value)->type = ValueTypeVoid;
+                *returned_value = value_create(ValueTypeVoid);
             }
         }
         had_return = true;
