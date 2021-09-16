@@ -47,6 +47,7 @@ enum ExprType {
     ExprTypeSub,
     ExprTypeMul,
     ExprTypeDiv,
+    ExprTypeNeg,
     ExprTypeEquals,
     ExprTypeSmallerThen,
     ExprTypeBiggerThen,
