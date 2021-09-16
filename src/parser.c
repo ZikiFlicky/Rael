@@ -175,6 +175,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         expr->as_value = malloc(sizeof(struct ASTValue));
         expr->as_value->type = ValueTypeString;
         expr->as_value->as_string = string;
+
         return expr;
     }
     case TokenNameKey: {
@@ -223,7 +224,9 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
         lexer_load_state(&parser->lexer, backtrack);
         return NULL;
     }
+
     backtrack = lexer_dump_state(&parser->lexer);
+
     if ((argument = parser_parse_expr(parser))) {
         size_t allocated;
         call.arguments = malloc((allocated = 4) * sizeof(struct Expr*));

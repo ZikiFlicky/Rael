@@ -30,7 +30,6 @@ void scope_dealloc(struct Scope* const scope) {
         struct BucketNode *next_node;
         for (struct BucketNode *node = scope->variables.buckets[i]; node; node = next_node) {
             next_node = node->next;
-            // free(node->key);
             value_dereference(node->value);
             free(node);
         }
@@ -93,17 +92,4 @@ RaelValue scope_get(struct Scope *scope, char* const key) {
     }
 
     return value_create(ValueTypeVoid);
-}
-
-struct Scope *scope_get_key_scope(struct Scope *scope, char* const key) {
-    for (; scope; scope = scope->parent) {
-        if (scope->variables.allocated == 0)
-            continue;
-        // iterate bucket nodes
-        for (struct BucketNode *node = scope->variables.buckets[scope_hash(scope, key)]; node; node = node->next) {
-            if (strcmp(key, node->key) == 0)
-                return scope;
-        }
-    }
-    return NULL;
 }

@@ -23,6 +23,7 @@ struct ASTStackValue {
 };
 
 struct RaelRoutineValue {
+    struct Scope *scope;
     char **parameters;
     size_t amount_parameters;
     struct Node **block;

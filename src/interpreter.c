@@ -82,10 +82,14 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
         out_value->as_number = value.as_number;
         break;
     case ValueTypeString:
-        out_value->as_string = value.as_string;
+        // duplicate string
+        out_value->as_string.length = value.as_string.length;
+        out_value->as_string.value = malloc(value.as_string.length * sizeof(char));
+        strncpy(out_value->as_string.value, value.as_string.value, value.as_string.length);
         break;
     case ValueTypeRoutine:
         out_value->as_routine = value.as_routine;
+        out_value->as_routine.scope = scope;
         break;
     case ValueTypeStack:
         out_value->as_stack = (struct RaelStackValue) {
@@ -311,12 +315,9 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         struct Scope routine_scope;
         value = NULL;
 
-        // FIXME: this feels very hackish
-        scope_construct(&routine_scope, scope_get_key_scope(scope, expr->as_call.routine_name));
-
-        maybe_routine = scope_get(&routine_scope, expr->as_call.routine_name);
         if (maybe_routine->type != ValueTypeRoutine)
             rael_error(expr->state, "Call not possible on non-routine");
+        scope_construct(&routine_scope, maybe_routine->as_routine.scope);
         // verify the amount of arguments equals the amount of parameters
         if (maybe_routine->as_routine.amount_parameters != expr->as_call.amount_arguments)
             rael_error(expr->state, "Arguments don't match parameters");
