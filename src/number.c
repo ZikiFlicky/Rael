@@ -97,11 +97,11 @@ struct NumberExpr number_eq(struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
     res.is_float = false;
     if (a.is_float && b.is_float) {
-        res.as_float = a.as_float == b.as_float;
+        res.as_int = a.as_float == b.as_float;
     } else if (a.is_float && !b.is_float) {
-        res.as_float = a.as_float == (double)b.as_int;
+        res.as_int = a.as_float == (double)b.as_int;
     } else if (!a.is_float && b.is_float) {
-        res.as_float = (double)a.as_int == b.as_float;
+        res.as_int = (double)a.as_int == b.as_float;
     } else {
         res.as_int = a.as_int == b.as_int;
     }
@@ -112,11 +112,11 @@ struct NumberExpr number_smaller(struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
     res.is_float = false;
     if (a.is_float && b.is_float) {
-        res.as_float = a.as_float < b.as_float;
+        res.as_int = a.as_float < b.as_float;
     } else if (a.is_float && !b.is_float) {
-        res.as_float = a.as_float < (double)b.as_int;
+        res.as_int = a.as_float < (double)b.as_int;
     } else if (!a.is_float && b.is_float) {
-        res.as_float = (double)a.as_int < b.as_float;
+        res.as_int = (double)a.as_int < b.as_float;
     } else {
         res.as_int = a.as_int < b.as_int;
     }
@@ -127,11 +127,11 @@ struct NumberExpr number_bigger(struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
     res.is_float = false;
     if (a.is_float && b.is_float) {
-        res.as_float = a.as_float > b.as_float;
+        res.as_int = a.as_float > b.as_float;
     } else if (a.is_float && !b.is_float) {
-        res.as_float = a.as_float > (double)b.as_int;
+        res.as_int = a.as_float > (double)b.as_int;
     } else if (!a.is_float && b.is_float) {
-        res.as_float = (double)a.as_int > b.as_float;
+        res.as_int = (double)a.as_int > b.as_float;
     } else {
         res.as_int = a.as_int > b.as_int;
     }
