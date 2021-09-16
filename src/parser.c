@@ -279,9 +279,20 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
         expr->state = backtrack;
         return expr;
     }
+
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
-    if (parser->lexer.token.name == TokenNameSizeof) {
+
+    if (parser->lexer.token.name == TokenNameSub) {
+        struct Expr *to_negative;
+
+        if (!(to_negative = parser_parse_expr_single(parser)))
+            parser_error(parser, "Expected an expression after or before '-'");
+
+        expr = malloc(sizeof(struct Expr));
+        expr->type = ExprTypeNeg;
+        expr->as_single = to_negative;
+    } else if (parser->lexer.token.name == TokenNameSizeof) {
         struct Expr *sizeof_value;
 
         if (!(sizeof_value = parser_parse_expr_single(parser))) {

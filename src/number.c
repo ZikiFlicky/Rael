@@ -93,6 +93,18 @@ struct NumberExpr number_div(struct State state, struct NumberExpr a, struct Num
     return res;
 }
 
+struct NumberExpr number_neg(struct NumberExpr n) {
+    struct NumberExpr res;
+    if (n.is_float) {
+        res.is_float = true;
+        res.as_float = -n.as_float;
+    } else {
+        res.is_float = false;
+        res.as_int = -n.as_int;
+    }
+    return res;
+}
+
 struct NumberExpr number_eq(struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
     res.is_float = false;

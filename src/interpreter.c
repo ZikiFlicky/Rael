@@ -386,6 +386,19 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
 
         return value;
     }
+    case ExprTypeNeg: {
+        RaelValue maybe_number = expr_eval(scope, expr->as_single);
+
+        if (maybe_number->type != ValueTypeNumber) {
+            rael_error(expr->as_single->state, "Expected number");
+        }
+
+        value = value_create(ValueTypeNumber);
+        value->as_number = number_neg(maybe_number->as_number);
+
+        value_dereference(maybe_number);
+        return value;
+    }
     default:
         assert(0);
     }
