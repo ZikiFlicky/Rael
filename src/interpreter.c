@@ -422,10 +422,25 @@ static void value_log_as_original(RaelValue value) {
         }
         break;
     case ValueTypeString:
-        // %.*s gives some warning when using size_t (it expects ints)
         putchar('"');
-        for (size_t i = 0; i < value->as_string.length; ++i)
-            putchar(value->as_string.value[i]);
+        for (size_t i = 0; i < value->as_string.length; ++i) {
+            switch (value->as_string.value[i]) {
+            case '\n':
+                printf("\\n");
+                break;
+            case '\r':
+                printf("\\r");
+                break;
+            case '\t':
+                printf("\\t");
+                break;
+            case '"':
+                printf("\\\"");
+                break;
+            default:
+                putchar(value->as_string.value[i]);
+            }
+        }
         putchar('"');
         break;
     case ValueTypeVoid:
