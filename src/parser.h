@@ -57,7 +57,7 @@ enum ExprType {
 };
 
 struct RoutineCallExpr {
-    char *routine_name;
+    struct Expr *routine_value;
     struct Expr **arguments;
     size_t amount_arguments;
 };

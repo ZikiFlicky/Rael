@@ -174,7 +174,7 @@ static RaelValue value_at(struct Scope *scope, struct Expr *expr) {
 
 static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr call, struct State state) {
     struct Scope routine_scope;
-    RaelValue maybe_routine = scope_get(scope, call.routine_name);
+    RaelValue maybe_routine = expr_eval(scope, call.routine_value);
 
     if (maybe_routine->type != ValueTypeRoutine) {
         value_dereference(maybe_routine);
@@ -344,9 +344,8 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(rhs);
 
         return value;
-    case ExprTypeRoutineCall: {
+    case ExprTypeRoutineCall:
         return routine_call_eval(scope, expr->as_call, expr->state);
-    }
     case ExprTypeAt:
         return value_at(scope, expr);
     case ExprTypeRedirect:

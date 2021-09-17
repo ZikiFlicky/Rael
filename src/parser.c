@@ -232,130 +232,129 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     }
 }
 
-/** routine call is:
- *    :key(arguments, seperated, by, a, comma)
- *  example:
- *    :add(5, 8)
- **/
-static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
-    struct Expr *expr;
-    struct RoutineCallExpr call;
-    struct State backtrack = lexer_dump_state(&parser->lexer);
-    struct Token key_token;
-    struct Expr *argument;
-
-    if (!lexer_tokenize(&parser->lexer))
-        return NULL;
-
-    if (parser->lexer.token.name != TokenNameKey) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
-    key_token = parser->lexer.token;
-
-    // verify there is '(' after the key?
-    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameLeftParen) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
-
-    backtrack = lexer_dump_state(&parser->lexer);
-
-    if ((argument = parser_parse_expr(parser))) {
-        size_t allocated;
-        call.arguments = malloc((allocated = 4) * sizeof(struct Expr*));
-        call.amount_arguments = 0;
-        call.arguments[call.amount_arguments++] = argument;
-        for (;;) {
-            // verify you can tokenize
-            if (!lexer_tokenize(&parser->lexer))
-                parser_error(parser, "Unexpected EOF");
-            // if the token is ')', you can exit the loop
-            if (parser->lexer.token.name == TokenNameRightParen)
-                break;
-            // if there is no comma, error
-            if (parser->lexer.token.name != TokenNameComma)
-                parser_error(parser, "Expected Comma");
-            // parse expression
-            if (!(argument = parser_parse_expr(parser)))
-                parser_error(parser, "Expected expression after ','");
-            // reallocate if needed
-            if (call.amount_arguments == allocated) {
-                call.arguments = realloc(call.arguments, (allocated += 3)*sizeof(struct Expr*));
-            }
-            // push argument
-            call.arguments[call.amount_arguments++] = argument;
-        }
-    } else if (lexer_tokenize(&parser->lexer)) {
-        if (parser->lexer.token.name == TokenNameRightParen) {
-            call.amount_arguments = 0;
-            call.arguments = NULL;
-        } else {
-            rael_error(backtrack, "Expected a ')'");
-        }
-    } else {
-        parser_error(parser, "Unexpected EOF");
-    }
-
-    call.routine_name = token_allocate_key(&key_token);
-    expr = malloc(sizeof(struct Expr));
-    expr->type = ExprTypeRoutineCall;
-    expr->as_call = call;
-    return expr;
-}
-
 static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     struct Expr *expr;
     struct State backtrack = lexer_dump_state(&parser->lexer);;
 
-    if ((expr = parser_parse_routine_call(parser)) ||
-        (expr = parser_parse_literal_expr(parser))) {
-        expr->state = backtrack;
-        return expr;
-    }
+    if (!(expr = parser_parse_literal_expr(parser))) {
+        if (!lexer_tokenize(&parser->lexer))
+            return NULL;
 
-    if (!lexer_tokenize(&parser->lexer))
-        return NULL;
+        if (parser->lexer.token.name == TokenNameSub) {
+            struct Expr *to_negative;
 
-    if (parser->lexer.token.name == TokenNameSub) {
-        struct Expr *to_negative;
+            if (!(to_negative = parser_parse_expr_single(parser)))
+                parser_error(parser, "Expected an expression after or before '-'");
 
-        if (!(to_negative = parser_parse_expr_single(parser)))
-            parser_error(parser, "Expected an expression after or before '-'");
+            expr = malloc(sizeof(struct Expr));
+            expr->type = ExprTypeNeg;
+            expr->as_single = to_negative;
+        } else if (parser->lexer.token.name == TokenNameSizeof) {
+            struct Expr *sizeof_value;
 
-        expr = malloc(sizeof(struct Expr));
-        expr->type = ExprTypeNeg;
-        expr->as_single = to_negative;
-    } else if (parser->lexer.token.name == TokenNameSizeof) {
-        struct Expr *sizeof_value;
+            if (!(sizeof_value = parser_parse_expr_single(parser))) {
+                parser_error(parser, "Expected value after 'sizeof'");
+            }
 
-        if (!(sizeof_value = parser_parse_expr_single(parser))) {
-            parser_error(parser, "Expected value after 'sizeof'");
+            expr = malloc(sizeof(struct Expr));
+            expr->type = ExprTypeSizeof;
+            expr->as_single = sizeof_value;
+        } else if (parser->lexer.token.name == TokenNameLeftParen) {
+            if (!(expr = parser_parse_expr(parser))) {
+                parser_error(parser, "Expected an expression after left paren");
+            }
+            if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen) {
+                parser_error(parser, "Unmatched '('");
+            }
+        } else {
+            lexer_load_state(&parser->lexer, backtrack);
+            return NULL;
         }
-
-        expr = malloc(sizeof(struct Expr));
-        expr->type = ExprTypeSizeof;
-        expr->as_single = sizeof_value;
-    } else if (parser->lexer.token.name == TokenNameLeftParen) {
-        if (!(expr = parser_parse_expr(parser))) {
-            parser_error(parser, "Expected an expression after left paren");
-        }
-        if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen) {
-            parser_error(parser, "Unmatched '('");
-        }
-    } else {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
     }
 
     expr->state = backtrack;
     return expr;
 }
 
+
+/** routine call is:
+ *    :key(arguments, seperated, by, a, comma)
+ *  example:
+ *    :add(5, 8)
+ **/
+static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
+    // FIXME: find a more elegant solution
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_expr_single(parser)))
+        return NULL;
+
+    for (;;) {
+        struct RoutineCallExpr call;
+        struct State backtrack, start_backtrack;
+        struct Expr *argument;
+
+        start_backtrack = backtrack = lexer_dump_state(&parser->lexer);
+
+        // verify there is '(' after the key?
+        if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameLeftParen) {
+            lexer_load_state(&parser->lexer, backtrack);
+            break;
+        }
+
+        backtrack = lexer_dump_state(&parser->lexer);
+
+        call.routine_value = expr;
+
+        if ((argument = parser_parse_expr(parser))) {
+            size_t allocated;
+            call.arguments = malloc((allocated = 4) * sizeof(struct Expr*));
+            call.amount_arguments = 0;
+            call.arguments[call.amount_arguments++] = argument;
+            for (;;) {
+                // verify you can tokenize
+                if (!lexer_tokenize(&parser->lexer))
+                    parser_error(parser, "Unexpected EOF");
+                // if the token is ')', you can exit the loop
+                if (parser->lexer.token.name == TokenNameRightParen)
+                    break;
+                // if there is no comma, error
+                if (parser->lexer.token.name != TokenNameComma)
+                    parser_error(parser, "Expected Comma");
+                // parse expression
+                if (!(argument = parser_parse_expr(parser)))
+                    parser_error(parser, "Expected expression after ','");
+                // reallocate if needed
+                if (call.amount_arguments == allocated) {
+                    call.arguments = realloc(call.arguments, (allocated += 3)*sizeof(struct Expr*));
+                }
+                // push argument
+                call.arguments[call.amount_arguments++] = argument;
+            }
+        } else if (lexer_tokenize(&parser->lexer)) {
+            if (parser->lexer.token.name == TokenNameRightParen) {
+                call.amount_arguments = 0;
+                call.arguments = NULL;
+            } else {
+                rael_error(backtrack, "Expected a ')'");
+            }
+        } else {
+            parser_error(parser, "Unexpected EOF");
+        }
+
+        expr = malloc(sizeof(struct Expr));
+        expr->type = ExprTypeRoutineCall;
+        expr->as_call = call;
+        expr->state = start_backtrack;
+    }
+
+    return expr;
+}
+
 static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_expr_single(parser))) {
+    if (!(expr = parser_parse_routine_call(parser))) {
         return NULL;
     }
 
@@ -369,7 +368,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeMul;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
+                if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
                     rael_error(backtrack, "Expected a value after '*'");
                 }
                 break;
@@ -377,7 +376,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeDiv;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
+                if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
                     rael_error(backtrack, "Expected a value after '/'");
                 }
                 break;
