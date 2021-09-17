@@ -165,16 +165,50 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
     switch (parser->lexer.token.name) {
     case TokenNameString: {
-        struct RaelStringValue string;
+        char *string;
+        size_t allocated = 0, length = 0;
 
-        string.value = malloc((string.length = parser->lexer.token.length) * sizeof(char));
-        strncpy(string.value, parser->lexer.token.string, parser->lexer.token.length);
+        for (size_t i = 0; i < parser->lexer.token.length; ++i) {
+            char c;
+            if (parser->lexer.token.string[i] == '\\') {
+                // there isn't really a reason to have more than this
+                switch (parser->lexer.token.string[++i]) {
+                case 'n':
+                    c = '\n';
+                    break;
+                case 'r':
+                    c = '\r';
+                    break;
+                case 't':
+                    c = '\t';
+                    break;
+                default:
+                    c = parser->lexer.token.string[i];
+                }
+            } else {
+                c = parser->lexer.token.string[i];
+            }
+
+            if (allocated == 0) {
+                string = malloc((allocated = 16) * sizeof(char));
+            } else if (length == allocated) {
+                string = realloc(string, (allocated += 16) * sizeof(char));
+            }
+
+            string[length++] = c;
+        }
+
+        // shrink size
+        string = realloc(string, length * sizeof(char));
 
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
         expr->as_value = malloc(sizeof(struct ASTValue));
         expr->as_value->type = ValueTypeString;
-        expr->as_value->as_string = string;
+        expr->as_value->as_string = (struct RaelStringValue) {
+            .value = string,
+            .length = length
+        };
 
         return expr;
     }
