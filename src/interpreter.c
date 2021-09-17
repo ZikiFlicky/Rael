@@ -172,6 +172,40 @@ static RaelValue value_at(struct Scope *scope, struct Expr *expr) {
     return value;
 }
 
+static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr call, struct State state) {
+    struct Scope routine_scope;
+    RaelValue maybe_routine = scope_get(scope, call.routine_name);
+
+    if (maybe_routine->type != ValueTypeRoutine) {
+        value_dereference(maybe_routine);
+        rael_error(state, "Call not possible on non-routine");
+    }
+
+    scope_construct(&routine_scope, maybe_routine->as_routine.scope);
+
+    if (maybe_routine->as_routine.amount_parameters != call.amount_arguments)
+        rael_error(state, "Arguments don't match parameters");
+
+    // set parameters as variables
+    for (size_t i = 0; i < maybe_routine->as_routine.amount_parameters; ++i) {
+        scope_set(&routine_scope,
+                maybe_routine->as_routine.parameters[i],
+                expr_eval(scope, call.arguments[i]));
+    }
+
+    for (struct Node **node = maybe_routine->as_routine.block; *node; ++node) {
+        RaelValue return_value;
+        // if got a return statement, break
+        if ((interpreter_interpret_node(&routine_scope, *node, &return_value))) {
+            scope_dealloc(&routine_scope);
+            return return_value;
+        }
+    }
+
+    scope_dealloc(&routine_scope);
+    return value_create(ValueTypeVoid);
+}
+
 static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
     RaelValue lhs, rhs, single, value;
 
@@ -311,33 +345,7 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
 
         return value;
     case ExprTypeRoutineCall: {
-        RaelValue maybe_routine = scope_get(scope, expr->as_call.routine_name);
-        struct Scope routine_scope;
-        value = NULL;
-
-        if (maybe_routine->type != ValueTypeRoutine)
-            rael_error(expr->state, "Call not possible on non-routine");
-        scope_construct(&routine_scope, maybe_routine->as_routine.scope);
-        // verify the amount of arguments equals the amount of parameters
-        if (maybe_routine->as_routine.amount_parameters != expr->as_call.amount_arguments)
-            rael_error(expr->state, "Arguments don't match parameters");
-        // set parameters as variables
-        for (size_t i = 0; i < maybe_routine->as_routine.amount_parameters; ++i) {
-            scope_set(&routine_scope,
-                    maybe_routine->as_routine.parameters[i],
-                    expr_eval(scope, expr->as_call.arguments[i]));
-        }
-
-        for (struct Node **node = maybe_routine->as_routine.block; *node; ++node) {
-            // if got a return statement, break
-            if (interpreter_interpret_node(&routine_scope, *node, &value))
-                break;
-        }
-
-        scope_dealloc(&routine_scope);
-        if (value)
-            return value;
-        return value_create(ValueTypeVoid);
+        return routine_call_eval(scope, expr->as_call, expr->state);
     }
     case ExprTypeAt:
         return value_at(scope, expr);
@@ -565,6 +573,8 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
             } else {
                 *returned_value = value_create(ValueTypeVoid);
             }
+        } else {
+            rael_error(node->state, "'^' outside a routine is not permitted");
         }
         had_return = true;
         break;
@@ -583,8 +593,7 @@ void interpret(struct Node **instructions) {
 
     scope_construct(&interp.scope, NULL);
     for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
-        if (interpreter_interpret_node(&interp.scope, node, NULL))
-            rael_error(node->state, "'^' outside a routine is not permitted");
+        interpreter_interpret_node(&interp.scope, node, NULL);
     }
     scope_dealloc(&interp.scope);
     // for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
