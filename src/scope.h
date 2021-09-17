@@ -29,6 +29,4 @@ void scope_dealloc(struct Scope* const scope);
 
 RaelValue scope_get(struct Scope* const scope, char *key);
 
-struct Scope *scope_get_key_scope(struct Scope *scope, char* const key);
-
 #endif // RAEL_SCOPE_H
