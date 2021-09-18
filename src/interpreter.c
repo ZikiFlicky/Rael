@@ -595,33 +595,43 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
             }
             break;
         }
-    case LoopThrough: {
-        RaelValue iterator = expr_eval(scope, node->loop.iterate.expr);
-        size_t length;
+        case LoopThrough: {
+            RaelValue iterator = expr_eval(scope, node->loop.iterate.expr);
+            size_t length;
 
-        switch (iterator->type) {
-        case ValueTypeString:
-            length = iterator->as_string.length;
-            break;
-        case ValueTypeStack:
-            length = iterator->as_stack.length;
-            break;
-        default:
-            rael_error(node->loop.iterate.expr->state, "Expected an iterable");
-        }
+            switch (iterator->type) {
+            case ValueTypeString:
+                length = iterator->as_string.length;
+                break;
+            case ValueTypeStack:
+                length = iterator->as_stack.length;
+                break;
+            default:
+                rael_error(node->loop.iterate.expr->state, "Expected an iterable");
+            }
 
-        for (size_t i = 0; i < length; ++i) {
-            scope_set(&loop_scope, node->loop.iterate.key, value_at(iterator, i));
+            for (size_t i = 0; i < length; ++i) {
+                scope_set(&loop_scope, node->loop.iterate.key, value_at(iterator, i));
 
-            for (size_t i = 0; node->loop.block[i]; ++i) {
-                if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
-                    had_return = true;
-                    break;
+                for (size_t i = 0; node->loop.block[i]; ++i) {
+                    if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
+                        had_return = true;
+                        break;
+                    }
                 }
             }
+            break;
         }
-        break;
-        }
+        case LoopForever:
+            for (;;) {
+                for (size_t i = 0; node->loop.block[i]; ++i) {
+                    if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
+                        had_return = true;
+                        break;
+                    }
+                }
+            }
+            break;
         default:
             assert(0);
         }

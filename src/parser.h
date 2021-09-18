@@ -94,7 +94,8 @@ struct IfStatementNode {
 struct LoopNode {
     enum {
         LoopWhile,
-        LoopThrough // iterate
+        LoopThrough, // iterate
+        LoopForever
     } type;
     union {
         struct Expr *while_condition;

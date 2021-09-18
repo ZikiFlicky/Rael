@@ -726,6 +726,7 @@ static struct Node **parser_parse_block(struct Parser* const parser) {
         }
         nodes[node_idx++] = node;
     }
+
     nodes[node_idx] = NULL;
     return nodes;
 }
@@ -869,6 +870,11 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
 
     backtrack = lexer_dump_state(&parser->lexer);
 
+    if ((loop.block = parser_parse_block(parser))) {
+        loop.type = LoopForever;
+        goto loop_parsing_end;
+    }
+
     if (!lexer_tokenize(&parser->lexer))
         parser_error(parser, "Expected expression after 'loop'");
 
@@ -897,8 +903,9 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
     }
 
     if (!(loop.block = parser_parse_block(parser)))
-        parser_error(parser, "Expected block after expression");
+        parser_error(parser, "Expected block after loop");
 
+loop_parsing_end:
     parser_maybe_expect_newline(parser);
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLoop;
