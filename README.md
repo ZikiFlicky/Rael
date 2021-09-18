@@ -29,9 +29,9 @@ To build, run `make`.
 To run the tests, run `python runtests.py`
 
 ## Usage
-To run a file, `build/rael --file filename.rael`
+To run a file, `build/rael filename.rael`
 
 ## Examples
 Examples can be found in the examples directory.
 
-They can be run like this: `build/rael --file examples/beer.rael`
+They can be run like this: `build/rael examples/beer.rael`
