@@ -1,0 +1,3 @@
+Error [1:19]: Expected an expression after 'through'
+| loop :232 through {
+|                   ^

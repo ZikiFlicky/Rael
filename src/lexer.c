@@ -266,6 +266,9 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     // try to tokenize `sizeof`
     if (lexer_match_keyword(lexer, "sizeof", 6, TokenNameSizeof))
         return true;
+    // try to tokenize `through`
+    if (lexer_match_keyword(lexer, "through", 7, TokenNameThrough))
+        return true;
     lexer_error(lexer, "Unrecognized token");
     return false;
 }

@@ -141,7 +141,25 @@ static void stack_set(struct Scope *scope, struct Expr *expr, RaelValue value) {
     value_dereference(rhs);
 }
 
-static RaelValue value_at(struct Scope *scope, struct Expr *expr) {
+static RaelValue value_at(RaelValue iterable, size_t idx) {
+    RaelValue value;
+
+    if (iterable->type == ValueTypeStack) {
+        value = iterable->as_stack.values[idx];
+        ++value->reference_count;
+    } else if (iterable->type == ValueTypeString) {
+        value = value_create(ValueTypeString);
+        value->as_string.length = 1;
+        value->as_string.value = malloc(1 * sizeof(char));
+        value->as_string.value[0] = iterable->as_string.value[idx];
+    } else {
+        assert(0);
+    }
+
+    return value;
+}
+
+static RaelValue interpret_value_at(struct Scope *scope, struct Expr *expr) {
     RaelValue lhs, rhs, value;
 
     assert(expr->type == ExprTypeAt);
@@ -347,7 +365,7 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
     case ExprTypeRoutineCall:
         return routine_call_eval(scope, expr->as_call, expr->state);
     case ExprTypeAt:
-        return value_at(scope, expr);
+        return interpret_value_at(scope, expr);
     case ExprTypeRedirect:
         lhs = expr_eval(scope, expr->lhs);
         rhs = expr_eval(scope, expr->rhs);
@@ -561,17 +579,51 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
     }
     case NodeTypeLoop: {
         struct Scope loop_scope;
-        RaelValue condition;
         scope_construct(&loop_scope, scope);
 
-        while (value_as_bool((condition = expr_eval(scope, node->if_stat.condition)))) {
-            value_dereference(condition);
-            for (size_t i = 0; node->if_stat.block[i]; ++i) {
-                if (interpreter_interpret_node(scope, node->if_stat.block[i], returned_value)) {
+        switch (node->loop.type) {
+        case LoopWhile: {
+            RaelValue condition;
+            while (value_as_bool((condition = expr_eval(&loop_scope, node->loop.while_condition)))) {
+                value_dereference(condition);
+                for (size_t i = 0; node->loop.block[i]; ++i) {
+                    if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
+                        had_return = true;
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+    case LoopThrough: {
+        RaelValue iterator = expr_eval(scope, node->loop.iterate.expr);
+        size_t length;
+
+        switch (iterator->type) {
+        case ValueTypeString:
+            length = iterator->as_string.length;
+            break;
+        case ValueTypeStack:
+            length = iterator->as_stack.length;
+            break;
+        default:
+            rael_error(node->loop.iterate.expr->state, "Expected an iterable");
+        }
+
+        for (size_t i = 0; i < length; ++i) {
+            scope_set(&loop_scope, node->loop.iterate.key, value_at(iterator, i));
+
+            for (size_t i = 0; node->loop.block[i]; ++i) {
+                if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
                     had_return = true;
                     break;
                 }
             }
+        }
+        break;
+        }
+        default:
+            assert(0);
         }
         scope_dealloc(&loop_scope);
         break;

@@ -30,7 +30,8 @@ enum TokenName {
     TokenNameCaret,
     TokenNameAt,
     TokenNameRedirect,
-    TokenNameSizeof
+    TokenNameSizeof,
+    TokenNameThrough
 };
 
 struct Token {

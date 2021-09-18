@@ -857,24 +857,48 @@ end:
 static struct Node *parser_parse_loop(struct Parser* const parser) {
     struct Node *node;
     struct State backtrack = lexer_dump_state(&parser->lexer);
-    struct LoopNode loop = {
-        .block = NULL,
-        .condition = NULL
-    };
-    // is there something?
+    struct LoopNode loop;
+
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
-    // verify it starts with 'loop'
+
     if (parser->lexer.token.name != TokenNameLoop) {
         lexer_load_state(&parser->lexer, backtrack);
         return NULL;
     }
-    if (!(loop.condition = parser_parse_expr(parser))) {
-        parser_error(parser, "Expected an expression after if keyword");
+
+    backtrack = lexer_dump_state(&parser->lexer);
+
+    if (!lexer_tokenize(&parser->lexer))
+        parser_error(parser, "Expected expression after 'loop'");
+
+    if (parser->lexer.token.name == TokenNameKey) {
+        struct Token key_token = parser->lexer.token;
+
+        if (lexer_tokenize(&parser->lexer) && parser->lexer.token.name == TokenNameThrough) {
+            if (!(loop.iterate.expr = parser_parse_expr(parser)))
+                parser_error(parser, "Expected an expression after 'through'");
+
+            loop.type = LoopThrough;
+            loop.iterate.key = token_allocate_key(&key_token);
+        } else {
+            lexer_load_state(&parser->lexer, backtrack);
+            // we already know there is a key
+            assert(loop.while_condition = parser_parse_expr(parser));
+            loop.type = LoopWhile;
+        }
+    } else {
+        lexer_load_state(&parser->lexer, backtrack);
+
+        if (!(loop.while_condition = parser_parse_expr(parser)))
+            parser_error(parser, "Expected expression after loop");
+
+        loop.type = LoopWhile;
     }
-    if (!(loop.block = parser_parse_block(parser))) {
+
+    if (!(loop.block = parser_parse_block(parser)))
         parser_error(parser, "Expected block after expression");
-    }
+
     parser_maybe_expect_newline(parser);
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLoop;

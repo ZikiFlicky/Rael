@@ -1,0 +1,3 @@
+loop :abc through { 42, 69, 420 } {
+    log :abc
+}

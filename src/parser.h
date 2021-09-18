@@ -92,7 +92,17 @@ struct IfStatementNode {
 };
 
 struct LoopNode {
-    struct Expr *condition;
+    enum {
+        LoopWhile,
+        LoopThrough // iterate
+    } type;
+    union {
+        struct Expr *while_condition;
+        struct {
+            char *key;
+            struct Expr *expr;
+        } iterate;
+    };
     struct Node **block;
 };
 
