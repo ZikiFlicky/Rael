@@ -379,12 +379,8 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
 
         // no need to dereference a *used* value
         lhs->as_stack.values[lhs->as_stack.length++] = rhs;
-        value_dereference(lhs);
 
-        // because you return a reference to the pushed value
-        ++rhs->reference_count;
-
-        return rhs;
+        return lhs;
     case ExprTypeSizeof: {
         int size;
         single = expr_eval(scope, expr->as_single);
