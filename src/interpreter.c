@@ -44,36 +44,6 @@ void rael_error(struct State state, const char* const error_message) {
     exit(1);
 }
 
-RaelValue value_create(enum ValueType type) {
-    RaelValue value = malloc(sizeof(struct RaelValue));
-    value->type = type;
-    value->reference_count = 1;
-    return value;
-}
-
-void value_dereference(RaelValue value) {
-    --value->reference_count;
-    if (value->reference_count == 0) {
-        switch (value->type) {
-        case ValueTypeRoutine:
-            break;
-        case ValueTypeStack:
-            for (size_t i = 0; i < value->as_stack.length; ++i) {
-                value_dereference(value->as_stack.values[i]);
-            }
-            free(value->as_stack.values);
-            break;
-        case ValueTypeString:
-            if (value->as_string.length)
-                free(value->as_string.value);
-            break;
-        default:
-            break;
-        }
-        free(value);
-    }
-}
-
 static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
     RaelValue out_value = value_create(value.type);
 
