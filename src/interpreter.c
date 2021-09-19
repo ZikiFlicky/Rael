@@ -447,8 +447,6 @@ static void value_log_as_original(RaelValue value) {
         printf(" }");
         break;
     default:
-        printf("%d\n", value->type);
-        exit(0);
         assert(0);
     }
 }
