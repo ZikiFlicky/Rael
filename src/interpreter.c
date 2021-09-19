@@ -52,10 +52,8 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
         out_value->as_number = value.as_number;
         break;
     case ValueTypeString:
-        // duplicate string
-        out_value->as_string.length = value.as_string.length;
-        out_value->as_string.value = malloc(value.as_string.length * sizeof(char));
-        strncpy(out_value->as_string.value, value.as_string.value, value.as_string.length);
+        // it's okay because strings are immutable
+        out_value->as_string = value.as_string;
         break;
     case ValueTypeRoutine:
         out_value->as_routine = value.as_routine;
@@ -65,7 +63,7 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
         out_value->as_stack = (struct RaelStackValue) {
             .length = value.as_stack.length,
             .allocated = value.as_stack.length,
-            .values = malloc(value.as_stack.length * sizeof(struct RaelValue*))
+            .values = malloc(value.as_stack.length * sizeof(RaelValue))
         };
         for (size_t i = 0; i < value.as_stack.length; ++i) {
             out_value->as_stack.values[i] = expr_eval(scope, value.as_stack.entries[i]);
