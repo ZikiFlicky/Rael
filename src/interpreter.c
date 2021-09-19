@@ -54,6 +54,8 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
     case ValueTypeString:
         // it's okay because strings are immutable
         out_value->as_string = value.as_string;
+        // flags not to deallocate, there is still one reference in the ast
+        ++out_value->reference_count;
         break;
     case ValueTypeRoutine:
         out_value->as_routine = value.as_routine;
@@ -75,7 +77,6 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
         assert(0);
     }
 
-    ++out_value->reference_count;
     return out_value;
 }
 
