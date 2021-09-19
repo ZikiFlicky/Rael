@@ -16,10 +16,10 @@ def main():
             if not exp_file in files:
                 print("no .exp file for '{}'".format(file))
             else:
-                with open(TESTDIR + exp_file, "r") as f:
+                with open(TESTDIR + exp_file, "rb") as f:
                     try:
                         output = subprocess.check_output("{} {}".format(RAELPATH, TESTDIR + file),
-                            shell=True, stderr=subprocess.STDOUT).decode()
+                            shell=True, stderr=subprocess.STDOUT)
                     except subprocess.CalledProcessError as ex:
                         output = ex.output
                     expected = f.read()
@@ -30,9 +30,9 @@ def main():
                         failed.append(test_number)
                         print("Test {} failed!".format(test_number))
                         print("expected:")
-                        print(expected)
+                        print(expected.decode())
                         print("output:")
-                        print(output)
+                        print(output.decode())
         else:
             break
         i += 1
