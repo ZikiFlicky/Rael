@@ -343,7 +343,7 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
             rael_error(expr->lhs->state, "Expected a stack value");
         }
         if (lhs->as_stack.length == lhs->as_stack.allocated) {
-            lhs->as_stack.values = realloc(lhs->as_stack.values, (lhs->as_stack.allocated += 8) * sizeof(struct RaelValue));
+            lhs->as_stack.values = realloc(lhs->as_stack.values, (lhs->as_stack.allocated += 8) * sizeof(RaelValue));
         }
 
         // no need to dereference a *used* value
