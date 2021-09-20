@@ -54,8 +54,8 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
     case ValueTypeString:
         // it's okay because strings are immutable
         out_value->as_string = value.as_string;
-        // flags not to deallocate, there is still one reference in the ast
-        ++out_value->reference_count;
+        // flags not to deallocate string, there is still a reference in the ast
+        out_value->as_string.does_reference_ast = true;
         break;
     case ValueTypeRoutine:
         out_value->as_routine = value.as_routine;
@@ -121,6 +121,7 @@ static RaelValue value_at(RaelValue iterable, size_t idx) {
         value->as_string.length = 1;
         value->as_string.value = malloc(1 * sizeof(char));
         value->as_string.value[0] = iterable->as_string.value[idx];
+        value->as_string.does_reference_ast = false;
     } else {
         assert(0);
     }
@@ -149,6 +150,7 @@ static RaelValue interpret_value_at(struct Scope *scope, struct Expr *expr) {
         value->as_string.length = 1;
         value->as_string.value = malloc(1 * sizeof(char));
         value->as_string.value[0] = lhs->as_string.value[rhs->as_number.as_int];
+        value->as_string.does_reference_ast = false;
     } else {
         rael_error(expr->lhs->state, "Expected string or stack on the left of 'at'");
     }
@@ -213,6 +215,7 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
 
             string.length = lhs->as_string.length + rhs->as_string.length;
             string.value = malloc(string.length * sizeof(char));
+            string.does_reference_ast = false;
 
             strncpy(string.value, lhs->as_string.value, lhs->as_string.length);
             strncpy(string.value + lhs->as_string.length, rhs->as_string.value, rhs->as_string.length);

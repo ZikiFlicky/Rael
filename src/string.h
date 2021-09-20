@@ -6,6 +6,7 @@
 struct RaelStringValue {
     char *value;
     size_t length;
+    bool does_reference_ast;
 };
 
 #endif // RAEL_STRING_H

@@ -22,7 +22,7 @@ void value_dereference(RaelValue value) {
             free(value->as_stack.values);
             break;
         case ValueTypeString:
-            if (value->as_string.length)
+            if (!value->as_string.does_reference_ast && value->as_string.length)
                 free(value->as_string.value);
             break;
         default:
