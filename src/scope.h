@@ -23,7 +23,9 @@ struct Scope {
 
 void scope_construct(struct Scope* const scope, struct Scope* const parent_scope); 
 
-bool scope_set(struct Scope *scope, char *key, RaelValue value);
+void scope_set_local(struct Scope *scope, char *key, RaelValue value);
+
+void scope_set(struct Scope *scope, char *key, RaelValue value);
 
 void scope_dealloc(struct Scope* const scope);
 

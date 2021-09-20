@@ -37,45 +37,61 @@ void scope_dealloc(struct Scope* const scope) {
     free(scope->variables.buckets);
 }
 
-bool scope_set(struct Scope* const scope, char *key, RaelValue value) {
+
+
+void scope_set(struct Scope* const scope, char *key, RaelValue value) {
     struct BucketNode *node;
-    struct BucketNode *previous_node;
+    struct BucketNode *last_top_scope_node;
     size_t hash_result;
 
-    if (scope->variables.allocated == 0) {
-        scope->variables.buckets = calloc(8, sizeof(struct BucketNode *));
-        if (!scope->variables.buckets)
-            return false;
-        scope->variables.allocated = 8;
-    }
+    last_top_scope_node = NULL;
 
-    hash_result = scope_hash(scope, key);
-    previous_node = NULL;
-    for (node = scope->variables.buckets[hash_result]; node; node = node->next) {
-        if (!node->key || strcmp(node->key, key) == 0) {
-            // dereference current value at position if already exists at key
-            value_dereference(node->value);
-            node->key = key;
-            node->value = value;
-            return true;
+    for (struct Scope *sc = scope; sc; sc = sc->parent) {
+        if (sc->variables.allocated > 0) {
+            hash_result = scope_hash(sc, key);
+            for (node = sc->variables.buckets[hash_result]; node; node = node->next) {
+                if (strcmp(node->key, key) == 0) {
+                    // dereference current value at position if already exists at key
+                    value_dereference(node->value);
+                    node->key = key;
+                    node->value = value;
+                    return;
+                }
+
+                if (sc == scope)
+                    last_top_scope_node = node;
+            }
         }
-        previous_node = node;
-
     }
-    if (!(node = malloc(sizeof(struct BucketNode))))
-        return false;
 
+    if (scope->variables.allocated == 0) {
+        scope->variables.buckets = calloc((scope->variables.allocated = 8), sizeof(struct BucketNode *));
+    }
+
+    node = malloc(sizeof(struct BucketNode));
+
+    // set node
     node->key = key;
     node->value = value;
     node->next = NULL;
 
-    if (!previous_node)
-        scope->variables.buckets[hash_result] = node;
+    // add node
+    if (!last_top_scope_node)
+        scope->variables.buckets[scope_hash(scope, key)] = node;
     else
-        previous_node->next = node;
+        last_top_scope_node->next = node;
 
+    // increment counter (not used yet)
     ++scope->variables.pairs;
-    return true;
+}
+
+void scope_set_local(struct Scope *scope, char* const key, RaelValue value) {
+    struct Scope *parent;
+
+    parent = scope->parent;
+    scope->parent = NULL;
+    scope_set(scope, key, value);
+    scope->parent = parent;
 }
 
 RaelValue scope_get(struct Scope *scope, char* const key) {

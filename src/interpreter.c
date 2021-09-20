@@ -177,9 +177,9 @@ static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr c
 
     // set parameters as variables
     for (size_t i = 0; i < maybe_routine->as_routine.amount_parameters; ++i) {
-        scope_set(&routine_scope,
-                maybe_routine->as_routine.parameters[i],
-                expr_eval(scope, call.arguments[i]));
+        scope_set_local(&routine_scope,
+                        maybe_routine->as_routine.parameters[i],
+                        expr_eval(scope, call.arguments[i]));
     }
 
     for (struct Node **node = maybe_routine->as_routine.block; *node; ++node) {
