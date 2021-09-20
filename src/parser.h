@@ -138,4 +138,6 @@ struct Parser {
 
 struct Node **parse(char* const stream);
 
+void node_delete(struct Node* const node);
+
 #endif // RAEL_PARSER_H

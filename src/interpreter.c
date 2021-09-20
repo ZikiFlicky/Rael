@@ -635,8 +635,8 @@ void interpret(struct Node **instructions) {
         interpreter_interpret_node(&interp.scope, node, NULL);
     }
     scope_dealloc(&interp.scope);
-    // for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
-    //     node_delete(node);
-    // }
-    // free(interp.instructions);
+    for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
+        node_delete(node);
+    }
+    free(interp.instructions);
 }

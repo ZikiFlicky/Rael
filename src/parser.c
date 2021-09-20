@@ -950,3 +950,146 @@ struct Node **parse(char* const stream) {
     }
     return parser.nodes;
 }
+
+static void expr_delete(struct Expr* const expr);
+
+void node_delete(struct Node* const node);
+
+static void astvalue_delete(struct ASTValue* value) {
+    switch (value->type) {
+    case ValueTypeVoid:
+    case ValueTypeNumber:
+        break;
+    case ValueTypeString:
+        free(value->as_string.value);
+        break;
+    case ValueTypeRoutine:
+        for (size_t i = 0; i < value->as_routine.amount_parameters; ++i) {
+            free(value->as_routine.parameters[i]);
+        }
+
+        free(value->as_routine.parameters);
+
+        for (size_t i = 0; value->as_routine.block[i]; ++i) {
+            node_delete(value->as_routine.block[i]);
+        }
+
+        free(value->as_routine.block);
+
+        break;
+    case ValueTypeStack:
+        for (size_t i = 0; i < value->as_stack.length; ++i) {
+            expr_delete(value->as_stack.entries[i]);
+        }
+
+        free(value->as_stack.entries);
+        break;
+    default:
+        assert(0);
+    }
+    free(value);
+}
+
+static void expr_delete(struct Expr* const expr) {
+    switch (expr->type) {
+    case ExprTypeValue:
+        astvalue_delete(expr->as_value);
+        break;
+    case ExprTypeRoutineCall:
+        expr_delete(expr->as_call.routine_value);
+        for (size_t i = 0; i < expr->as_call.amount_arguments; ++i) {
+            expr_delete(expr->as_call.arguments[i]);
+        }
+        free(expr->as_call.arguments);
+        break;
+    case ExprTypeKey:
+        free(expr->as_key);
+        break;
+    case ExprTypeAdd:
+    case ExprTypeSub:
+    case ExprTypeMul:
+    case ExprTypeDiv:
+    case ExprTypeEquals:
+    case ExprTypeSmallerThen:
+    case ExprTypeBiggerThen:
+    case ExprTypeAt:
+    case ExprTypeRedirect:
+        expr_delete(expr->lhs);
+        expr_delete(expr->rhs);
+        break;
+    case ExprTypeSizeof:
+    case ExprTypeNeg:
+        expr_delete(expr->as_single);
+        break;
+    default:
+        assert(0);
+    }
+    free(expr);
+}
+
+void node_delete(struct Node* const node) {
+    switch (node->type) {
+    case NodeTypeIf:
+        expr_delete(node->if_stat.condition);
+
+        for (size_t i = 0; node->if_stat.block[i]; ++i)
+            node_delete(node->if_stat.block[i]);
+
+        free(node->if_stat.block);
+
+        if (node->if_stat.else_block) {
+            for (size_t i = 0; node->if_stat.else_block[i]; ++i)
+                node_delete(node->if_stat.else_block[i]);
+
+            free(node->if_stat.else_block);
+        }
+        break;
+    case NodeTypeLog:
+        for (size_t i = 0; node->log_values[i]; ++i) {
+            expr_delete(node->log_values[i]);
+        }
+
+        free(node->log_values);
+        break;
+    case NodeTypeLoop:
+        switch (node->loop.type) {
+        case LoopWhile:
+            expr_delete(node->loop.while_condition);
+            break;
+        case LoopThrough:
+            free(node->loop.iterate.key);
+            expr_delete(node->loop.iterate.expr);
+            break;
+        case LoopForever:
+            break;
+        default:
+            assert(0);
+        }
+
+        for (size_t i = 0; node->loop.block[i]; ++i) {
+            node_delete(node->loop.block[i]);
+        }
+
+        free(node->loop.block);
+        break;
+    case NodeTypePureExpr:
+        expr_delete(node->pure);
+        break;
+    case NodeTypeReturn:
+        if (node->return_value) {
+            expr_delete(node->return_value);
+        }
+        break;
+    case NodeTypeSet:
+        if (node->set.set_type == SetTypeKey) {
+            free(node->set.as_key);
+        } else {
+            expr_delete(node->set.as_at_stat);
+        }
+        expr_delete(node->set.expr);
+        break;
+    default:
+        assert(0);
+    }
+    free(node);
+}
