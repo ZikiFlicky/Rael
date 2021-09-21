@@ -545,8 +545,17 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
             value_dereference(condition);
             interrupt = block_run(&if_scope, node->if_stat.block, returned_value, can_break);
         } else {
-            if (node->if_stat.else_block) {
+            switch (node->if_stat.else_type) {
+            case ElseTypeBlock:
                 interrupt = block_run(&if_scope, node->if_stat.else_block, returned_value, can_break);
+                break;
+            case ElseTypeNode:
+                interrupt = interpreter_interpret_node(&if_scope, node->if_stat.else_node, returned_value, can_break);
+                break;
+            case ElseTypeNone:
+                break;
+            default:
+                assert(0);
             }
         }
 

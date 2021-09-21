@@ -89,7 +89,15 @@ enum NodeType {
 struct IfStatementNode {
     struct Expr *condition;
     struct Node **block;
-    struct Node **else_block;
+    enum {
+        ElseTypeNone,
+        ElseTypeBlock,
+        ElseTypeNode
+    } else_type;
+    union {
+        struct Node **else_block;
+        struct Node *else_node;
+    };
 };
 
 struct LoopNode {

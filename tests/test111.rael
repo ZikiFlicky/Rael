@@ -1,0 +1,15 @@
+:0123 routine(:string) {
+    if :string = "thing" {
+        ^ "thing I guess"
+    } else if :string = "not thing" {
+        ^ "not thing so something else"
+    } else {
+        ^ "neither"
+    }
+}
+
+log :0123("thing")
+
+log :0123("not thing")
+
+log :0123("wat")

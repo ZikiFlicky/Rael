@@ -837,37 +837,48 @@ static struct Node *parser_parse_if_statement(struct Parser* const parser) {
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct IfStatementNode if_stat = {
         .block = NULL,
-        .else_block = NULL,
+        .else_type = ElseTypeNone,
         .condition = NULL
     };
-    // is there something?
+
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
-    // verify it starts with 'if'
+
     if (parser->lexer.token.name != TokenNameIf) {
         lexer_load_state(&parser->lexer, backtrack);
         return NULL;
     }
-    if (!(if_stat.condition = parser_parse_expr(parser))) {
+
+    if (!(if_stat.condition = parser_parse_expr(parser)))
         parser_error(parser, "Expected an expression after if keyword");
-    }
-    if (!(if_stat.block = parser_parse_block(parser))) {
+
+    if (!(if_stat.block = parser_parse_block(parser)))
         parser_error(parser, "Expected block after if (expr)");
-    }
+
     parser_maybe_expect_newline(parser);
+
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeIf;
     backtrack = lexer_dump_state(&parser->lexer);
-    if (!lexer_tokenize(&parser->lexer)) {
+    if (!lexer_tokenize(&parser->lexer))
         goto end;
-    }
+
+    // is there an else after the if?
     if (parser->lexer.token.name != TokenNameElse) {
         lexer_load_state(&parser->lexer, backtrack);
         goto end;
     }
-    if (!(if_stat.else_block = parser_parse_block(parser))) {
-        parser_error(parser, "Expected block after Else keyword");
-    }
+
+    parser_maybe_expect_newline(parser);
+
+    if ((if_stat.else_block = parser_parse_block(parser))) {
+        if_stat.else_type = ElseTypeBlock;
+    } else if ((if_stat.else_node = parser_parse_node(parser))) {
+        if_stat.else_type = ElseTypeNode;
+    } else {
+        parser_error(parser, "Expected a block or an instruction after 'else' keyword");
+    } 
+
     parser_maybe_expect_newline(parser);
 end:
     node->if_stat = if_stat;
@@ -1057,12 +1068,21 @@ void node_delete(struct Node* const node) {
 
         free(node->if_stat.block);
 
-        if (node->if_stat.else_block) {
+        switch (node->if_stat.else_type) {
+        case ElseTypeBlock:
             for (size_t i = 0; node->if_stat.else_block[i]; ++i)
                 node_delete(node->if_stat.else_block[i]);
-
             free(node->if_stat.else_block);
+            break;
+        case ElseTypeNode:
+            node_delete(node->if_stat.else_node);
+            break;
+        case ElseTypeNone:
+            break;
+        default:
+            assert(0);
         }
+
         break;
     case NodeTypeLog:
         for (size_t i = 0; node->log_values[i]; ++i) {
