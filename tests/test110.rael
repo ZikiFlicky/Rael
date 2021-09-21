@@ -1,0 +1,9 @@
+loop {
+    if 1 {
+        log 1
+        ;
+    } else {
+        log 2
+        ^
+    }
+}

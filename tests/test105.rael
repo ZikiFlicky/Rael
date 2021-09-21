@@ -1,0 +1,7 @@
+loop :1 through "rael" {
+    loop :2 through "language" {
+        log :2
+        ;
+    }
+    log :1
+}

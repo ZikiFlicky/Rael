@@ -696,6 +696,25 @@ static struct Node *parser_parse_node_return(struct Parser* const parser) {
     return node;
 }
 
+static struct Node *parser_parse_node_break(struct Parser* const parser) {
+    struct State backtrack = lexer_dump_state(&parser->lexer);
+    struct Node *node;
+
+    if (!lexer_tokenize(&parser->lexer))
+        return NULL;
+
+    if (parser->lexer.token.name != TokenNameSemicolon) {
+        lexer_load_state(&parser->lexer, backtrack);
+        return NULL;
+    }
+
+    parser_expect_newline(parser);
+
+    node = malloc(sizeof(struct Node));
+    node->type = NodeTypeBreak;
+    return node;
+}
+
 static struct Node **parser_parse_block(struct Parser* const parser) {
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node **nodes;
@@ -921,7 +940,8 @@ static struct Node *parser_parse_node(struct Parser* const parser) {
         (node = parser_parse_node_log(parser))     ||
         (node = parser_parse_if_statement(parser)) ||
         (node = parser_parse_loop(parser))         ||
-        (node = parser_parse_node_return(parser))) {
+        (node = parser_parse_node_return(parser))  ||
+        (node = parser_parse_node_break(parser))) {
         node->state = prev_state;
         return node;
     }
@@ -1087,6 +1107,8 @@ void node_delete(struct Node* const node) {
             expr_delete(node->set.as_at_stat);
         }
         expr_delete(node->set.expr);
+        break;
+    case NodeTypeBreak:
         break;
     default:
         assert(0);

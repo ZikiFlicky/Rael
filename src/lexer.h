@@ -31,7 +31,8 @@ enum TokenName {
     TokenNameAt,
     TokenNameRedirect,
     TokenNameSizeof,
-    TokenNameThrough
+    TokenNameThrough,
+    TokenNameSemicolon
 };
 
 struct Token {

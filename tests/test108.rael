@@ -1,0 +1,4 @@
+routine() {
+    log "helo"
+    ;
+}()

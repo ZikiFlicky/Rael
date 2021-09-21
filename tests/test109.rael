@@ -1,0 +1,7 @@
+if :undefined_variable_which_is_going_to_be_void_which_translates_to_0_which_is_like_false {
+    ;
+    log "i'm"
+} else {
+    log "rael"
+    ;
+}

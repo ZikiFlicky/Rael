@@ -1,0 +1,4 @@
+helo
+Error [3:5]: ';' has to be inside a loop
+|     ;
+|     ^

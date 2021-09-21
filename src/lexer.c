@@ -242,6 +242,13 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         ++lexer->column;
         return true;
     }
+    if (lexer->stream[0] == ';') {
+        lexer->token.name = TokenNameSemicolon;
+        lexer->token.length = 1;
+        lexer->token.string = lexer->stream++;
+        ++lexer->column;
+        return true;
+    }
     // try to tokenize `log`
     if (lexer_match_keyword(lexer, "log", 3, TokenNameLog))
         return true;

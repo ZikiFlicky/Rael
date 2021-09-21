@@ -83,6 +83,7 @@ enum NodeType {
     NodeTypeLoop,
     NodeTypePureExpr,
     NodeTypeReturn,
+    NodeTypeBreak,
 };
 
 struct IfStatementNode {

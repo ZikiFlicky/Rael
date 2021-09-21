@@ -1,0 +1,4 @@
+22
+Error [2:1]: ';' has to be inside a loop
+| ;
+| ^
