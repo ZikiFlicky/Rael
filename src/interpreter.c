@@ -555,7 +555,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
                 for (size_t i = 0; node->loop.block[i]; ++i) {
                     if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
                         had_return = true;
-                        break;
+                        goto loop_end;
                     }
                 }
             }
@@ -582,7 +582,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
                 for (size_t i = 0; node->loop.block[i]; ++i) {
                     if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
                         had_return = true;
-                        break;
+                        goto loop_end;
                     }
                 }
             }
@@ -593,7 +593,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
                 for (size_t i = 0; node->loop.block[i]; ++i) {
                     if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
                         had_return = true;
-                        break;
+                        goto loop_end;
                     }
                 }
             }
@@ -601,6 +601,7 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
         default:
             assert(0);
         }
+    loop_end:
         scope_dealloc(&loop_scope);
         break;
     }
