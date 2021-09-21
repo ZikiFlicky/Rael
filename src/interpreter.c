@@ -16,6 +16,7 @@ struct Interpreter {
 static bool interpreter_interpret_node(struct Scope *scope, struct Node* const node, RaelValue *returned_value);
 static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr);
 static void value_log(RaelValue value);
+static bool block_run(struct Scope *scope, struct Node **block, RaelValue *returned_value);
 
 void rael_error(struct State state, const char* const error_message) {
     // advance all whitespace
@@ -163,6 +164,7 @@ static RaelValue interpret_value_at(struct Scope *scope, struct Expr *expr) {
 
 static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr call, struct State state) {
     struct Scope routine_scope;
+    RaelValue return_value;
     RaelValue maybe_routine = expr_eval(scope, call.routine_value);
 
     if (maybe_routine->type != ValueTypeRoutine) {
@@ -182,13 +184,9 @@ static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr c
                         expr_eval(scope, call.arguments[i]));
     }
 
-    for (struct Node **node = maybe_routine->as_routine.block; *node; ++node) {
-        RaelValue return_value;
-        // if got a return statement, break
-        if ((interpreter_interpret_node(&routine_scope, *node, &return_value))) {
-            scope_dealloc(&routine_scope);
-            return return_value;
-        }
+    if (block_run(&routine_scope, maybe_routine->as_routine.block, &return_value)) {
+        scope_dealloc(&routine_scope);
+        return return_value;
     }
 
     scope_dealloc(&routine_scope);
@@ -485,6 +483,15 @@ static bool value_as_bool(const RaelValue value) {
     }
 }
 
+static bool block_run(struct Scope *scope, struct Node **block, RaelValue *returned_value) {
+    for (size_t i = 0; block[i]; ++i) {
+        if (interpreter_interpret_node(scope, block[i], returned_value))
+            return true;
+    }
+
+    return false;
+}
+
 /*
     returns true if got a return statement
 */
@@ -524,22 +531,13 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
 
         if (value_as_bool((condition = expr_eval(scope, node->if_stat.condition)))) {
             value_dereference(condition);
-            for (size_t i = 0; node->if_stat.block[i]; ++i) {
-                if (interpreter_interpret_node(&if_scope, node->if_stat.block[i], returned_value)) {
-                    had_return = true;
-                    break;
-                }
-            }
+            had_return = block_run(&if_scope, node->if_stat.block, returned_value);
         } else {
             if (node->if_stat.else_block) {
-                for (size_t i = 0; node->if_stat.else_block[i]; ++i) {
-                    if (interpreter_interpret_node(&if_scope, node->if_stat.else_block[i], returned_value)) {
-                        had_return = true;
-                        break;
-                    }
-                }
+                had_return = block_run(&if_scope, node->if_stat.else_block, returned_value);
             }
         }
+
         scope_dealloc(&if_scope);
         break;
     }
@@ -550,15 +548,13 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
         switch (node->loop.type) {
         case LoopWhile: {
             RaelValue condition;
+
             while (value_as_bool((condition = expr_eval(&loop_scope, node->loop.while_condition)))) {
                 value_dereference(condition);
-                for (size_t i = 0; node->loop.block[i]; ++i) {
-                    if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
-                        had_return = true;
-                        goto loop_end;
-                    }
-                }
+                if ((had_return = block_run(&loop_scope, node->loop.block, returned_value)))
+                    break;
             }
+
             break;
         }
         case LoopThrough: {
@@ -579,29 +575,21 @@ static bool interpreter_interpret_node(struct Scope *scope, struct Node* const n
             for (size_t i = 0; i < length; ++i) {
                 scope_set(&loop_scope, node->loop.iterate.key, value_at(iterator, i));
 
-                for (size_t i = 0; node->loop.block[i]; ++i) {
-                    if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
-                        had_return = true;
-                        goto loop_end;
-                    }
-                }
+                if ((had_return = block_run(&loop_scope, node->loop.block, returned_value)))
+                    break;
             }
             break;
         }
         case LoopForever:
             for (;;) {
-                for (size_t i = 0; node->loop.block[i]; ++i) {
-                    if (interpreter_interpret_node(&loop_scope, node->loop.block[i], returned_value)) {
-                        had_return = true;
-                        goto loop_end;
-                    }
-                }
+                if ((had_return = block_run(&loop_scope, node->loop.block, returned_value)))
+                    break;
             }
             break;
         default:
             assert(0);
         }
-    loop_end:
+
         scope_dealloc(&loop_scope);
         break;
     }
