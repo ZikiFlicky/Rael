@@ -478,6 +478,8 @@ static bool value_as_bool(const RaelValue value) {
             return value->as_number.as_int != 0;
     case ValueTypeRoutine:
         return true;
+    case ValueTypeStack:
+        return value->as_stack.length != 0;
     default:
         assert(0);
     }
