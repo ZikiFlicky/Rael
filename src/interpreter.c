@@ -88,7 +88,7 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
     return out_value;
 }
 
-static void value_verify_is_number_int(struct State number_state, RaelValue number) {
+static void value_verify_is_number_uint(struct State number_state, RaelValue number) {
     if (number->type != ValueTypeNumber)
         rael_error(number_state, "Expected number");
     if (number->as_number.is_float)
@@ -107,7 +107,7 @@ static void stack_set(struct Scope *scope, struct Expr *expr, RaelValue value) {
     if (lhs->type != ValueTypeStack)
         rael_error(expr->lhs->state, "Expected stack on the left of 'at' when setting value");
 
-    value_verify_is_number_int(expr->rhs->state, rhs);
+    value_verify_is_number_uint(expr->rhs->state, rhs);
 
     if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length)
         rael_error(expr->rhs->state, "Index too big");
@@ -130,6 +130,14 @@ static RaelValue value_at(RaelValue iterable, size_t idx) {
         value->as_string.value = malloc(1 * sizeof(char));
         value->as_string.value[0] = iterable->as_string.value[idx];
         value->as_string.does_reference_ast = false;
+    } else if (iterable->type == ValueTypeRange) {
+        value = value_create(ValueTypeNumber);
+        value->as_number.is_float = false;
+
+        if (iterable->as_range.end > iterable->as_range.start)
+            value->as_number.as_int = iterable->as_range.start + idx;
+        else
+            value->as_number.as_int = iterable->as_range.start - idx;
     } else {
         assert(0);
     }
@@ -145,22 +153,22 @@ static RaelValue interpret_value_at(struct Scope *scope, struct Expr *expr) {
     rhs = expr_eval(scope, expr->rhs);
 
     if (lhs->type == ValueTypeStack) {
-        value_verify_is_number_int(expr->rhs->state, rhs);
+        value_verify_is_number_uint(expr->rhs->state, rhs);
         if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length)
             rael_error(expr->rhs->state, "Index too big");
-        value = lhs->as_stack.values[rhs->as_number.as_int];
-        ++value->reference_count;
+        value = value_at(lhs, rhs->as_number.as_int);
     } else if (lhs->type == ValueTypeString) {
-        value_verify_is_number_int(expr->rhs->state, rhs);
+        value_verify_is_number_uint(expr->rhs->state, rhs);
         if ((size_t)rhs->as_number.as_int >= lhs->as_string.length)
             rael_error(expr->rhs->state, "Index too big");
-        value = value_create(ValueTypeString);
-        value->as_string.length = 1;
-        value->as_string.value = malloc(1 * sizeof(char));
-        value->as_string.value[0] = lhs->as_string.value[rhs->as_number.as_int];
-        value->as_string.does_reference_ast = false;
+        value = value_at(lhs, rhs->as_number.as_int);
+    } else if (lhs->type == ValueTypeRange) {
+        value_verify_is_number_uint(expr->rhs->state, rhs);
+        if ((size_t)rhs->as_number.as_int >= abs(lhs->as_range.end - lhs->as_range.start))
+            rael_error(expr->rhs->state, "Index too big");
+        value = value_at(lhs, rhs->as_number.as_int);
     } else {
-        rael_error(expr->lhs->state, "Expected string or stack on the left of 'at'");
+        rael_error(expr->lhs->state, "Expected string, stack or range on the left of 'at'");
     }
 
     value_dereference(lhs);
@@ -343,6 +351,32 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         return routine_call_eval(scope, expr->as_call, expr->state);
     case ExprTypeAt:
         return interpret_value_at(scope, expr);
+    case ExprTypeTo:
+        lhs = expr_eval(scope, expr->lhs);
+
+        // validate that lhs is an int
+        if (lhs->type != ValueTypeNumber)
+            rael_error(expr->lhs->state, "Expected number");
+        if (lhs->as_number.is_float)
+            rael_error(expr->lhs->state, "Float not allowed in range");
+
+        rhs = expr_eval(scope, expr->rhs);
+
+        // validate that rhs is an int
+        if (rhs->type != ValueTypeNumber)
+            rael_error(expr->rhs->state, "Expected number");
+        if (rhs->as_number.is_float)
+            rael_error(expr->rhs->state, "Float not allowed in range");
+
+        value = value_create(ValueTypeRange);
+
+        value->as_range.start = lhs->as_number.as_int;
+        value->as_range.end = rhs->as_number.as_int;
+
+        value_dereference(lhs);
+        value_dereference(rhs);
+
+        return value;
     case ExprTypeRedirect:
         lhs = expr_eval(scope, expr->lhs);
         rhs = expr_eval(scope, expr->rhs);
@@ -454,6 +488,9 @@ static void value_log_as_original(RaelValue value) {
         }
         printf(" }");
         break;
+    case ValueTypeRange:
+        printf("%d to %d", value->as_range.start, value->as_range.end);
+        break;
     default:
         assert(0);
     }
@@ -487,6 +524,8 @@ static bool value_as_bool(const RaelValue value) {
         return true;
     case ValueTypeStack:
         return value->as_stack.length != 0;
+    case ValueTypeRange:
+        return true;
     default:
         assert(0);
     }
@@ -594,6 +633,9 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
                 break;
             case ValueTypeStack:
                 length = iterator->as_stack.length;
+                break;
+            case ValueTypeRange:
+                length = abs(iterator->as_range.end - iterator->as_range.start);
                 break;
             default:
                 rael_error(node->loop.iterate.expr->state, "Expected an iterable");

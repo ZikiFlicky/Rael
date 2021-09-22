@@ -14,7 +14,8 @@ enum ValueType {
     ValueTypeNumber,
     ValueTypeString,
     ValueTypeRoutine,
-    ValueTypeStack
+    ValueTypeStack,
+    ValueTypeRange
 };
 
 struct ASTStackValue {
@@ -53,7 +54,8 @@ enum ExprType {
     ExprTypeBiggerThen,
     ExprTypeAt,
     ExprTypeRedirect,
-    ExprTypeSizeof
+    ExprTypeSizeof,
+    ExprTypeTo
 };
 
 struct RoutineCallExpr {

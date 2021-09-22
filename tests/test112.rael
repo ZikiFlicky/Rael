@@ -1,0 +1,4 @@
+loop :1 through 1 to 5 {
+    log :1 - 1
+}
+log "finished!"

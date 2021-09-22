@@ -11,6 +11,10 @@ struct RaelValue;
 
 typedef struct RaelValue* RaelValue;
 
+struct RaelRangeValue {
+    int start, end;
+};
+
 struct RaelStackValue {
     RaelValue *values;
     size_t length, allocated;
@@ -25,6 +29,7 @@ struct RaelValue {
         struct RaelStringValue as_string;
         struct RaelRoutineValue as_routine;
         struct RaelStackValue as_stack;
+        struct RaelRangeValue as_range;
     };
 };
 

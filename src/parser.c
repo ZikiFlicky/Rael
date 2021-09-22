@@ -484,7 +484,7 @@ loop_end:
     return expr;
 }
 
-static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_keyword(struct Parser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_comparison(parser))) {
@@ -505,6 +505,14 @@ static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
                     rael_error(backtrack, "Expected a value after 'at'");
                 }
                 break;
+            case TokenNameTo:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeTo;
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_comparison(parser))) {
+                    rael_error(backtrack, "Expected a value after 'to'");
+                }
+                break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);
                 goto loop_end;
@@ -523,7 +531,7 @@ loop_end:
 static struct Expr *parser_parse_expr(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_expr_at(parser)))
+    if (!(expr = parser_parse_expr_keyword(parser)))
         return NULL;
 
     for (;;) {
@@ -536,7 +544,7 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeRedirect;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
+                if (!(new_expr->rhs = parser_parse_expr_keyword(parser)))
                     rael_error(backtrack, "Expected a value after '<<'");
                 break;
             default:
@@ -559,7 +567,7 @@ static struct Node *parser_parse_node_set(struct Parser* const parser) {
     struct Node *node;
     struct Expr *expr, *at_set;
 
-    if ((at_set = parser_parse_expr_at(parser)) && at_set->type == ExprTypeAt) {
+    if ((at_set = parser_parse_expr_keyword(parser)) && at_set->type == ExprTypeAt) {
         // parse rhs
         if (!(expr = parser_parse_expr(parser))) {
             lexer_load_state(&parser->lexer, backtrack);
@@ -877,7 +885,7 @@ static struct Node *parser_parse_if_statement(struct Parser* const parser) {
         if_stat.else_type = ElseTypeNode;
     } else {
         parser_error(parser, "Expected a block or an instruction after 'else' keyword");
-    } 
+    }
 
     parser_maybe_expect_newline(parser);
 end:
@@ -1045,6 +1053,7 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeBiggerThen:
     case ExprTypeAt:
     case ExprTypeRedirect:
+    case ExprTypeTo:
         expr_delete(expr->lhs);
         expr_delete(expr->rhs);
         break;

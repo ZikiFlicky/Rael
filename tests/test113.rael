@@ -1,0 +1,3 @@
+loop :123 through 1 to -9 {
+    log :123 + 2
+}
