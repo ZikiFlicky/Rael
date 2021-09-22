@@ -14,6 +14,7 @@ enum TokenName {
     TokenNameSub,
     TokenNameMul,
     TokenNameDiv,
+    TokenNameMod,
     TokenNameLeftParen,
     TokenNameRightParen,
     TokenNameRoutine,

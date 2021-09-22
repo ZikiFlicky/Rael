@@ -93,6 +93,32 @@ struct NumberExpr number_div(struct State state, struct NumberExpr a, struct Num
     return res;
 }
 
+struct NumberExpr number_mod(struct State state, struct NumberExpr a, struct NumberExpr b) {
+    struct NumberExpr res;
+    if (a.is_float && b.is_float) {
+        res.is_float = true;
+        if (b.as_float == 0.f)
+            rael_error(state, "Division by zero");
+        res.as_float = fmod(a.as_float, b.as_float);
+    } else if (a.is_float && !b.is_float) {
+        res.is_float = true;
+        if (b.as_int == 0)
+            rael_error(state, "Division by zero");
+        res.as_float = fmod(a.as_float, (double)b.as_int);
+    } else if (!a.is_float && b.is_float) {
+        res.is_float = true;
+        if (b.as_float == 0.f)
+            rael_error(state, "Division by zero");
+        res.as_float = fmod((double)a.as_int, b.as_float);
+    } else {
+        res.is_float = false;
+        if (b.as_int == 0)
+            rael_error(state, "Division by zero");
+        res.as_int = a.as_int % b.as_int;
+    }
+    return res;
+}
+
 struct NumberExpr number_neg(struct NumberExpr n) {
     struct NumberExpr res;
     if (n.is_float) {

@@ -21,6 +21,8 @@ struct NumberExpr number_mul(struct NumberExpr a, struct NumberExpr b);
 
 struct NumberExpr number_div(struct State state, struct NumberExpr a, struct NumberExpr b);
 
+struct NumberExpr number_mod(struct State state, struct NumberExpr a, struct NumberExpr b);
+
 struct NumberExpr number_neg(struct NumberExpr n);
 
 struct NumberExpr number_eq(struct NumberExpr a, struct NumberExpr b);

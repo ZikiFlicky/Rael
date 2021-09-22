@@ -380,6 +380,14 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                     rael_error(backtrack, "Expected a value after '/'");
                 }
                 break;
+            case TokenNameMod:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeMod;
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
+                    rael_error(backtrack, "Expected a value after '%'");
+                }
+                break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);
                 goto loop_end;
@@ -1048,6 +1056,7 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeSub:
     case ExprTypeMul:
     case ExprTypeDiv:
+    case ExprTypeMod:
     case ExprTypeEquals:
     case ExprTypeSmallerThen:
     case ExprTypeBiggerThen:

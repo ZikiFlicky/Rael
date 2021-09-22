@@ -171,6 +171,13 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         ++lexer->column;
         return true;
     }
+    if (lexer->stream[0] == '%') {
+        lexer->token.name = TokenNameMod;
+        lexer->token.length = 1;
+        lexer->token.string = lexer->stream++;
+        ++lexer->column;
+        return true;
+    }
     if (lexer->stream[0] == '(') {
         lexer->token.name = TokenNameLeftParen;
         lexer->token.length = 1;

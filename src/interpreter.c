@@ -288,6 +288,21 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(rhs);
 
         return value;
+    case ExprTypeMod:
+        lhs = expr_eval(scope, expr->lhs);
+        rhs = expr_eval(scope, expr->rhs);
+
+        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
+            value = value_create(ValueTypeNumber);
+            value->as_number = number_mod(expr->state, lhs->as_number, rhs->as_number);
+        } else {
+            rael_error(expr->state, "Invalid operation (%) on types");
+        }
+
+        value_dereference(lhs);
+        value_dereference(rhs);
+
+        return value;
     case ExprTypeEquals:
         lhs = expr_eval(scope, expr->lhs);
         rhs = expr_eval(scope, expr->rhs);
