@@ -310,7 +310,9 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value = value_create(ValueTypeNumber);
         value->as_number.is_float = false;
 
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
+        if (lhs == rhs) {
+            value->as_number.as_int = 1;
+        } else if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->as_number = number_eq(lhs->as_number, rhs->as_number);
         } else if (lhs->type == ValueTypeString && rhs->type == ValueTypeString) {
             // if they have the same pointer, they must be equal
@@ -324,6 +326,8 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
                 else
                     value->as_number.as_int = 0; // if lengths don't match, the strings don't match
             }
+        } else if (lhs->type == ValueTypeVoid && rhs->type == ValueTypeVoid) {
+            value->as_number.as_int = 1;
         } else {
             value->as_number.as_int = 0;
         }
