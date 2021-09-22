@@ -71,12 +71,12 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
         break;
     case ValueTypeStack:
         out_value->as_stack = (struct RaelStackValue) {
-            .length = value.as_stack.length,
-            .allocated = value.as_stack.length,
-            .values = malloc(value.as_stack.length * sizeof(RaelValue))
+            .length = value.as_stack.amount_exprs,
+            .allocated = value.as_stack.amount_exprs,
+            .values = malloc(value.as_stack.amount_exprs * sizeof(RaelValue))
         };
-        for (size_t i = 0; i < value.as_stack.length; ++i) {
-            out_value->as_stack.values[i] = expr_eval(scope, value.as_stack.entries[i]);
+        for (size_t i = 0; i < value.as_stack.amount_exprs; ++i) {
+            out_value->as_stack.values[i] = expr_eval(scope, value.as_stack.exprs[i]);
         }
         break;
     case ValueTypeVoid:
@@ -189,14 +189,14 @@ static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr c
 
     scope_construct(&routine_scope, maybe_routine->as_routine.scope);
 
-    if (maybe_routine->as_routine.amount_parameters != call.amount_arguments)
+    if (maybe_routine->as_routine.amount_parameters != call.arguments.amount_exprs)
         rael_error(state, "Arguments don't match parameters");
 
     // set parameters as variables
     for (size_t i = 0; i < maybe_routine->as_routine.amount_parameters; ++i) {
         scope_set_local(&routine_scope,
                         maybe_routine->as_routine.parameters[i],
-                        expr_eval(scope, call.arguments[i]));
+                        expr_eval(scope, call.arguments.exprs[i]));
     }
 
     if (block_run(&routine_scope, maybe_routine->as_routine.block, &return_value, false) == ProgramInterruptReturn) {
@@ -567,11 +567,11 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
     switch (node->type) {
     case NodeTypeLog: {
         RaelValue value;
-        value_log((value = expr_eval(scope, node->log_values[0])));
+        value_log((value = expr_eval(scope, node->log_values.exprs[0])));
         value_dereference(value); // dereference
-        for (size_t i = 1; node->log_values[i]; ++i) {
+        for (size_t i = 1; i < node->log_values.amount_exprs; ++i) {
             printf(" ");
-            value_log((value = expr_eval(scope, node->log_values[i])));
+            value_log((value = expr_eval(scope, node->log_values.exprs[i])));
             value_dereference(value); // dereference
         }
         printf("\n");

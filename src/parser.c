@@ -12,6 +12,7 @@
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Node *parser_parse_node(struct Parser* const parser);
 static struct ASTValue *parser_parse_node_routine(struct Parser* const parser);
+static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 
 void rael_error(struct State state, const char* const error_message);
 
@@ -50,57 +51,27 @@ static bool parser_maybe_expect_newline(struct Parser* const parser) {
 static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
     struct ASTValue *value;
     struct State backtrack = lexer_dump_state(&parser->lexer);
-    struct ASTStackValue stack = {
-        .allocated = 0,
-        .length = 0,
-        .entries = NULL
-    };
-    if (!lexer_tokenize(&parser->lexer)) {
+    struct RaelExprList stack;
+
+    if (!lexer_tokenize(&parser->lexer))
         return NULL;
-    }
+
     if (parser->lexer.token.name != TokenNameLeftCur) {
         lexer_load_state(&parser->lexer, backtrack);
         return NULL;
     }
-    parser_maybe_expect_newline(parser);
-    for (;;) {
-        struct Expr *expr = parser_parse_expr(parser);
-        parser_maybe_expect_newline(parser);
-        if (lexer_tokenize(&parser->lexer)) {
-            switch (parser->lexer.token.name) {
-            case TokenNameRightCur:
-                if (expr) {
-                    if (stack.allocated == 0) {
-                        stack.entries = malloc((stack.allocated = 8) * sizeof(struct Expr*));
-                    } else {
-                        stack.entries = realloc(stack.entries, (stack.allocated += 3) * sizeof(struct Expr*));
-                    }
-                    stack.entries[stack.length++] = expr;
-                }
-                goto loop_end;
-            case TokenNameComma:
-                break;
-            default:
-                goto backtrack;
-            }
-        } else {
-            parser_error(parser, "Encountered an unexpected end-of-file while parsing a stack");
-        }
-        if (stack.allocated == 0) {
-            stack.entries = malloc((stack.allocated = 8) * sizeof(struct Expr*));
-        } else {
-            stack.entries = realloc(stack.entries, (stack.allocated += 3) * sizeof(struct Expr*));
-        }
-        stack.entries[stack.length++] = expr;
+
+    stack = parser_parse_csv(parser, true);
+
+    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightCur) {
+        lexer_load_state(&parser->lexer, backtrack);
+        return NULL;
     }
-loop_end:
+
     value = malloc(sizeof(struct ASTValue));
     value->type = ValueTypeStack;
     value->as_stack = stack;
     return value;
-backtrack:
-    lexer_load_state(&parser->lexer, backtrack);
-    return NULL;
 }
 
 static struct ASTValue *parser_parse_number(struct Parser* const parser) {
@@ -292,7 +263,6 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
     for (;;) {
         struct RoutineCallExpr call;
         struct State backtrack, start_backtrack;
-        struct Expr *argument;
 
         start_backtrack = backtrack = lexer_dump_state(&parser->lexer);
 
@@ -302,45 +272,12 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
             break;
         }
 
-        backtrack = lexer_dump_state(&parser->lexer);
-
         call.routine_value = expr;
+        call.arguments = parser_parse_csv(parser, true);
 
-        if ((argument = parser_parse_expr(parser))) {
-            size_t allocated;
-            call.arguments = malloc((allocated = 4) * sizeof(struct Expr*));
-            call.amount_arguments = 0;
-            call.arguments[call.amount_arguments++] = argument;
-            for (;;) {
-                // verify you can tokenize
-                if (!lexer_tokenize(&parser->lexer))
-                    parser_error(parser, "Unexpected EOF");
-                // if the token is ')', you can exit the loop
-                if (parser->lexer.token.name == TokenNameRightParen)
-                    break;
-                // if there is no comma, error
-                if (parser->lexer.token.name != TokenNameComma)
-                    parser_error(parser, "Expected Comma");
-                // parse expression
-                if (!(argument = parser_parse_expr(parser)))
-                    parser_error(parser, "Expected expression after ','");
-                // reallocate if needed
-                if (call.amount_arguments == allocated) {
-                    call.arguments = realloc(call.arguments, (allocated += 3)*sizeof(struct Expr*));
-                }
-                // push argument
-                call.arguments[call.amount_arguments++] = argument;
-            }
-        } else if (lexer_tokenize(&parser->lexer)) {
-            if (parser->lexer.token.name == TokenNameRightParen) {
-                call.amount_arguments = 0;
-                call.arguments = NULL;
-            } else {
-                rael_error(backtrack, "Expected a ')'");
-            }
-        } else {
-            parser_error(parser, "Unexpected EOF");
-        }
+        backtrack = lexer_dump_state(&parser->lexer);
+        if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen)
+            rael_error(backtrack, "Expected a ')'");
 
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeRoutineCall;
@@ -634,12 +571,64 @@ static struct Node *parser_parse_node_pure(struct Parser* const parser) {
     return node;
 }
 
+/*
+  parse comma seperated expressions
+*/
+static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
+    struct Expr **exprs_ary, *expr;
+    size_t allocated, idx = 0;
+
+    if (allow_newlines)
+        parser_maybe_expect_newline(parser);
+
+    if (!(expr = parser_parse_expr(parser))) {
+        return (struct RaelExprList) {
+            .amount_exprs = 0,
+            .exprs = NULL
+        };
+    }
+
+    exprs_ary = malloc((allocated = 1) * sizeof(struct Expr*));
+    exprs_ary[idx++] = expr;
+
+    for (;;) {
+        struct State backtrack = lexer_dump_state(&parser->lexer);
+
+        if (allow_newlines)
+            parser_maybe_expect_newline(parser);
+
+        if (!lexer_tokenize(&parser->lexer))
+            break;
+
+        if (parser->lexer.token.name == TokenNameComma) {
+            if (allow_newlines)
+                parser_maybe_expect_newline(parser);
+            if ((expr = parser_parse_expr(parser))) {
+                if (idx == allocated) {
+                    exprs_ary = realloc(exprs_ary, (allocated += 4) * sizeof(struct Expr *));
+                }
+                exprs_ary[idx++] = expr;
+            } else {
+                parser_error(parser, "Expected expression");
+            }
+            if (allow_newlines)
+                parser_maybe_expect_newline(parser);
+        } else {
+            lexer_load_state(&parser->lexer, backtrack);
+            break;
+        }
+    }
+
+    return (struct RaelExprList) {
+        .amount_exprs = idx,
+        .exprs = exprs_ary
+    };
+}
+
 static struct Node *parser_parse_node_log(struct Parser* const parser) {
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node *node;
-    struct Expr *expr;
-    struct Expr **exprs_ary;
-    size_t allocated, idx = 0;
+    struct RaelExprList expr_list;
 
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
@@ -649,38 +638,14 @@ static struct Node *parser_parse_node_log(struct Parser* const parser) {
         return NULL;
     }
 
-    if (!(expr = parser_parse_expr(parser)))
+    if ((expr_list = parser_parse_csv(parser, false)).amount_exprs == 0)
         parser_error(parser, "Expected at least one expression after \"log\"");
 
-    exprs_ary = malloc(((allocated = 1) + 1) * sizeof(struct Expr*));
-    exprs_ary[idx++] = expr;
-
-    for (;;) {
-        if (!lexer_tokenize(&parser->lexer))
-            break;
-        switch (parser->lexer.token.name) {
-        case TokenNameComma:
-            if ((expr = parser_parse_expr(parser))) {
-                if (idx == allocated) {
-                    exprs_ary = realloc(exprs_ary, ((allocated += 4) + 1) * sizeof(struct Expr *));
-                }
-                exprs_ary[idx++] = expr;
-            } else {
-                parser_error(parser, "Expected expression after comma in log node");
-            }
-            break;
-        case TokenNameNewline:
-            goto loop_end;
-        default:
-            parser_error(parser, "Expected a comma or newline after expression in log");
-        }
-    }
-loop_end:
-    exprs_ary[idx] = NULL;
+    parser_expect_newline(parser);
 
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLog;
-    node->log_values = exprs_ary;
+    node->log_values = expr_list;
 
     return node;
 }
@@ -1025,11 +990,11 @@ static void astvalue_delete(struct ASTValue* value) {
 
         break;
     case ValueTypeStack:
-        for (size_t i = 0; i < value->as_stack.length; ++i) {
-            expr_delete(value->as_stack.entries[i]);
+        for (size_t i = 0; i < value->as_stack.amount_exprs; ++i) {
+            expr_delete(value->as_stack.exprs[i]);
         }
 
-        free(value->as_stack.entries);
+        free(value->as_stack.exprs);
         break;
     default:
         assert(0);
@@ -1044,10 +1009,10 @@ static void expr_delete(struct Expr* const expr) {
         break;
     case ExprTypeRoutineCall:
         expr_delete(expr->as_call.routine_value);
-        for (size_t i = 0; i < expr->as_call.amount_arguments; ++i) {
-            expr_delete(expr->as_call.arguments[i]);
+        for (size_t i = 0; i < expr->as_call.arguments.amount_exprs; ++i) {
+            expr_delete(expr->as_call.arguments.exprs[i]);
         }
-        free(expr->as_call.arguments);
+        free(expr->as_call.arguments.exprs);
         break;
     case ExprTypeKey:
         free(expr->as_key);
@@ -1103,11 +1068,11 @@ void node_delete(struct Node* const node) {
 
         break;
     case NodeTypeLog:
-        for (size_t i = 0; node->log_values[i]; ++i) {
-            expr_delete(node->log_values[i]);
+        for (size_t i = 0; i < node->log_values.amount_exprs; ++i) {
+            expr_delete(node->log_values.exprs[i]);
         }
 
-        free(node->log_values);
+        free(node->log_values.exprs);
         break;
     case NodeTypeLoop:
         switch (node->loop.type) {

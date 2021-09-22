@@ -1,3 +1,3 @@
-Error [1:10]: Expected expression after comma in log node
+Error [1:10]: Expected expression
 | log 123, log
 |          ^

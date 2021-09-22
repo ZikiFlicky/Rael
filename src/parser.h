@@ -18,9 +18,9 @@ enum ValueType {
     ValueTypeRange
 };
 
-struct ASTStackValue {
-    size_t length, allocated;
-    struct Expr **entries;
+struct RaelExprList {
+    size_t amount_exprs;
+    struct Expr **exprs;
 };
 
 struct RaelRoutineValue {
@@ -36,7 +36,7 @@ struct ASTValue {
         struct RaelStringValue as_string;
         struct NumberExpr as_number;
         struct RaelRoutineValue as_routine;
-        struct ASTStackValue as_stack;
+        struct RaelExprList as_stack;
     };
 };
 
@@ -61,8 +61,7 @@ enum ExprType {
 
 struct RoutineCallExpr {
     struct Expr *routine_value;
-    struct Expr **arguments;
-    size_t amount_arguments;
+    struct RaelExprList arguments;
 };
 
 struct Expr {
@@ -123,7 +122,7 @@ struct Node {
     enum NodeType type;
     struct State state;
     union {
-        struct Expr **log_values;
+        struct RaelExprList log_values;
         struct {
             enum {
                 SetTypeAtExpr = 1,
