@@ -1,0 +1,4 @@
+720
+Error [3:9]: factorial expects positive numbers
+|         blame "factorial expects positive numbers"
+|         ^

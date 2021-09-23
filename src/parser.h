@@ -86,6 +86,7 @@ enum NodeType {
     NodeTypePureExpr,
     NodeTypeReturn,
     NodeTypeBreak,
+    NodeTypeBlame,
 };
 
 struct IfStatementNode {
@@ -123,6 +124,7 @@ struct Node {
     struct State state;
     union {
         struct RaelExprList log_values;
+        struct RaelExprList blame_values;
         struct {
             enum {
                 SetTypeAtExpr = 1,

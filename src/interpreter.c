@@ -581,6 +581,38 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
         printf("\n");
         break;
     }
+    case NodeTypeBlame: {
+        RaelValue value;
+        printf("Error [%zu:%zu]: ", node->state.line, node->state.column);
+        if (node->blame_values.amount_exprs > 0) {
+            value_log((value = expr_eval(scope, node->blame_values.exprs[0])));
+            value_dereference(value); // dereference
+            for (size_t i = 1; i < node->blame_values.amount_exprs; ++i) {
+                printf(" ");
+                value_log((value = expr_eval(scope, node->blame_values.exprs[i])));
+                value_dereference(value); // dereference
+            }
+        }
+        printf("\n");
+        printf("| ");
+        for (int i = -node->state.column + 1; node->state.stream_pos[i] && node->state.stream_pos[i] != '\n'; ++i) {
+            if (node->state.stream_pos[i] == '\t') {
+                printf("    ");
+            } else {
+                putchar(node->state.stream_pos[i]);
+            }
+        }
+        printf("\n| ");
+        for (size_t i = 0; i < node->state.column - 1; ++i) {
+            if (node->state.stream_pos[-node->state.column + i] == '\t') {
+                printf("    ");
+            } else {
+                putchar(' ');
+            }
+        }
+        printf("^\n");
+        exit(1);
+    }
     case NodeTypeSet:
         switch (node->set.set_type) {
         case SetTypeAtExpr: {

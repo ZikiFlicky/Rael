@@ -650,6 +650,30 @@ static struct Node *parser_parse_node_log(struct Parser* const parser) {
     return node;
 }
 
+static struct Node *parser_parse_node_blame(struct Parser* const parser) {
+    struct State backtrack = lexer_dump_state(&parser->lexer);
+    struct Node *node;
+    struct RaelExprList expr_list;
+
+    if (!lexer_tokenize(&parser->lexer))
+        return NULL;
+
+    if (parser->lexer.token.name != TokenNameBlame) {
+        lexer_load_state(&parser->lexer, backtrack);
+        return NULL;
+    }
+
+    expr_list = parser_parse_csv(parser, false);
+
+    parser_expect_newline(parser);
+
+    node = malloc(sizeof(struct Node));
+    node->type = NodeTypeBlame;
+    node->blame_values = expr_list;
+
+    return node;
+}
+
 static struct Node *parser_parse_node_return(struct Parser* const parser) {
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node *node;
@@ -933,7 +957,8 @@ static struct Node *parser_parse_node(struct Parser* const parser) {
         (node = parser_parse_if_statement(parser)) ||
         (node = parser_parse_loop(parser))         ||
         (node = parser_parse_node_return(parser))  ||
-        (node = parser_parse_node_break(parser))) {
+        (node = parser_parse_node_break(parser))   ||
+        (node = parser_parse_node_blame(parser))) {
         node->state = prev_state;
         return node;
     }
@@ -1073,6 +1098,13 @@ void node_delete(struct Node* const node) {
         }
 
         free(node->log_values.exprs);
+        break;
+    case NodeTypeBlame:
+        for (size_t i = 0; i < node->blame_values.amount_exprs; ++i) {
+            expr_delete(node->blame_values.exprs[i]);
+        }
+
+        free(node->blame_values.exprs);
         break;
     case NodeTypeLoop:
         switch (node->loop.type) {
