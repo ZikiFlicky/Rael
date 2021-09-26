@@ -136,7 +136,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
     switch (parser->lexer.token.name) {
     case TokenNameString: {
-        char *string;
+        char *string = NULL;
         size_t allocated = 0, length = 0;
 
         for (size_t i = 0; i < parser->lexer.token.length; ++i) {
@@ -173,7 +173,8 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         }
 
         // shrink size
-        string = realloc(string, length * sizeof(char));
+        if (allocated > 0)
+            string = realloc(string, length * sizeof(char));
 
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
@@ -1001,7 +1002,8 @@ static void astvalue_delete(struct ASTValue* value) {
     case ValueTypeNumber:
         break;
     case ValueTypeString:
-        free(value->as_string.value);
+        if (value->as_string.length > 0)
+            free(value->as_string.value);
         break;
     case ValueTypeRoutine:
         for (size_t i = 0; i < value->as_routine.amount_parameters; ++i) {
