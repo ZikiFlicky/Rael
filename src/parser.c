@@ -153,6 +153,9 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
                 case 't':
                     c = '\t';
                     break;
+                case '\\':
+                    c = '\\';
+                    break;
                 default:
                     c = parser->lexer.token.string[i];
                 }

@@ -480,6 +480,9 @@ static void value_log_as_original(RaelValue value) {
             case '"':
                 printf("\\\"");
                 break;
+            case '\\':
+                printf("\\\\");
+                break;
             default:
                 putchar(value->as_string.value[i]);
             }

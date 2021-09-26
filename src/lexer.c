@@ -128,10 +128,12 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         ++lexer->column;
         lexer->token.length = 0;
         while (lexer->stream[0] != '"') {
-            if (lexer->stream[0] == '\\' && lexer->stream[1] == '"') {
-                ++lexer->token.length;
-                ++lexer->stream;
-                ++lexer->column;
+            if (lexer->stream[0] == '\\') {
+                if (lexer->stream[1] == '\\' || lexer->stream[1] == '"') {
+                    ++lexer->token.length;
+                    ++lexer->stream;
+                    ++lexer->column;
+                }
             }
             if (lexer->stream[0] == '\n' || lexer->stream[0] == '\0')
                 lexer_error(lexer, "Unexpected end-of-line");
