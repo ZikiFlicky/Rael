@@ -20,6 +20,11 @@ struct RaelStackValue {
     size_t length, allocated;
 };
 
+struct RaelBlameValue {
+    RaelValue value;
+    struct State original_place;
+};
+
 // the dynamic value abstraction layer
 struct RaelValue {
     enum ValueType type;
@@ -30,6 +35,7 @@ struct RaelValue {
         struct RaelRoutineValue as_routine;
         struct RaelStackValue as_stack;
         struct RaelRangeValue as_range;
+        struct RaelBlameValue as_blame;
     };
 };
 

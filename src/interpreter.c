@@ -21,17 +21,11 @@ struct Interpreter {
 
 static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, struct Node* const node,
                                                         RaelValue *returned_value, bool can_break);
-static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr);
+static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr, const bool can_explode);
 static void value_log(RaelValue value);
 static enum ProgramInterrupt block_run(struct Scope *scope, struct Node **block, RaelValue *returned_value, bool can_break);
 
-void rael_error(struct State state, const char* const error_message) {
-    // advance all whitespace
-    while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
-        ++state.column;
-        ++state.stream_pos;
-    }
-    printf("Error [%zu:%zu]: %s\n", state.line, state.column, error_message);
+static void rael_show_line_state(struct State state) {
     printf("| ");
     for (int i = -state.column + 1; state.stream_pos[i] && state.stream_pos[i] != '\n'; ++i) {
         if (state.stream_pos[i] == '\t') {
@@ -49,6 +43,16 @@ void rael_error(struct State state, const char* const error_message) {
         }
     }
     printf("^\n");
+}
+
+void rael_error(struct State state, const char* const error_message) {
+    // advance all whitespace
+    while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
+        ++state.column;
+        ++state.stream_pos;
+    }
+    printf("Error [%zu:%zu]: %s\n", state.line, state.column, error_message);
+    rael_show_line_state(state);
     exit(1);
 }
 
@@ -76,7 +80,7 @@ static RaelValue value_eval(struct Scope *scope, struct ASTValue value) {
             .values = malloc(value.as_stack.amount_exprs * sizeof(RaelValue))
         };
         for (size_t i = 0; i < value.as_stack.amount_exprs; ++i) {
-            out_value->as_stack.values[i] = expr_eval(scope, value.as_stack.exprs[i]);
+            out_value->as_stack.values[i] = expr_eval(scope, value.as_stack.exprs[i], true);
         }
         break;
     case ValueTypeVoid:
@@ -101,8 +105,8 @@ static void stack_set(struct Scope *scope, struct Expr *expr, RaelValue value) {
     RaelValue lhs, rhs;
 
     assert(expr->type == ExprTypeAt);
-    lhs = expr_eval(scope, expr->lhs);
-    rhs = expr_eval(scope, expr->rhs);
+    lhs = expr_eval(scope, expr->lhs, true);
+    rhs = expr_eval(scope, expr->rhs, true);
 
     if (lhs->type != ValueTypeStack)
         rael_error(expr->lhs->state, "Expected stack on the left of 'at' when setting value");
@@ -149,8 +153,8 @@ static RaelValue interpret_value_at(struct Scope *scope, struct Expr *expr) {
     RaelValue lhs, rhs, value;
 
     assert(expr->type == ExprTypeAt);
-    lhs = expr_eval(scope, expr->lhs);
-    rhs = expr_eval(scope, expr->rhs);
+    lhs = expr_eval(scope, expr->lhs, true);
+    rhs = expr_eval(scope, expr->rhs, true);
 
     if (lhs->type == ValueTypeStack) {
         value_verify_is_number_uint(expr->rhs->state, rhs);
@@ -180,7 +184,7 @@ static RaelValue interpret_value_at(struct Scope *scope, struct Expr *expr) {
 static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr call, struct State state) {
     struct Scope routine_scope;
     RaelValue return_value;
-    RaelValue maybe_routine = expr_eval(scope, call.routine_value);
+    RaelValue maybe_routine = expr_eval(scope, call.routine_value, true);
 
     if (maybe_routine->type != ValueTypeRoutine) {
         value_dereference(maybe_routine);
@@ -196,7 +200,7 @@ static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr c
     for (size_t i = 0; i < maybe_routine->as_routine.amount_parameters; ++i) {
         scope_set_local(&routine_scope,
                         maybe_routine->as_routine.parameters[i],
-                        expr_eval(scope, call.arguments.exprs[i]));
+                        expr_eval(scope, call.arguments.exprs[i], true));
     }
 
     if (block_run(&routine_scope, maybe_routine->as_routine.block, &return_value, false) == ProgramInterruptReturn) {
@@ -208,17 +212,19 @@ static RaelValue routine_call_eval(struct Scope *scope, struct RoutineCallExpr c
     return value_create(ValueTypeVoid);
 }
 
-static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
+static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr, const bool can_explode) {
     RaelValue lhs, rhs, single, value;
 
     switch (expr->type) {
     case ExprTypeValue:
-        return value_eval(scope, *expr->as_value);
+        value = value_eval(scope, *expr->as_value);
+        break;
     case ExprTypeKey:
-        return scope_get(scope, expr->as_key);
+        value = scope_get(scope, expr->as_key);
+        break;
     case ExprTypeAdd:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value = value_create(ValueTypeNumber);
@@ -242,10 +248,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeSub:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value = value_create(ValueTypeNumber);
@@ -257,10 +263,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeMul:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value = value_create(ValueTypeNumber);
@@ -272,10 +278,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeDiv:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value = value_create(ValueTypeNumber);
@@ -287,10 +293,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeMod:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value = value_create(ValueTypeNumber);
@@ -302,10 +308,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeEquals:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         value = value_create(ValueTypeNumber);
         value->as_number.is_float = false;
@@ -335,10 +341,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeSmallerThen:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value = value_create(ValueTypeNumber);
@@ -350,10 +356,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeBiggerThen:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value = value_create(ValueTypeNumber);
@@ -365,13 +371,15 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeRoutineCall:
-        return routine_call_eval(scope, expr->as_call, expr->state);
+        value = routine_call_eval(scope, expr->as_call, expr->state);
+        break;
     case ExprTypeAt:
-        return interpret_value_at(scope, expr);
+        value = interpret_value_at(scope, expr);
+        break;
     case ExprTypeTo:
-        lhs = expr_eval(scope, expr->lhs);
+        lhs = expr_eval(scope, expr->lhs, true);
 
         // validate that lhs is an int
         if (lhs->type != ValueTypeNumber)
@@ -379,7 +387,7 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         if (lhs->as_number.is_float)
             rael_error(expr->lhs->state, "Float not allowed in range");
 
-        rhs = expr_eval(scope, expr->rhs);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         // validate that rhs is an int
         if (rhs->type != ValueTypeNumber)
@@ -395,10 +403,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value_dereference(lhs);
         value_dereference(rhs);
 
-        return value;
+        break;
     case ExprTypeRedirect:
-        lhs = expr_eval(scope, expr->lhs);
-        rhs = expr_eval(scope, expr->rhs);
+        lhs = expr_eval(scope, expr->lhs, true);
+        rhs = expr_eval(scope, expr->rhs, true);
 
         if (lhs->type != ValueTypeStack) {
             rael_error(expr->lhs->state, "Expected a stack value");
@@ -410,10 +418,11 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         // no need to dereference a *used* value
         lhs->as_stack.values[lhs->as_stack.length++] = rhs;
 
-        return lhs;
+        value = lhs;
+        break;
     case ExprTypeSizeof: {
         int size;
-        single = expr_eval(scope, expr->as_single);
+        single = expr_eval(scope, expr->as_single, true);
 
         // FIXME: those int conversions aren't really safe
         switch (single->type) {
@@ -435,10 +444,10 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
 
         value_dereference(single);
 
-        return value;
+        break;
     }
     case ExprTypeNeg: {
-        RaelValue maybe_number = expr_eval(scope, expr->as_single);
+        RaelValue maybe_number = expr_eval(scope, expr->as_single, can_explode);
 
         if (maybe_number->type != ValueTypeNumber) {
             rael_error(expr->as_single->state, "Expected number");
@@ -448,11 +457,42 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr) {
         value->as_number = number_neg(maybe_number->as_number);
 
         value_dereference(maybe_number);
-        return value;
+        break;
     }
+    case ExprTypeBlame:
+        value = value_create(ValueTypeBlame);
+        // if there is something after `blame`
+        if (expr->as_single)
+            value->as_blame.value = expr_eval(scope, expr->as_single, true);
+        else
+            value->as_blame.value = NULL;
+        value->as_blame.original_place = expr->state;
+        break;
     default:
         assert(0);
     }
+
+    if (can_explode && value->type == ValueTypeBlame) {
+        struct State state = value->as_blame.original_place;
+
+        // advance all whitespace
+        while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
+            ++state.column;
+            ++state.stream_pos;
+        }
+
+        printf("Error [%zu:%zu]: ", state.line, state.column);
+        if (value->as_blame.value) {
+            value_log(value->as_blame.value);
+            value_dereference(value->as_blame.value); // dereference
+        }
+        printf("\n");
+
+        rael_show_line_state(state);
+        exit(1);
+    }
+
+    return value;
 }
 
 static void value_log_as_original(RaelValue value) {
@@ -574,56 +614,24 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
     switch (node->type) {
     case NodeTypeLog: {
         RaelValue value;
-        value_log((value = expr_eval(scope, node->log_values.exprs[0])));
+        value_log((value = expr_eval(scope, node->log_values.exprs[0], true)));
         value_dereference(value); // dereference
         for (size_t i = 1; i < node->log_values.amount_exprs; ++i) {
             printf(" ");
-            value_log((value = expr_eval(scope, node->log_values.exprs[i])));
+            value_log((value = expr_eval(scope, node->log_values.exprs[i], true)));
             value_dereference(value); // dereference
         }
         printf("\n");
         break;
     }
-    case NodeTypeBlame: {
-        RaelValue value;
-        printf("Error [%zu:%zu]: ", node->state.line, node->state.column);
-        if (node->blame_values.amount_exprs > 0) {
-            value_log((value = expr_eval(scope, node->blame_values.exprs[0])));
-            value_dereference(value); // dereference
-            for (size_t i = 1; i < node->blame_values.amount_exprs; ++i) {
-                printf(" ");
-                value_log((value = expr_eval(scope, node->blame_values.exprs[i])));
-                value_dereference(value); // dereference
-            }
-        }
-        printf("\n");
-        printf("| ");
-        for (int i = -node->state.column + 1; node->state.stream_pos[i] && node->state.stream_pos[i] != '\n'; ++i) {
-            if (node->state.stream_pos[i] == '\t') {
-                printf("    ");
-            } else {
-                putchar(node->state.stream_pos[i]);
-            }
-        }
-        printf("\n| ");
-        for (size_t i = 0; i < node->state.column - 1; ++i) {
-            if (node->state.stream_pos[-node->state.column + i] == '\t') {
-                printf("    ");
-            } else {
-                putchar(' ');
-            }
-        }
-        printf("^\n");
-        exit(1);
-    }
     case NodeTypeSet:
         switch (node->set.set_type) {
         case SetTypeAtExpr: {
-            stack_set(scope, node->set.as_at_stat, expr_eval(scope, node->set.expr));
+            stack_set(scope, node->set.as_at_stat, expr_eval(scope, node->set.expr, true));
             break;
         }
         case SetTypeKey:
-            scope_set(scope, node->set.as_key, expr_eval(scope, node->set.expr));
+            scope_set(scope, node->set.as_key, expr_eval(scope, node->set.expr, true));
             break;
         default:
             assert(0);
@@ -634,7 +642,7 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
         RaelValue condition;
         scope_construct(&if_scope, scope);
 
-        if (value_as_bool((condition = expr_eval(scope, node->if_stat.condition)))) {
+        if (value_as_bool((condition = expr_eval(scope, node->if_stat.condition, true)))) {
             value_dereference(condition);
             interrupt = block_run(&if_scope, node->if_stat.block, returned_value, can_break);
         } else {
@@ -663,7 +671,7 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
         case LoopWhile: {
             RaelValue condition;
 
-            while (value_as_bool((condition = expr_eval(&loop_scope, node->loop.while_condition)))) {
+            while (value_as_bool((condition = expr_eval(&loop_scope, node->loop.while_condition, true)))) {
                 value_dereference(condition);
                 interrupt = block_run(&loop_scope, node->loop.block, returned_value, true);
 
@@ -678,7 +686,7 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
             break;
         }
         case LoopThrough: {
-            RaelValue iterator = expr_eval(scope, node->loop.iterate.expr);
+            RaelValue iterator = expr_eval(scope, node->loop.iterate.expr, true);
             size_t length;
 
             switch (iterator->type) {
@@ -730,12 +738,13 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
     }
     case NodeTypePureExpr:
         // dereference result right after evaluation
-        value_dereference(expr_eval(scope, node->pure));
+        value_dereference(expr_eval(scope, node->pure, true));
         break;
     case NodeTypeReturn:
         if (returned_value) {
+            // if you can set a return value
             if (node->return_value) {
-                *returned_value = expr_eval(scope, node->return_value);
+                *returned_value = expr_eval(scope, node->return_value, false);
             } else {
                 *returned_value = value_create(ValueTypeVoid);
             }
@@ -751,6 +760,20 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
         }
         interrupt = ProgramInterruptBreak;
         break;
+    case NodeTypeCatch: {
+        RaelValue caught_value = expr_eval(scope, node->catch.catch_expr, false);
+
+        // handle blame
+        if (caught_value->type == ValueTypeBlame) {
+            struct Scope catch_scope;
+            scope_construct(&catch_scope, scope);
+            block_run(&catch_scope, node->catch.handle_block, returned_value, can_break);
+        }
+
+        value_dereference(caught_value);
+
+        break;
+    }
     default:
         assert(0);
     }

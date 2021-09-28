@@ -12,6 +12,7 @@
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Node *parser_parse_node(struct Parser* const parser);
 static struct ASTValue *parser_parse_node_routine(struct Parser* const parser);
+static struct Node **parser_parse_block(struct Parser* const parser);
 static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 
 void rael_error(struct State state, const char* const error_message);
@@ -241,6 +242,10 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen) {
                 parser_error(parser, "Unmatched '('");
             }
+        } else if (parser->lexer.token.name == TokenNameBlame) {
+            expr = malloc(sizeof(struct Expr));
+            expr->type = ExprTypeBlame;
+            expr->as_single = parser_parse_expr_single(parser);
         } else {
             lexer_load_state(&parser->lexer, backtrack);
             return NULL;
@@ -629,6 +634,45 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
     };
 }
 
+static struct Node *parser_parse_node_catch(struct Parser* const parser) {
+    struct State backtrack = lexer_dump_state(&parser->lexer);
+    struct Node *node;
+    struct CatchNode catch;
+
+    if (!lexer_tokenize(&parser->lexer))
+        return NULL;
+
+    if (parser->lexer.token.name != TokenNameCatch) {
+        lexer_load_state(&parser->lexer, backtrack);
+        return NULL;
+    }
+
+    if (!(catch.catch_expr = parser_parse_expr(parser))) {
+        parser_error(parser, "Expected expression");
+    }
+
+    parser_maybe_expect_newline(parser);
+
+    backtrack = lexer_dump_state(&parser->lexer);
+    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameWith) {
+        rael_error(backtrack, "Expected 'with'");
+    }
+
+    parser_maybe_expect_newline(parser);
+
+    if (!(catch.handle_block = parser_parse_block(parser))) {
+        parser_error(parser, "Expected block");
+    }
+
+    parser_maybe_expect_newline(parser);
+
+    node = malloc(sizeof(struct Node));
+    node->type = NodeTypeCatch;
+    node->catch = catch;
+
+    return node;
+}
+
 static struct Node *parser_parse_node_log(struct Parser* const parser) {
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node *node;
@@ -650,30 +694,6 @@ static struct Node *parser_parse_node_log(struct Parser* const parser) {
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeLog;
     node->log_values = expr_list;
-
-    return node;
-}
-
-static struct Node *parser_parse_node_blame(struct Parser* const parser) {
-    struct State backtrack = lexer_dump_state(&parser->lexer);
-    struct Node *node;
-    struct RaelExprList expr_list;
-
-    if (!lexer_tokenize(&parser->lexer))
-        return NULL;
-
-    if (parser->lexer.token.name != TokenNameBlame) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
-
-    expr_list = parser_parse_csv(parser, false);
-
-    parser_expect_newline(parser);
-
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypeBlame;
-    node->blame_values = expr_list;
 
     return node;
 }
@@ -962,7 +982,7 @@ static struct Node *parser_parse_node(struct Parser* const parser) {
         (node = parser_parse_loop(parser))         ||
         (node = parser_parse_node_return(parser))  ||
         (node = parser_parse_node_break(parser))   ||
-        (node = parser_parse_node_blame(parser))) {
+        (node = parser_parse_node_catch(parser))) {
         node->state = prev_state;
         return node;
     }
@@ -1065,6 +1085,10 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeNeg:
         expr_delete(expr->as_single);
         break;
+    case ExprTypeBlame:
+        if (expr->as_single)
+            expr_delete(expr->as_single);
+        break;
     default:
         assert(0);
     }
@@ -1104,13 +1128,6 @@ void node_delete(struct Node* const node) {
 
         free(node->log_values.exprs);
         break;
-    case NodeTypeBlame:
-        for (size_t i = 0; i < node->blame_values.amount_exprs; ++i) {
-            expr_delete(node->blame_values.exprs[i]);
-        }
-
-        free(node->blame_values.exprs);
-        break;
     case NodeTypeLoop:
         switch (node->loop.type) {
         case LoopWhile:
@@ -1149,6 +1166,13 @@ void node_delete(struct Node* const node) {
         expr_delete(node->set.expr);
         break;
     case NodeTypeBreak:
+        break;
+    case NodeTypeCatch:
+        expr_delete(node->catch.catch_expr);
+        if (node->catch.handle_block) {
+            for (size_t i = 0; node->catch.handle_block[i]; ++i)
+                node_delete(node->catch.handle_block[i]);
+        }
         break;
     default:
         assert(0);

@@ -1,0 +1,3 @@
+Error [3:10]: factorial expects positive numbers
+|         ^blame "factorial expects positive numbers"
+|          ^

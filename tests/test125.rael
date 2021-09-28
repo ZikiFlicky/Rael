@@ -1,0 +1,3 @@
+routine() {
+    blame "the dog ate the cat"
+}()

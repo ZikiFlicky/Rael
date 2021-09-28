@@ -15,7 +15,8 @@ enum ValueType {
     ValueTypeString,
     ValueTypeRoutine,
     ValueTypeStack,
-    ValueTypeRange
+    ValueTypeRange,
+    ValueTypeBlame
 };
 
 struct RaelExprList {
@@ -56,7 +57,8 @@ enum ExprType {
     ExprTypeAt,
     ExprTypeRedirect,
     ExprTypeSizeof,
-    ExprTypeTo
+    ExprTypeTo,
+    ExprTypeBlame
 };
 
 struct RoutineCallExpr {
@@ -86,7 +88,7 @@ enum NodeType {
     NodeTypePureExpr,
     NodeTypeReturn,
     NodeTypeBreak,
-    NodeTypeBlame,
+    NodeTypeCatch
 };
 
 struct IfStatementNode {
@@ -119,12 +121,16 @@ struct LoopNode {
     struct Node **block;
 };
 
+struct CatchNode {
+    struct Expr *catch_expr;
+    struct Node **handle_block;
+};
+
 struct Node {
     enum NodeType type;
     struct State state;
     union {
         struct RaelExprList log_values;
-        struct RaelExprList blame_values;
         struct {
             enum {
                 SetTypeAtExpr = 1,
@@ -140,6 +146,7 @@ struct Node {
         struct LoopNode loop;
         struct Expr *pure;
         struct Expr *return_value;
+        struct CatchNode catch;
     };
 };
 

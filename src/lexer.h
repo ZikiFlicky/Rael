@@ -35,7 +35,9 @@ enum TokenName {
     TokenNameThrough,
     TokenNameSemicolon,
     TokenNameTo,
-    TokenNameBlame
+    TokenNameBlame,
+    TokenNameCatch,
+    TokenNameWith
 };
 
 struct Token {

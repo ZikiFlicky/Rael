@@ -1,0 +1,3 @@
+Error [2:5]: the dog ate the cat
+|     blame "the dog ate the cat"
+|     ^
