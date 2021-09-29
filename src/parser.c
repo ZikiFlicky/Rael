@@ -30,6 +30,20 @@ static void parser_push(struct Parser* const parser, struct Node* const node) {
     parser->nodes[parser->idx++] = node;
 }
 
+static bool parser_match(struct Parser* const parser, enum TokenName token) {
+    struct State backtrack = lexer_dump_state(&parser->lexer);
+
+    if (!lexer_tokenize(&parser->lexer))
+        return false;
+
+    if (parser->lexer.token.name != token) {
+        lexer_load_state(&parser->lexer, backtrack);
+        return false;
+    }
+
+    return true;
+}
+
 static void parser_expect_newline(struct Parser* const parser) {
     if (lexer_tokenize(&parser->lexer)) {
         if (parser->lexer.token.name != TokenNameNewline) {
@@ -51,20 +65,16 @@ static bool parser_maybe_expect_newline(struct Parser* const parser) {
 
 static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
     struct ASTValue *value;
-    struct State backtrack = lexer_dump_state(&parser->lexer);
     struct RaelExprList stack;
+    struct State backtrack = lexer_dump_state(&parser->lexer);
 
-    if (!lexer_tokenize(&parser->lexer))
+    if (!parser_match(parser, TokenNameLeftCur))
         return NULL;
 
-    if (parser->lexer.token.name != TokenNameLeftCur) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
-
+    // FIXME: deallocate this on parse failure
     stack = parser_parse_csv(parser, true);
 
-    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightCur) {
+    if (!parser_match(parser, TokenNameRightCur)) {
         lexer_load_state(&parser->lexer, backtrack);
         return NULL;
     }
@@ -76,7 +86,6 @@ static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
 }
 
 static struct ASTValue *parser_parse_number(struct Parser* const parser) {
-    struct State backtrack = lexer_dump_state(&parser->lexer);
     struct ASTValue *value;
     struct NumberExpr number;
     double as_float = 0.f;
@@ -84,10 +93,8 @@ static struct ASTValue *parser_parse_number(struct Parser* const parser) {
 
     number.is_float = false;
 
-    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameNumber) {
-        lexer_load_state(&parser->lexer, backtrack);
+    if (!parser_match(parser, TokenNameNumber))
         return NULL;
-    }
 
     value = malloc(sizeof(struct ASTValue));
     for (size_t i = 0; i < parser->lexer.token.length; ++i) {
@@ -216,7 +223,8 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
         if (!lexer_tokenize(&parser->lexer))
             return NULL;
 
-        if (parser->lexer.token.name == TokenNameSub) {
+        switch (parser->lexer.token.name) {
+        case TokenNameSub: {
             struct Expr *to_negative;
 
             if (!(to_negative = parser_parse_expr_single(parser)))
@@ -225,7 +233,9 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeNeg;
             expr->as_single = to_negative;
-        } else if (parser->lexer.token.name == TokenNameSizeof) {
+            break;
+        }
+        case TokenNameSizeof: {
             struct Expr *sizeof_value;
 
             if (!(sizeof_value = parser_parse_expr_single(parser))) {
@@ -235,18 +245,22 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeSizeof;
             expr->as_single = sizeof_value;
-        } else if (parser->lexer.token.name == TokenNameLeftParen) {
+            break;
+        }
+        case TokenNameLeftParen:
             if (!(expr = parser_parse_expr(parser))) {
                 parser_error(parser, "Expected an expression after left paren");
             }
-            if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen) {
+            if (!parser_match(parser, TokenNameRightParen)) {
                 parser_error(parser, "Unmatched '('");
             }
-        } else if (parser->lexer.token.name == TokenNameBlame) {
+            break;
+        case TokenNameBlame:
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeBlame;
             expr->as_single = parser_parse_expr_single(parser);
-        } else {
+            break;
+        default:
             lexer_load_state(&parser->lexer, backtrack);
             return NULL;
         }
@@ -276,16 +290,14 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
         start_backtrack = backtrack = lexer_dump_state(&parser->lexer);
 
         // verify there is '(' after the key?
-        if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameLeftParen) {
-            lexer_load_state(&parser->lexer, backtrack);
+        if (!parser_match(parser, TokenNameLeftParen))
             break;
-        }
 
         call.routine_value = expr;
         call.arguments = parser_parse_csv(parser, true);
 
         backtrack = lexer_dump_state(&parser->lexer);
-        if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameRightParen)
+        if (!parser_match(parser, TokenNameRightParen))
             rael_error(backtrack, "Expected a ')'");
 
         expr = malloc(sizeof(struct Expr));
@@ -300,9 +312,8 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
 static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_routine_call(parser))) {
+    if (!(expr = parser_parse_routine_call(parser)))
         return NULL;
-    }
 
     for (;;) {
         struct Expr *new_expr;
@@ -441,9 +452,8 @@ loop_end:
 static struct Expr *parser_parse_expr_keyword(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_expr_comparison(parser))) {
+    if (!(expr = parser_parse_expr_comparison(parser)))
         return NULL;
-    }
 
     for (;;) {
         struct Expr *new_expr;
@@ -536,14 +546,9 @@ static struct Node *parser_parse_node_set(struct Parser* const parser) {
     } else {
         struct Token key_token;
         lexer_load_state(&parser->lexer, backtrack);
-        // is there nothing?
-        if (!lexer_tokenize(&parser->lexer))
+
+        if (!parser_match(parser, TokenNameKey))
             return NULL;
-        // doesn't start with "log"
-        if (parser->lexer.token.name != TokenNameKey) {
-            lexer_load_state(&parser->lexer, backtrack);
-            return NULL;
-        }
         key_token = parser->lexer.token;
         // expect an expression after key
         if (!(expr = parser_parse_expr(parser))) {
@@ -601,31 +606,24 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
     exprs_ary[idx++] = expr;
 
     for (;;) {
-        struct State backtrack = lexer_dump_state(&parser->lexer);
-
         if (allow_newlines)
             parser_maybe_expect_newline(parser);
 
-        if (!lexer_tokenize(&parser->lexer))
+        if (!parser_match(parser, TokenNameComma))
             break;
 
-        if (parser->lexer.token.name == TokenNameComma) {
-            if (allow_newlines)
-                parser_maybe_expect_newline(parser);
-            if ((expr = parser_parse_expr(parser))) {
-                if (idx == allocated) {
-                    exprs_ary = realloc(exprs_ary, (allocated += 4) * sizeof(struct Expr *));
-                }
-                exprs_ary[idx++] = expr;
-            } else {
-                parser_error(parser, "Expected expression");
+        if (allow_newlines)
+            parser_maybe_expect_newline(parser);
+        if ((expr = parser_parse_expr(parser))) {
+            if (idx == allocated) {
+                exprs_ary = realloc(exprs_ary, (allocated += 4) * sizeof(struct Expr *));
             }
-            if (allow_newlines)
-                parser_maybe_expect_newline(parser);
+            exprs_ary[idx++] = expr;
         } else {
-            lexer_load_state(&parser->lexer, backtrack);
-            break;
+            parser_error(parser, "Expected expression");
         }
+        if (allow_newlines)
+            parser_maybe_expect_newline(parser);
     }
 
     return (struct RaelExprList) {
@@ -639,13 +637,8 @@ static struct Node *parser_parse_node_catch(struct Parser* const parser) {
     struct Node *node;
     struct CatchNode catch;
 
-    if (!lexer_tokenize(&parser->lexer))
+    if (!parser_match(parser, TokenNameCatch))
         return NULL;
-
-    if (parser->lexer.token.name != TokenNameCatch) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
 
     if (!(catch.catch_expr = parser_parse_expr(parser))) {
         parser_error(parser, "Expected expression");
@@ -653,10 +646,8 @@ static struct Node *parser_parse_node_catch(struct Parser* const parser) {
 
     parser_maybe_expect_newline(parser);
 
-    backtrack = lexer_dump_state(&parser->lexer);
-    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameWith) {
+    if (!parser_match(parser, TokenNameWith))
         rael_error(backtrack, "Expected 'with'");
-    }
 
     parser_maybe_expect_newline(parser);
 
@@ -674,17 +665,11 @@ static struct Node *parser_parse_node_catch(struct Parser* const parser) {
 }
 
 static struct Node *parser_parse_node_log(struct Parser* const parser) {
-    struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node *node;
     struct RaelExprList expr_list;
 
-    if (!lexer_tokenize(&parser->lexer))
+    if (!parser_match(parser, TokenNameLog))
         return NULL;
-
-    if (parser->lexer.token.name != TokenNameLog) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
 
     if ((expr_list = parser_parse_csv(parser, false)).amount_exprs == 0)
         parser_error(parser, "Expected at least one expression after \"log\"");
@@ -699,17 +684,11 @@ static struct Node *parser_parse_node_log(struct Parser* const parser) {
 }
 
 static struct Node *parser_parse_node_return(struct Parser* const parser) {
-    struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node *node;
     struct Expr *expr;
 
-    if (!lexer_tokenize(&parser->lexer))
+    if (!parser_match(parser, TokenNameCaret))
         return NULL;
-
-    if (parser->lexer.token.name != TokenNameCaret) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
 
     if (parser_maybe_expect_newline(parser)) {
         expr = NULL;
@@ -726,16 +705,10 @@ static struct Node *parser_parse_node_return(struct Parser* const parser) {
 }
 
 static struct Node *parser_parse_node_break(struct Parser* const parser) {
-    struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node *node;
 
-    if (!lexer_tokenize(&parser->lexer))
+    if (!parser_match(parser, TokenNameSemicolon))
         return NULL;
-
-    if (parser->lexer.token.name != TokenNameSemicolon) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
 
     parser_expect_newline(parser);
 
@@ -745,17 +718,12 @@ static struct Node *parser_parse_node_break(struct Parser* const parser) {
 }
 
 static struct Node **parser_parse_block(struct Parser* const parser) {
-    struct State backtrack = lexer_dump_state(&parser->lexer);
     struct Node **nodes;
     size_t node_amount, node_idx = 0;
-    // is there something?
-    if (!lexer_tokenize(&parser->lexer))
+
+    if (!parser_match(parser, TokenNameLeftCur))
         return NULL;
-    // verify it starts with '{'
-    if (parser->lexer.token.name != TokenNameLeftCur) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
+
     parser_maybe_expect_newline(parser);
     nodes = malloc(((node_amount = 32)+1) * sizeof(struct Node *));
     while (true) {
@@ -782,22 +750,16 @@ static struct Node **parser_parse_block(struct Parser* const parser) {
 static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
     struct ASTValue *value;
     struct RaelRoutineValue decl;
-    struct State backtrack = lexer_dump_state(&parser->lexer);
+    struct State backtrack;
 
-    if (!lexer_tokenize(&parser->lexer))
+    if (!parser_match(parser, TokenNameRoutine))
         return NULL;
 
-    if (parser->lexer.token.name != TokenNameRoutine) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
-
-    backtrack = lexer_dump_state(&parser->lexer);
-    if (!lexer_tokenize(&parser->lexer) || parser->lexer.token.name != TokenNameLeftParen) {
+    if (!parser_match(parser, TokenNameLeftParen))
         rael_error(backtrack, "Expected '(' after 'routine'");
-    }
 
     backtrack = lexer_dump_state(&parser->lexer);
+
     if (!lexer_tokenize(&parser->lexer))
         parser_error(parser, "Unexpected EOF");
 
@@ -827,12 +789,8 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
             }
 
             backtrack = lexer_dump_state(&parser->lexer);
-            if (!lexer_tokenize(&parser->lexer))
-                parser_error(parser, "Unexpected EOF");
-
-            if (parser->lexer.token.name != TokenNameKey) {
+            if (!parser_match(parser, TokenNameKey))
                 rael_error(backtrack, "Expected key");
-            }
 
             if (decl.amount_parameters == allocated)
                 decl.parameters = realloc(decl.parameters, (allocated += 3) * sizeof(struct Expr*));
@@ -863,20 +821,14 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
 
 static struct Node *parser_parse_if_statement(struct Parser* const parser) {
     struct Node *node;
-    struct State backtrack = lexer_dump_state(&parser->lexer);
     struct IfStatementNode if_stat = {
         .block = NULL,
         .else_type = ElseTypeNone,
         .condition = NULL
     };
 
-    if (!lexer_tokenize(&parser->lexer))
+    if (!parser_match(parser, TokenNameIf))
         return NULL;
-
-    if (parser->lexer.token.name != TokenNameIf) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
 
     if (!(if_stat.condition = parser_parse_expr(parser)))
         parser_error(parser, "Expected an expression after if keyword");
@@ -888,15 +840,9 @@ static struct Node *parser_parse_if_statement(struct Parser* const parser) {
 
     node = malloc(sizeof(struct Node));
     node->type = NodeTypeIf;
-    backtrack = lexer_dump_state(&parser->lexer);
-    if (!lexer_tokenize(&parser->lexer))
-        goto end;
 
-    // is there an else after the if?
-    if (parser->lexer.token.name != TokenNameElse) {
-        lexer_load_state(&parser->lexer, backtrack);
+    if (!parser_match(parser, TokenNameElse))
         goto end;
-    }
 
     parser_maybe_expect_newline(parser);
 
@@ -916,31 +862,23 @@ end:
 
 static struct Node *parser_parse_loop(struct Parser* const parser) {
     struct Node *node;
-    struct State backtrack = lexer_dump_state(&parser->lexer);
     struct LoopNode loop;
+    struct State backtrack;
 
-    if (!lexer_tokenize(&parser->lexer))
+    if (!parser_match(parser, TokenNameLoop))
         return NULL;
-
-    if (parser->lexer.token.name != TokenNameLoop) {
-        lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
-    }
-
-    backtrack = lexer_dump_state(&parser->lexer);
 
     if ((loop.block = parser_parse_block(parser))) {
         loop.type = LoopForever;
         goto loop_parsing_end;
     }
 
-    if (!lexer_tokenize(&parser->lexer))
-        parser_error(parser, "Expected expression after 'loop'");
+    backtrack = lexer_dump_state(&parser->lexer);
 
-    if (parser->lexer.token.name == TokenNameKey) {
+    if (parser_match(parser, TokenNameKey)) {
         struct Token key_token = parser->lexer.token;
 
-        if (lexer_tokenize(&parser->lexer) && parser->lexer.token.name == TokenNameThrough) {
+        if (parser_match(parser, TokenNameThrough)) {
             if (!(loop.iterate.expr = parser_parse_expr(parser)))
                 parser_error(parser, "Expected an expression after 'through'");
 
@@ -953,8 +891,6 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
             loop.type = LoopWhile;
         }
     } else {
-        lexer_load_state(&parser->lexer, backtrack);
-
         if (!(loop.while_condition = parser_parse_expr(parser)))
             parser_error(parser, "Expected expression after loop");
 
@@ -1006,9 +942,9 @@ struct Node **parse(char* const stream) {
         parser_push(&parser, node);
     }
     parser_push(&parser, NULL);
-    if (lexer_tokenize(&parser.lexer)) {
+
+    if (lexer_tokenize(&parser.lexer))
         parser_error(&parser, "Syntax Error");
-    }
     return parser.nodes;
 }
 
