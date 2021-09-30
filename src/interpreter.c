@@ -19,13 +19,14 @@ struct Interpreter {
     struct Scope scope;
     enum ProgramInterrupt interrupt;
     bool can_break;
+    bool in_routine;
+    RaelValue returned_value;
 };
 
-static void interpreter_interpret_node(struct Interpreter* const interpreter, struct Scope *scope,
-                                       struct Node* const node, RaelValue *returned_value);
+static void interpreter_interpret_node(struct Interpreter* const interpreter, struct Scope *scope, struct Node* const node);
 static RaelValue expr_eval(struct Interpreter* const interpreter, struct Scope *scope, struct Expr* const expr, const bool can_explode);
 static void value_log(RaelValue value);
-static void block_run(struct Interpreter* const interpreter, struct Scope *scope, struct Node **block, RaelValue *returned_value);
+static void block_run(struct Interpreter* const interpreter, struct Scope *scope, struct Node **block);
 
 static void rael_show_line_state(struct State state) {
     printf("| ");
@@ -186,9 +187,11 @@ static RaelValue interpret_value_at(struct Interpreter* const interpreter, struc
 static RaelValue routine_call_eval(struct Interpreter* const interpreter, struct Scope *scope,
                                    struct RoutineCallExpr call, struct State state) {
     struct Scope routine_scope;
-    RaelValue return_value;
     RaelValue maybe_routine = expr_eval(interpreter, scope, call.routine_value, true);
     const bool can_break_old = interpreter->can_break;
+    const bool in_routine_old = interpreter->in_routine;
+
+    interpreter->in_routine = true;
 
     if (maybe_routine->type != ValueTypeRoutine) {
         value_dereference(maybe_routine);
@@ -208,15 +211,18 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter, struct
     }
 
     interpreter->can_break = false;
-    block_run(interpreter, &routine_scope, maybe_routine->as_routine.block, &return_value);
+    block_run(interpreter, &routine_scope, maybe_routine->as_routine.block);
     if (interpreter->interrupt == ProgramInterruptReturn) {
         interpreter->interrupt = ProgramInterruptNone;
         interpreter->can_break = can_break_old;
+        interpreter->in_routine = in_routine_old;
         scope_dealloc(&routine_scope);
-        return return_value;
+
+        return interpreter->returned_value;
     }
 
     interpreter->can_break = can_break_old;
+    interpreter->in_routine = in_routine_old;
     scope_dealloc(&routine_scope);
     return value_create(ValueTypeVoid);
 }
@@ -636,17 +642,15 @@ static bool value_as_bool(const RaelValue value) {
     }
 }
 
-static void block_run(struct Interpreter* const interpreter, struct Scope *scope, struct Node **block, RaelValue *returned_value) {
+static void block_run(struct Interpreter* const interpreter, struct Scope *scope, struct Node **block) {
     for (size_t i = 0; block[i]; ++i) {
-        interpreter_interpret_node(interpreter, scope, block[i], returned_value);
+        interpreter_interpret_node(interpreter, scope, block[i]);
         if (interpreter->interrupt != ProgramInterruptNone)
             break;
     }
 }
 
-static void interpreter_interpret_node(struct Interpreter* const interpreter,
-                                       struct Scope *scope, struct Node* const node,
-                                       RaelValue *returned_value) {
+static void interpreter_interpret_node(struct Interpreter* const interpreter, struct Scope *scope, struct Node* const node) {
     switch (node->type) {
     case NodeTypeLog: {
         RaelValue value;
@@ -667,14 +671,14 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter,
 
         if (value_as_bool((condition = expr_eval(interpreter, scope, node->if_stat.condition, true)))) {
             value_dereference(condition);
-            block_run(interpreter, &if_scope, node->if_stat.block, returned_value);
+            block_run(interpreter, &if_scope, node->if_stat.block);
         } else {
             switch (node->if_stat.else_type) {
             case ElseTypeBlock:
-                block_run(interpreter, &if_scope, node->if_stat.else_block, returned_value);
+                block_run(interpreter, &if_scope, node->if_stat.else_block);
                 break;
             case ElseTypeNode:
-                interpreter_interpret_node(interpreter, &if_scope, node->if_stat.else_node, returned_value);
+                interpreter_interpret_node(interpreter, &if_scope, node->if_stat.else_node);
                 break;
             case ElseTypeNone:
                 break;
@@ -699,7 +703,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter,
 
             while (value_as_bool((condition = expr_eval(interpreter, &loop_scope, node->loop.while_condition, true)))) {
                 value_dereference(condition);
-                block_run(interpreter, &loop_scope, node->loop.block, returned_value);
+                block_run(interpreter, &loop_scope, node->loop.block);
 
                 if (interpreter->interrupt == ProgramInterruptBreak) {
                     interpreter->interrupt = ProgramInterruptNone;
@@ -731,7 +735,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter,
 
             for (size_t i = 0; i < length; ++i) {
                 scope_set(&loop_scope, node->loop.iterate.key, value_at(iterator, i));
-                block_run(interpreter, &loop_scope, node->loop.block, returned_value);
+                block_run(interpreter, &loop_scope, node->loop.block);
 
                 if (interpreter->interrupt == ProgramInterruptBreak) {
                     interpreter->interrupt = ProgramInterruptNone;
@@ -745,7 +749,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter,
         }
         case LoopForever:
             for (;;) {
-                block_run(interpreter, &loop_scope, node->loop.block, returned_value);
+                block_run(interpreter, &loop_scope, node->loop.block);
 
                 if (interpreter->interrupt == ProgramInterruptBreak) {
                     interpreter->interrupt = ProgramInterruptNone;
@@ -767,13 +771,13 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter,
         // dereference result right after evaluation
         value_dereference(expr_eval(interpreter, scope, node->pure, true));
         break;
-    case NodeTypeReturn:
-        if (returned_value) {
+    case NodeTypeReturn: {
+        if (interpreter->in_routine) {
             // if you can set a return value
             if (node->return_value) {
-                *returned_value = expr_eval(interpreter, scope, node->return_value, false);
+                interpreter->returned_value = expr_eval(interpreter, scope, node->return_value, false);
             } else {
-                *returned_value = value_create(ValueTypeVoid);
+                interpreter->returned_value = value_create(ValueTypeVoid);
             }
         } else {
             rael_error(node->state, "'^' outside a routine is not permitted");
@@ -781,6 +785,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter,
 
         interpreter->interrupt = ProgramInterruptReturn;
         break;
+    }
     case NodeTypeBreak:
         if (!interpreter->can_break)
             rael_error(node->state, "';' has to be inside a loop");
@@ -794,7 +799,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter,
         if (caught_value->type == ValueTypeBlame) {
             struct Scope catch_scope;
             scope_construct(&catch_scope, scope);
-            block_run(interpreter, &catch_scope, node->catch.handle_block, returned_value);
+            block_run(interpreter, &catch_scope, node->catch.handle_block);
         }
 
         value_dereference(caught_value);
@@ -812,11 +817,13 @@ void interpret(struct Node **instructions) {
         .instructions = instructions,
         .interrupt = ProgramInterruptNone,
         .can_break = false,
+        .in_routine = false,
+        .returned_value = NULL
     };
 
     scope_construct(&interp.scope, NULL);
     for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
-        interpreter_interpret_node(&interp, &interp.scope, node, NULL);
+        interpreter_interpret_node(&interp, &interp.scope, node);
     }
     scope_dealloc(&interp.scope);
     for (interp.idx = 0; (node = interp.instructions[interp.idx]); ++interp.idx) {
