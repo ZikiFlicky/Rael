@@ -468,6 +468,22 @@ static RaelValue expr_eval(struct Scope *scope, struct Expr* const expr, const b
             value->as_blame.value = NULL;
         value->as_blame.original_place = expr->state;
         break;
+    case ExprTypeSet:
+        switch (expr->as_set.set_type) {
+        case SetTypeAtExpr: {
+            value = expr_eval(scope, expr->as_set.expr, true);
+            stack_set(scope, expr->as_set.as_at_stat, value);
+            break;
+        }
+        case SetTypeKey:
+            value = expr_eval(scope, expr->as_set.expr, true);
+            scope_set(scope, expr->as_set.as_key, value);
+            break;
+        default:
+            assert(0);
+        }
+        ++value->reference_count;
+        break;
     default:
         assert(0);
     }
@@ -624,19 +640,6 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Scope *scope, str
         printf("\n");
         break;
     }
-    case NodeTypeSet:
-        switch (node->set.set_type) {
-        case SetTypeAtExpr: {
-            stack_set(scope, node->set.as_at_stat, expr_eval(scope, node->set.expr, true));
-            break;
-        }
-        case SetTypeKey:
-            scope_set(scope, node->set.as_key, expr_eval(scope, node->set.expr, true));
-            break;
-        default:
-            assert(0);
-        }
-        break;
     case NodeTypeIf: {
         struct Scope if_scope;
         RaelValue condition;

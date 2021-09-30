@@ -58,12 +58,25 @@ enum ExprType {
     ExprTypeRedirect,
     ExprTypeSizeof,
     ExprTypeTo,
-    ExprTypeBlame
+    ExprTypeBlame,
+    ExprTypeSet
 };
 
 struct RoutineCallExpr {
     struct Expr *routine_value;
     struct RaelExprList arguments;
+};
+
+struct SetExpr {
+    enum {
+        SetTypeAtExpr = 1,
+        SetTypeKey
+    } set_type;
+    union {
+        struct Expr *as_at_stat;
+        char *as_key;
+    };
+    struct Expr *expr;
 };
 
 struct Expr {
@@ -77,12 +90,12 @@ struct Expr {
         struct ASTValue *as_value;
         char *as_key;
         struct RoutineCallExpr as_call;
+        struct SetExpr as_set;
     };
 };
 
 enum NodeType {
     NodeTypeLog = 1,
-    NodeTypeSet,
     NodeTypeIf,
     NodeTypeLoop,
     NodeTypePureExpr,
@@ -131,17 +144,6 @@ struct Node {
     struct State state;
     union {
         struct RaelExprList log_values;
-        struct {
-            enum {
-                SetTypeAtExpr = 1,
-                SetTypeKey
-            } set_type;
-            union {
-                struct Expr *as_at_stat;
-                char *as_key;
-            };
-            struct Expr *expr;
-        } set;
         struct IfStatementNode if_stat;
         struct LoopNode loop;
         struct Expr *pure;

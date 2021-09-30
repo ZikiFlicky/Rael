@@ -14,6 +14,8 @@ static struct Node *parser_parse_node(struct Parser* const parser);
 static struct ASTValue *parser_parse_node_routine(struct Parser* const parser);
 static struct Node **parser_parse_block(struct Parser* const parser);
 static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
+static struct Expr *parser_parse_expr_keyword(struct Parser* const parser);
+static void expr_delete(struct Expr* const expr);
 
 void rael_error(struct State state, const char* const error_message);
 
@@ -215,6 +217,57 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     }
 }
 
+static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
+    struct Expr *expr, *at_set, *full_expression;
+    struct State backtrack = lexer_dump_state(&parser->lexer);
+
+    if ((at_set = parser_parse_expr_keyword(parser)) && at_set->type == ExprTypeAt) {
+        // parse rhs
+        if (!(expr = parser_parse_expr(parser))) {
+            expr_delete(at_set);
+            lexer_load_state(&parser->lexer, backtrack);
+            return NULL;
+        }
+
+        full_expression = malloc(sizeof(struct Expr));
+        *full_expression = (struct Expr) {
+            .type = ExprTypeSet,
+            .as_set = {
+                .set_type = SetTypeAtExpr,
+                .as_at_stat = at_set,
+                .expr = expr
+            }
+        };
+    } else {
+        struct Token key_token;
+        lexer_load_state(&parser->lexer, backtrack);
+
+        if (at_set)
+            expr_delete(at_set);
+
+        if (!parser_match(parser, TokenNameKey))
+            return NULL;
+        key_token = parser->lexer.token;
+        // expect an expression after key
+        if (!(expr = parser_parse_expr(parser))) {
+            lexer_load_state(&parser->lexer, backtrack);
+            return NULL;
+        }
+
+        full_expression = malloc(sizeof(struct Expr));
+        *full_expression = (struct Expr) {
+            .type = ExprTypeSet,
+            .as_set = {
+                .set_type = SetTypeKey,
+                .as_key = token_allocate_key(&key_token),
+                .expr = expr
+            }
+        };
+    }
+
+    return full_expression;
+}
+
 static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     struct Expr *expr;
     struct State backtrack = lexer_dump_state(&parser->lexer);;
@@ -247,14 +300,29 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             expr->as_single = sizeof_value;
             break;
         }
-        case TokenNameLeftParen:
-            if (!(expr = parser_parse_expr(parser))) {
+        case TokenNameLeftParen: {
+            struct State last_state = lexer_dump_state(&parser->lexer);
+
+            if (!(expr = parser_parse_expr(parser)))
                 parser_error(parser, "Expected an expression after left paren");
-            }
+
+            // expect a ')' after an expression, but if there isn't, it might be a set expression
             if (!parser_match(parser, TokenNameRightParen)) {
-                parser_error(parser, "Unmatched '('");
+                struct State after_expr_state = lexer_dump_state(&parser->lexer);
+
+                // reset position to after left paren
+                lexer_load_state(&parser->lexer, last_state);
+                expr_delete(expr);
+
+                if (!(expr = parser_parse_expr_set(parser)))
+                    rael_error(after_expr_state, "Unmatched '('");
+
+                if (!parser_match(parser, TokenNameRightParen))
+                    parser_error(parser, "Unmatched '('");
             }
+
             break;
+        }
         case TokenNameBlame:
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeBlame;
@@ -526,59 +594,27 @@ loop_end:
     return expr;
 }
 
-static struct Node *parser_parse_node_set(struct Parser* const parser) {
-    struct State backtrack = lexer_dump_state(&parser->lexer);
-    struct Node *node;
-    struct Expr *expr, *at_set;
-
-    if ((at_set = parser_parse_expr_keyword(parser)) && at_set->type == ExprTypeAt) {
-        // parse rhs
-        if (!(expr = parser_parse_expr(parser))) {
-            lexer_load_state(&parser->lexer, backtrack);
-            return NULL;
-        }
-        parser_expect_newline(parser);
-        node = malloc(sizeof(struct Node));
-        node->type = NodeTypeSet;
-        node->set.set_type = SetTypeAtExpr;
-        node->set.as_at_stat = at_set;
-        node->set.expr = expr;
-    } else {
-        struct Token key_token;
-        lexer_load_state(&parser->lexer, backtrack);
-
-        if (!parser_match(parser, TokenNameKey))
-            return NULL;
-        key_token = parser->lexer.token;
-        // expect an expression after key
-        if (!(expr = parser_parse_expr(parser))) {
-            lexer_load_state(&parser->lexer, backtrack);
-            return NULL;
-        }
-        parser_expect_newline(parser);
-        node = malloc(sizeof(struct Node));
-        node->type = NodeTypeSet;
-        node->set.set_type = SetTypeKey;
-        node->set.as_key = token_allocate_key(&key_token);
-        node->set.expr = expr;
-    }
-    node->state = backtrack;
-    return node;
-}
-
 static struct Node *parser_parse_node_pure(struct Parser* const parser) {
     struct Node *node;
     struct Expr *expr;
     struct State backtrack = lexer_dump_state(&parser->lexer);
 
-    if (!(expr = parser_parse_expr(parser)))
-        return NULL;
-
-    if (!parser_maybe_expect_newline(parser)) {
+    if ((expr = parser_parse_expr(parser))) {
+        if (parser_maybe_expect_newline(parser))
+            goto end;
+        expr_delete(expr);
         lexer_load_state(&parser->lexer, backtrack);
-        return NULL;
     }
 
+    if ((expr = parser_parse_expr_set(parser))) {
+        if (parser_maybe_expect_newline(parser))
+            goto end;
+        expr_delete(expr);
+        lexer_load_state(&parser->lexer, backtrack);
+    }
+
+    return NULL;
+end:
     node = malloc(sizeof(struct Node));
     node->type = NodeTypePureExpr;
     node->pure = expr;
@@ -912,7 +948,6 @@ static struct Node *parser_parse_node(struct Parser* const parser) {
     struct Node *node;
     struct State prev_state = lexer_dump_state(&parser->lexer);
     if ((node = parser_parse_node_pure(parser))    ||
-        (node = parser_parse_node_set(parser))     ||
         (node = parser_parse_node_log(parser))     ||
         (node = parser_parse_if_statement(parser)) ||
         (node = parser_parse_loop(parser))         ||
@@ -1025,6 +1060,19 @@ static void expr_delete(struct Expr* const expr) {
         if (expr->as_single)
             expr_delete(expr->as_single);
         break;
+    case ExprTypeSet:
+        switch (expr->as_set.set_type) {
+        case SetTypeKey:
+            free(expr->as_set.as_key);
+            break;
+        case SetTypeAtExpr:
+            expr_delete(expr->as_set.as_at_stat);
+            break;
+        default:
+            assert(0);
+        }
+        expr_delete(expr->as_set.expr);
+        break;
     default:
         assert(0);
     }
@@ -1092,14 +1140,6 @@ void node_delete(struct Node* const node) {
         if (node->return_value) {
             expr_delete(node->return_value);
         }
-        break;
-    case NodeTypeSet:
-        if (node->set.set_type == SetTypeKey) {
-            free(node->set.as_key);
-        } else {
-            expr_delete(node->set.as_at_stat);
-        }
-        expr_delete(node->set.expr);
         break;
     case NodeTypeBreak:
         break;
