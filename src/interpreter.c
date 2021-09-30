@@ -17,14 +17,14 @@ struct Interpreter {
     struct Node **instructions;
     size_t idx;
     struct Scope scope;
+    enum ProgramInterrupt interrupt;
 };
 
-static enum ProgramInterrupt interpreter_interpret_node(struct Interpreter* const interpreter,
-                                                        struct Scope *scope, struct Node* const node,
-                                                        RaelValue *returned_value, bool can_break);
+static void interpreter_interpret_node(struct Interpreter* const interpreter, struct Scope *scope,
+                                       struct Node* const node, RaelValue *returned_value, bool can_break);
 static RaelValue expr_eval(struct Interpreter* const interpreter, struct Scope *scope, struct Expr* const expr, const bool can_explode);
 static void value_log(RaelValue value);
-static enum ProgramInterrupt block_run(struct Interpreter* const interpreter, struct Scope *scope, struct Node **block, RaelValue *returned_value, bool can_break);
+static void block_run(struct Interpreter* const interpreter, struct Scope *scope, struct Node **block, RaelValue *returned_value, bool can_break);
 
 static void rael_show_line_state(struct State state) {
     printf("| ");
@@ -205,7 +205,9 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter, struct
                         expr_eval(interpreter, scope, call.arguments.exprs[i], true));
     }
 
-    if (block_run(interpreter, &routine_scope, maybe_routine->as_routine.block, &return_value, false) == ProgramInterruptReturn) {
+    block_run(interpreter, &routine_scope, maybe_routine->as_routine.block, &return_value, false);
+    if (interpreter->interrupt == ProgramInterruptReturn) {
+        interpreter->interrupt = ProgramInterruptNone;
         scope_dealloc(&routine_scope);
         return return_value;
     }
@@ -629,25 +631,17 @@ static bool value_as_bool(const RaelValue value) {
     }
 }
 
-static enum ProgramInterrupt block_run(struct Interpreter* const interpreter, struct Scope *scope, struct Node **block, RaelValue *returned_value, bool can_break) {
-    enum ProgramInterrupt interrupt = ProgramInterruptNone;
-
+static void block_run(struct Interpreter* const interpreter, struct Scope *scope, struct Node **block, RaelValue *returned_value, bool can_break) {
     for (size_t i = 0; block[i]; ++i) {
-        if ((interrupt = interpreter_interpret_node(interpreter, scope, block[i], returned_value, can_break)))
+        interpreter_interpret_node(interpreter, scope, block[i], returned_value, can_break);
+        if (interpreter->interrupt != ProgramInterruptNone)
             break;
     }
-
-    return interrupt;
 }
 
-/*
-    returns true if got a return statement
-*/
-static enum ProgramInterrupt interpreter_interpret_node(struct Interpreter* const interpreter,
-                                                        struct Scope *scope, struct Node* const node,
-                                                        RaelValue *returned_value, bool can_break) {
-    enum ProgramInterrupt interrupt = ProgramInterruptNone;
-
+static void interpreter_interpret_node(struct Interpreter* const interpreter,
+                                       struct Scope *scope, struct Node* const node,
+                                       RaelValue *returned_value, bool can_break) {
     switch (node->type) {
     case NodeTypeLog: {
         RaelValue value;
@@ -668,14 +662,14 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Interpreter* cons
 
         if (value_as_bool((condition = expr_eval(interpreter, scope, node->if_stat.condition, true)))) {
             value_dereference(condition);
-            interrupt = block_run(interpreter, &if_scope, node->if_stat.block, returned_value, can_break);
+            block_run(interpreter, &if_scope, node->if_stat.block, returned_value, can_break);
         } else {
             switch (node->if_stat.else_type) {
             case ElseTypeBlock:
-                interrupt = block_run(interpreter, &if_scope, node->if_stat.else_block, returned_value, can_break);
+                block_run(interpreter, &if_scope, node->if_stat.else_block, returned_value, can_break);
                 break;
             case ElseTypeNode:
-                interrupt = interpreter_interpret_node(interpreter, &if_scope, node->if_stat.else_node, returned_value, can_break);
+                interpreter_interpret_node(interpreter, &if_scope, node->if_stat.else_node, returned_value, can_break);
                 break;
             case ElseTypeNone:
                 break;
@@ -697,12 +691,12 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Interpreter* cons
 
             while (value_as_bool((condition = expr_eval(interpreter, &loop_scope, node->loop.while_condition, true)))) {
                 value_dereference(condition);
-                interrupt = block_run(interpreter, &loop_scope, node->loop.block, returned_value, true);
+                block_run(interpreter, &loop_scope, node->loop.block, returned_value, true);
 
-                if (interrupt == ProgramInterruptBreak) {
-                    interrupt = ProgramInterruptNone;
+                if (interpreter->interrupt == ProgramInterruptBreak) {
+                    interpreter->interrupt = ProgramInterruptNone;
                     break;
-                } else if (interrupt == ProgramInterruptReturn) {
+                } else if (interpreter->interrupt == ProgramInterruptReturn) {
                     break;
                 }
             }
@@ -729,12 +723,12 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Interpreter* cons
 
             for (size_t i = 0; i < length; ++i) {
                 scope_set(&loop_scope, node->loop.iterate.key, value_at(iterator, i));
-                interrupt = block_run(interpreter, &loop_scope, node->loop.block, returned_value, true);
+                block_run(interpreter, &loop_scope, node->loop.block, returned_value, true);
 
-                if (interrupt == ProgramInterruptBreak) {
-                    interrupt = ProgramInterruptNone;
+                if (interpreter->interrupt == ProgramInterruptBreak) {
+                    interpreter->interrupt = ProgramInterruptNone;
                     break;
-                } else if (interrupt == ProgramInterruptReturn) {
+                } else if (interpreter->interrupt == ProgramInterruptReturn) {
                     break;
                 }
             }
@@ -743,12 +737,12 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Interpreter* cons
         }
         case LoopForever:
             for (;;) {
-                interrupt = block_run(interpreter, &loop_scope, node->loop.block, returned_value, true);
+                block_run(interpreter, &loop_scope, node->loop.block, returned_value, true);
 
-                if (interrupt == ProgramInterruptBreak) {
-                    interrupt = ProgramInterruptNone;
+                if (interpreter->interrupt == ProgramInterruptBreak) {
+                    interpreter->interrupt = ProgramInterruptNone;
                     break;
-                } else if (interrupt == ProgramInterruptReturn) {
+                } else if (interpreter->interrupt == ProgramInterruptReturn) {
                     break;
                 }
             }
@@ -776,13 +770,13 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Interpreter* cons
             rael_error(node->state, "'^' outside a routine is not permitted");
         }
 
-        interrupt = ProgramInterruptReturn;
+        interpreter->interrupt = ProgramInterruptReturn;
         break;
     case NodeTypeBreak:
         if (!can_break) {
             rael_error(node->state, "';' has to be inside a loop");
         }
-        interrupt = ProgramInterruptBreak;
+        interpreter->interrupt = ProgramInterruptBreak;
         break;
     case NodeTypeCatch: {
         RaelValue caught_value = expr_eval(interpreter, scope, node->catch.catch_expr, false);
@@ -801,14 +795,13 @@ static enum ProgramInterrupt interpreter_interpret_node(struct Interpreter* cons
     default:
         assert(0);
     }
-
-    return interrupt;
 }
 
 void interpret(struct Node **instructions) {
     struct Node *node;
     struct Interpreter interp = {
-        .instructions = instructions
+        .instructions = instructions,
+        .interrupt = ProgramInterruptNone
     };
 
     scope_construct(&interp.scope, NULL);
