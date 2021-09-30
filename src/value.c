@@ -25,6 +25,10 @@ void value_dereference(RaelValue value) {
             if (!value->as_string.does_reference_ast && value->as_string.length)
                 free(value->as_string.value);
             break;
+        case ValueTypeBlame:
+            if (value->as_blame.value)
+                value_dereference(value->as_blame.value);
+            break;
         default:
             break;
         }
