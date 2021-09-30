@@ -73,11 +73,12 @@ static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
     if (!parser_match(parser, TokenNameLeftCur))
         return NULL;
 
-    // FIXME: deallocate this on parse failure
     stack = parser_parse_csv(parser, true);
 
     if (!parser_match(parser, TokenNameRightCur)) {
         lexer_load_state(&parser->lexer, backtrack);
+        for (size_t i = 0; i < stack.amount_exprs; ++i)
+            expr_delete(stack.exprs[i]);
         return NULL;
     }
 
