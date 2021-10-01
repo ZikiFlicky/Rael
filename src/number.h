@@ -5,6 +5,9 @@
 
 #include <stdbool.h>
 
+struct Interpreter;
+struct Scope;
+
 struct NumberExpr {
     bool is_float;
     union {
@@ -19,9 +22,11 @@ struct NumberExpr number_sub(struct NumberExpr a, struct NumberExpr b);
 
 struct NumberExpr number_mul(struct NumberExpr a, struct NumberExpr b);
 
-struct NumberExpr number_div(struct State state, struct NumberExpr a, struct NumberExpr b);
+struct NumberExpr number_div(struct Interpreter* const interpreter, struct Scope *scope,
+                             struct State state, struct NumberExpr a, struct NumberExpr b);
 
-struct NumberExpr number_mod(struct State state, struct NumberExpr a, struct NumberExpr b);
+struct NumberExpr number_mod(struct Interpreter* const interpreter, struct Scope *scope,
+                             struct State state, struct NumberExpr a, struct NumberExpr b);
 
 struct NumberExpr number_neg(struct NumberExpr n);
 
