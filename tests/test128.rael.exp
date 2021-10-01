@@ -1,0 +1,3 @@
+Error [1:12]: this should explode
+| catch blame(blame("this should explode")) with {
+|            ^

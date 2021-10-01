@@ -1,0 +1,3 @@
+catch blame(blame("this should explode")) with {
+    log "we shouldn't have reached this block"
+}
