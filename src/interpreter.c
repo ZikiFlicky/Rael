@@ -191,6 +191,7 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter, struct
     const bool can_break_old = interpreter->can_break;
     const bool in_routine_old = interpreter->in_routine;
 
+    interpreter->can_break = false;
     interpreter->in_routine = true;
 
     if (maybe_routine->type != ValueTypeRoutine) {
@@ -210,21 +211,20 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter, struct
                         expr_eval(interpreter, scope, call.arguments.exprs[i], true));
     }
 
-    interpreter->can_break = false;
     block_run(interpreter, &routine_scope, maybe_routine->as_routine.block);
     if (interpreter->interrupt == ProgramInterruptReturn) {
-        interpreter->interrupt = ProgramInterruptNone;
-        interpreter->can_break = can_break_old;
-        interpreter->in_routine = in_routine_old;
-        scope_dealloc(&routine_scope);
-
-        return interpreter->returned_value;
+        ;
+    } else {
+        // just got to the end of the function
+        interpreter->returned_value = value_create(ValueTypeVoid);
     }
 
+    interpreter->interrupt = ProgramInterruptNone;
     interpreter->can_break = can_break_old;
     interpreter->in_routine = in_routine_old;
     scope_dealloc(&routine_scope);
-    return value_create(ValueTypeVoid);
+
+    return interpreter->returned_value;
 }
 
 static RaelValue expr_eval(struct Interpreter* const interpreter, struct Scope *scope,
