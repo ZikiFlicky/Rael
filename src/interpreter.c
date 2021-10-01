@@ -18,7 +18,7 @@ struct Interpreter {
     size_t idx;
     struct Scope scope;
     enum ProgramInterrupt interrupt;
-    bool can_break;
+    bool in_loop;
     bool in_routine;
     RaelValue returned_value;
 };
@@ -188,10 +188,10 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter, struct
                                    struct RoutineCallExpr call, struct State state) {
     struct Scope routine_scope;
     RaelValue maybe_routine = expr_eval(interpreter, scope, call.routine_value, true);
-    const bool can_break_old = interpreter->can_break;
+    const bool in_loop_old = interpreter->in_loop;
     const bool in_routine_old = interpreter->in_routine;
 
-    interpreter->can_break = false;
+    interpreter->in_loop = false;
     interpreter->in_routine = true;
 
     if (maybe_routine->type != ValueTypeRoutine) {
@@ -220,7 +220,7 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter, struct
     }
 
     interpreter->interrupt = ProgramInterruptNone;
-    interpreter->can_break = can_break_old;
+    interpreter->in_loop = in_loop_old;
     interpreter->in_routine = in_routine_old;
     scope_dealloc(&routine_scope);
 
@@ -692,8 +692,8 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
     }
     case NodeTypeLoop: {
         struct Scope loop_scope;
-        const bool can_break_old = interpreter->can_break;
-        interpreter->can_break = true;
+        const bool in_loop_old = interpreter->in_loop;
+        interpreter->in_loop = true;
 
         scope_construct(&loop_scope, scope);
 
@@ -763,7 +763,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
             assert(0);
         }
 
-        interpreter->can_break = can_break_old;
+        interpreter->in_loop = in_loop_old;
         scope_dealloc(&loop_scope);
         break;
     }
@@ -787,7 +787,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
         break;
     }
     case NodeTypeBreak:
-        if (!interpreter->can_break)
+        if (!interpreter->in_loop)
             rael_error(node->state, "';' has to be inside a loop");
 
         interpreter->interrupt = ProgramInterruptBreak;
@@ -816,7 +816,7 @@ void interpret(struct Node **instructions) {
     struct Interpreter interp = {
         .instructions = instructions,
         .interrupt = ProgramInterruptNone,
-        .can_break = false,
+        .in_loop = false,
         .in_routine = false,
         .returned_value = NULL
     };
