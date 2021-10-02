@@ -43,4 +43,10 @@ RaelValue value_create(enum ValueType type);
 
 void value_dereference(RaelValue value);
 
+void value_log_as_original(RaelValue value);
+
+void value_log(RaelValue value);
+
+bool value_as_bool(const RaelValue value);
+
 #endif
