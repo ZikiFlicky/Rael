@@ -4,6 +4,7 @@
 #include "lexer.h"
 #include "number.h"
 #include "string.h"
+#include "common.h"
 
 #include <stdbool.h>
 

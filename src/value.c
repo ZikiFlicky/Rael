@@ -1,7 +1,7 @@
 #include "value.h"
+#include "common.h"
 
 #include <stdlib.h>
-#include <assert.h>
 #include <stdio.h>
 
 RaelValue value_create(enum ValueType type) {
@@ -97,7 +97,7 @@ void value_log_as_original(RaelValue value) {
         printf("%d to %d", value->as_range.start, value->as_range.end);
         break;
     default:
-        assert(0);
+        RAEL_UNREACHABLE();
     }
 }
 
@@ -132,6 +132,6 @@ bool value_as_bool(const RaelValue value) {
     case ValueTypeRange:
         return true;
     default:
-        assert(0);
+        RAEL_UNREACHABLE();
     }
 }

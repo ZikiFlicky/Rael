@@ -2,6 +2,7 @@
 #include "lexer.h"
 #include "number.h"
 #include "value.h"
+#include "common.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -16,8 +17,6 @@ static struct Node **parser_parse_block(struct Parser* const parser);
 static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 static struct Expr *parser_parse_expr_keyword(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
-
-void rael_error(struct State state, const char* const error_message);
 
 static inline void parser_error(struct Parser* const parser, const char* const error_message) {
     rael_error(lexer_dump_state(&parser->lexer), error_message);
@@ -1019,7 +1018,7 @@ static void astvalue_delete(struct ASTValue* value) {
         free(value->as_stack.exprs);
         break;
     default:
-        assert(0);
+        RAEL_UNREACHABLE();
     }
     free(value);
 }
@@ -1070,12 +1069,12 @@ static void expr_delete(struct Expr* const expr) {
             expr_delete(expr->as_set.as_at_stat);
             break;
         default:
-            assert(0);
+            RAEL_UNREACHABLE();
         }
         expr_delete(expr->as_set.expr);
         break;
     default:
-        assert(0);
+        RAEL_UNREACHABLE();
     }
     free(expr);
 }
@@ -1102,7 +1101,7 @@ void node_delete(struct Node* const node) {
         case ElseTypeNone:
             break;
         default:
-            assert(0);
+            RAEL_UNREACHABLE();
         }
 
         break;
@@ -1125,7 +1124,7 @@ void node_delete(struct Node* const node) {
         case LoopForever:
             break;
         default:
-            assert(0);
+            RAEL_UNREACHABLE();
         }
 
         for (size_t i = 0; node->loop.block[i]; ++i) {
@@ -1152,7 +1151,7 @@ void node_delete(struct Node* const node) {
         }
         break;
     default:
-        assert(0);
+        RAEL_UNREACHABLE();
     }
     free(node);
 }

@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "common.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -6,8 +7,6 @@
 #include <ctype.h>
 #include <string.h>
 #include <assert.h>
-
-void rael_error(struct State state, const char* const error_message);
 
 struct State lexer_dump_state(struct Lexer* const lexer) {
     struct State state;

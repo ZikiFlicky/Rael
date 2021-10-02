@@ -1,6 +1,7 @@
 #include "scope.h"
 #include "number.h"
 #include "value.h"
+#include "common.h"
 
 #include <string.h>
 #include <assert.h>
@@ -26,41 +27,6 @@ struct Interpreter {
 static void interpreter_interpret_node(struct Interpreter* const interpreter, struct Node* const node);
 static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* const expr, const bool can_explode);
 static void block_run(struct Interpreter* const interpreter, struct Node **block);
-
-static void rael_show_line_state(struct State state) {
-    printf("| ");
-    for (int i = -state.column + 1; state.stream_pos[i] && state.stream_pos[i] != '\n'; ++i) {
-        if (state.stream_pos[i] == '\t') {
-            printf("    ");
-        } else {
-            putchar(state.stream_pos[i]);
-        }
-    }
-    printf("\n| ");
-    for (size_t i = 0; i < state.column - 1; ++i) {
-        if (state.stream_pos[-state.column + i] == '\t') {
-            printf("    ");
-        } else {
-            putchar(' ');
-        }
-    }
-    printf("^\n");
-}
-
-static void show_rael_error(struct State state, const char* const error_message) {
-    // advance all whitespace
-    while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
-        ++state.column;
-        ++state.stream_pos;
-    }
-    printf("Error [%zu:%zu]: %s\n", state.line, state.column, error_message);
-    rael_show_line_state(state);
-}
-
-void rael_error(struct State state, const char* const error_message) {
-    show_rael_error(state, error_message);
-    exit(1);
-}
 
 static void interpreter_push_scope(struct Interpreter* const interpreter, struct Scope *scope_addr) {
     scope_construct(scope_addr, interpreter->scope);
@@ -88,7 +54,7 @@ static void interpreter_destroy_all(struct Interpreter* const interpreter) {
 }
 
 void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message) {
-    show_rael_error(state, error_message);
+    rael_show_error_message(state, error_message);
     interpreter_destroy_all(interpreter);
     exit(1);
 }
@@ -123,7 +89,7 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTVal
     case ValueTypeVoid:
         break;
     default:
-        assert(0);
+        RAEL_UNREACHABLE();
     }
 
     return out_value;
@@ -181,7 +147,7 @@ static RaelValue value_at(RaelValue iterable, size_t idx) {
         else
             value->as_number.as_int = iterable->as_range.start - idx;
     } else {
-        assert(0);
+        RAEL_UNREACHABLE();
     }
 
     return value;
@@ -538,12 +504,12 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             scope_set(interpreter->scope, expr->as_set.as_key, value);
             break;
         default:
-            assert(0);
+            RAEL_UNREACHABLE();
         }
         ++value->reference_count;
         break;
     default:
-        assert(0);
+        RAEL_UNREACHABLE();
     }
 
     if (can_explode && value->type == ValueTypeBlame) {
@@ -617,7 +583,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
             case ElseTypeNone:
                 break;
             default:
-                assert(0);
+                RAEL_UNREACHABLE();
             }
         }
 
@@ -693,7 +659,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
             }
             break;
         default:
-            assert(0);
+            RAEL_UNREACHABLE();
         }
 
         interpreter->in_loop = in_loop_old;
@@ -741,7 +707,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
         break;
     }
     default:
-        assert(0);
+        RAEL_UNREACHABLE();
     }
 }
 
