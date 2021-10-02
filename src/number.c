@@ -4,9 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-void interpreter_error(struct Interpreter* const interpreter, struct Scope *scope,
-                       struct State state, const char* const error_message);
-
+void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message);
 
 struct NumberExpr number_add(struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
@@ -62,28 +60,28 @@ struct NumberExpr number_mul(struct NumberExpr a, struct NumberExpr b) {
     return res;
 }
 
-struct NumberExpr number_div(struct Interpreter* const interpreter, struct Scope *scope,
+struct NumberExpr number_div(struct Interpreter* const interpreter,
                              struct State state, struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
     if (a.is_float && b.is_float) {
         res.is_float = true;
         if (b.as_float == 0.f)
-            interpreter_error(interpreter, scope, state, "Division by zero");
+            interpreter_error(interpreter, state, "Division by zero");
         res.as_float = a.as_float / b.as_float;
     } else if (a.is_float && !b.is_float) {
         res.is_float = true;
         if (b.as_int == 0)
-            interpreter_error(interpreter, scope, state, "Division by zero");
+            interpreter_error(interpreter, state, "Division by zero");
         res.as_float = a.as_float / (double)b.as_int;
     } else if (!a.is_float && b.is_float) {
         res.is_float = true;
         if (b.as_float == 0.f)
-            interpreter_error(interpreter, scope, state, "Division by zero");
+            interpreter_error(interpreter, state, "Division by zero");
         res.as_float = (double)a.as_int / b.as_float;
     } else {
         div_t division;
         if (b.as_int == 0)
-            interpreter_error(interpreter, scope, state, "Division by zero");
+            interpreter_error(interpreter, state, "Division by zero");
         division = div(a.as_int, b.as_int);
         if (division.rem == 0) {
             res.is_float = false;
@@ -96,28 +94,27 @@ struct NumberExpr number_div(struct Interpreter* const interpreter, struct Scope
     return res;
 }
 
-struct NumberExpr number_mod(struct Interpreter* const interpreter, struct Scope *scope,
-                             struct State state, struct NumberExpr a, struct NumberExpr b) {
+struct NumberExpr number_mod(struct Interpreter* const interpreter, struct State state, struct NumberExpr a, struct NumberExpr b) {
     struct NumberExpr res;
     if (a.is_float && b.is_float) {
         res.is_float = true;
         if (b.as_float == 0.f)
-            interpreter_error(interpreter, scope, state, "Division by zero");
+            interpreter_error(interpreter, state, "Division by zero");
         res.as_float = fmod(a.as_float, b.as_float);
     } else if (a.is_float && !b.is_float) {
         res.is_float = true;
         if (b.as_int == 0)
-            interpreter_error(interpreter, scope, state, "Division by zero");
+            interpreter_error(interpreter, state, "Division by zero");
         res.as_float = fmod(a.as_float, (double)b.as_int);
     } else if (!a.is_float && b.is_float) {
         res.is_float = true;
         if (b.as_float == 0.f)
-            interpreter_error(interpreter, scope, state, "Division by zero");
+            interpreter_error(interpreter, state, "Division by zero");
         res.as_float = fmod((double)a.as_int, b.as_float);
     } else {
         res.is_float = false;
         if (b.as_int == 0)
-            interpreter_error(interpreter, scope, state, "Division by zero");
+            interpreter_error(interpreter, state, "Division by zero");
         res.as_int = a.as_int % b.as_int;
     }
     return res;
