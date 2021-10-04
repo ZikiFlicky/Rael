@@ -18,8 +18,20 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
 static struct Expr *parser_parse_expr_keyword(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
 
+static void parser_state_error(struct Parser* const parser, struct State state, const char* const error_message) {
+    rael_show_error_message(state, error_message);
+
+    // destroy all of the parsed nodes
+    for (size_t i = 0; i < parser->idx; ++i)
+        node_delete(parser->nodes[i]);
+
+    free(parser->nodes);
+
+    exit(1);
+}
+
 static inline void parser_error(struct Parser* const parser, const char* const error_message) {
-    rael_error(lexer_dump_state(&parser->lexer), error_message);
+    parser_state_error(parser, lexer_dump_state(&parser->lexer), error_message);
 }
 
 static void parser_push(struct Parser* const parser, struct Node* const node) {
@@ -315,7 +327,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
                 expr_delete(expr);
 
                 if (!(expr = parser_parse_expr_set(parser)))
-                    rael_error(after_expr_state, "Unmatched '('");
+                    parser_state_error(parser, after_expr_state, "Unmatched '('");
 
                 if (!parser_match(parser, TokenNameRightParen))
                     parser_error(parser, "Unmatched '('");
@@ -366,7 +378,7 @@ static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
 
         backtrack = lexer_dump_state(&parser->lexer);
         if (!parser_match(parser, TokenNameRightParen))
-            rael_error(backtrack, "Expected a ')'");
+            parser_state_error(parser, backtrack, "Expected a ')'");
 
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeRoutineCall;
@@ -394,7 +406,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr->type = ExprTypeMul;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
-                    rael_error(backtrack, "Expected a value after '*'");
+                    parser_state_error(parser, backtrack, "Expected a value after '*'");
                 }
                 break;
             case TokenNameDiv:
@@ -402,7 +414,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr->type = ExprTypeDiv;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
-                    rael_error(backtrack, "Expected a value after '/'");
+                    parser_state_error(parser, backtrack, "Expected a value after '/'");
                 }
                 break;
             case TokenNameMod:
@@ -410,7 +422,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr->type = ExprTypeMod;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
-                    rael_error(backtrack, "Expected a value after '%'");
+                    parser_state_error(parser, backtrack, "Expected a value after '%'");
                 }
                 break;
             default:
@@ -445,14 +457,14 @@ static struct Expr *parser_parse_expr_sum(struct Parser* const parser) {
                 new_expr->type = ExprTypeAdd;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_product(parser)))
-                    rael_error(backtrack, "Expected a value after '+'");
+                    parser_state_error(parser, backtrack, "Expected a value after '+'");
                 break;
             case TokenNameSub:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeSub;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_product(parser)))
-                    rael_error(backtrack, "Expected a value after '-'");
+                    parser_state_error(parser, backtrack, "Expected a value after '-'");
                 break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);
@@ -486,21 +498,21 @@ static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
                 new_expr->type = ExprTypeEquals;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_sum(parser)))
-                    rael_error(backtrack, "Expected a value after '='");
+                    parser_state_error(parser, backtrack, "Expected a value after '='");
                 break;
             case TokenNameSmallerThan:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeSmallerThen;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_sum(parser)))
-                    rael_error(backtrack, "Expected a value after '<'");
+                    parser_state_error(parser, backtrack, "Expected a value after '<'");
                 break;
             case TokenNameBiggerThan:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeBiggerThen;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_sum(parser)))
-                    rael_error(backtrack, "Expected a value after '>'");
+                    parser_state_error(parser, backtrack, "Expected a value after '>'");
                 break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);
@@ -534,7 +546,7 @@ static struct Expr *parser_parse_expr_keyword(struct Parser* const parser) {
                 new_expr->type = ExprTypeAt;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_comparison(parser))) {
-                    rael_error(backtrack, "Expected a value after 'at'");
+                    parser_state_error(parser, backtrack, "Expected a value after 'at'");
                 }
                 break;
             case TokenNameTo:
@@ -542,7 +554,7 @@ static struct Expr *parser_parse_expr_keyword(struct Parser* const parser) {
                 new_expr->type = ExprTypeTo;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_comparison(parser))) {
-                    rael_error(backtrack, "Expected a value after 'to'");
+                    parser_state_error(parser, backtrack, "Expected a value after 'to'");
                 }
                 break;
             default:
@@ -577,7 +589,7 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
                 new_expr->type = ExprTypeRedirect;
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_keyword(parser)))
-                    rael_error(backtrack, "Expected a value after '<<'");
+                    parser_state_error(parser, backtrack, "Expected a value after '<<'");
                 break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);
@@ -683,7 +695,7 @@ static struct Node *parser_parse_node_catch(struct Parser* const parser) {
     parser_maybe_expect_newline(parser);
 
     if (!parser_match(parser, TokenNameWith))
-        rael_error(backtrack, "Expected 'with'");
+        parser_state_error(parser, backtrack, "Expected 'with'");
 
     parser_maybe_expect_newline(parser);
 
@@ -792,7 +804,7 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
         return NULL;
 
     if (!parser_match(parser, TokenNameLeftParen))
-        rael_error(backtrack, "Expected '(' after 'routine'");
+        parser_state_error(parser, backtrack, "Expected '(' after 'routine'");
 
     backtrack = lexer_dump_state(&parser->lexer);
 
@@ -821,12 +833,12 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
                 break;
 
             if (parser->lexer.token.name != TokenNameComma) {
-                rael_error(backtrack, "Expected a Comma");
+                parser_state_error(parser, backtrack, "Expected a Comma");
             }
 
             backtrack = lexer_dump_state(&parser->lexer);
             if (!parser_match(parser, TokenNameKey))
-                rael_error(backtrack, "Expected key");
+                parser_state_error(parser, backtrack, "Expected key");
 
             if (decl.amount_parameters == allocated)
                 decl.parameters = realloc(decl.parameters, (allocated += 3) * sizeof(struct Expr*));
@@ -834,7 +846,7 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
             // verify there are no duplicate parameters
             for (size_t parameter = 0; parameter < decl.amount_parameters; ++parameter) {
                 if (strncmp(parser->lexer.token.string, decl.parameters[parameter], parser->lexer.token.length) == 0) {
-                    rael_error(backtrack, "Duplicate parameter on routine decleration");
+                    parser_state_error(parser, backtrack, "Duplicate parameter on routine decleration");
                 }
             }
             decl.parameters[decl.amount_parameters++] = token_allocate_key(&parser->lexer.token);
@@ -842,7 +854,7 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
         break;
     }
     default:
-        rael_error(backtrack, "Expected key");
+        parser_state_error(parser, backtrack, "Expected key");
     }
 
     if (!(decl.block = parser_parse_block(parser))) {
