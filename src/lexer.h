@@ -48,7 +48,7 @@ struct Token {
 
 struct Lexer {
     struct Token token;
-    char *stream;
+    char *stream, *stream_base;
     size_t line;
     size_t column;
 };

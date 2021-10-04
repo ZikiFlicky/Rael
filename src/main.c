@@ -6,7 +6,7 @@
 #include <string.h>
 #include <assert.h>
 
-void interpret(struct Node **instructions);
+void interpret(struct Node **instructions, char *base_stream);
 
 static void print_help(void) {
     puts("Welcome to the Rael programming language!");
@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
         }
         do_free = true;
     }
-    interpret(parse(stream_base));
+    interpret(parse(stream_base), stream_base);
     if (do_free)
         free(stream_base);
     return 0;

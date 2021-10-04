@@ -22,8 +22,10 @@ void lexer_load_state(struct Lexer* const lexer, struct State state) {
     lexer->stream = state.stream_pos;
 }
 
-static inline void lexer_error(struct Lexer* const lexer, const char* const error_message) {
-    rael_error(lexer_dump_state(lexer), error_message);
+static void lexer_error(struct Lexer* const lexer, const char* const error_message) {
+    rael_show_error_message(lexer_dump_state(lexer), error_message);
+    free(lexer->stream_base);
+    exit(1);
 }
 
 static inline bool is_identifier_char(const char c) {

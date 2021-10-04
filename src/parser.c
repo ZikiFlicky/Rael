@@ -26,6 +26,7 @@ static void parser_state_error(struct Parser* const parser, struct State state, 
         node_delete(parser->nodes[i]);
 
     free(parser->nodes);
+    free(parser->lexer.stream_base);
 
     exit(1);
 }
@@ -981,7 +982,8 @@ struct Node **parse(char* const stream) {
         .lexer = {
             .line = 1,
             .column = 1,
-            .stream = stream
+            .stream = stream,
+            .stream_base = stream
         }
     };
     parser_maybe_expect_newline(&parser);

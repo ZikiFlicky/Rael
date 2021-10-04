@@ -15,6 +15,7 @@ enum ProgramInterrupt {
 };
 
 struct Interpreter {
+    char *stream_base;
     struct Node **instructions;
     size_t idx;
     struct Scope *scope;
@@ -56,6 +57,7 @@ static void interpreter_destroy_all(struct Interpreter* const interpreter) {
 void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message) {
     rael_show_error_message(state, error_message);
     interpreter_destroy_all(interpreter);
+    free(interpreter->stream_base);
     exit(1);
 }
 
@@ -535,6 +537,8 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
 
         interpreter_destroy_all(interpreter);
 
+        free(interpreter->stream_base);
+
         exit(1);
     }
 
@@ -711,7 +715,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
     }
 }
 
-void interpret(struct Node **instructions) {
+void interpret(struct Node **instructions, char *stream_base) {
     struct Node *node;
     struct Scope bottom_scope;
     struct Interpreter interp = {
@@ -719,7 +723,8 @@ void interpret(struct Node **instructions) {
         .interrupt = ProgramInterruptNone,
         .in_loop = false,
         .in_routine = false,
-        .returned_value = NULL
+        .returned_value = NULL,
+        .stream_base = stream_base
     };
 
     scope_construct(&bottom_scope, NULL);
