@@ -1,0 +1,5 @@
+:0do_blame routine() {
+    blame "haha"
+}
+
+log {} + :do_blame()

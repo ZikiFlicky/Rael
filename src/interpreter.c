@@ -102,12 +102,18 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTVal
 
 static void value_verify_is_number_uint(struct Interpreter* const interpreter,
                                         struct State number_state, RaelValue number) {
-    if (number->type != ValueTypeNumber)
+    if (number->type != ValueTypeNumber) {
+        value_dereference(number);
         interpreter_error(interpreter, number_state, "Expected number");
-    if (number->as_number.is_float)
+    }
+    if (number->as_number.is_float) {
+        value_dereference(number);
         interpreter_error(interpreter, number_state, "Float index is not allowed");
-    if (number->as_number.as_int < 0)
+    }
+    if (number->as_number.as_int < 0) {
+        value_dereference(number);
         interpreter_error(interpreter, number_state, "A negative index is not allowed");
+    }
 }
 
 static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, RaelValue value) {
@@ -115,15 +121,21 @@ static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, 
 
     assert(expr->type == ExprTypeAt);
     lhs = expr_eval(interpreter, expr->lhs, true);
-    rhs = expr_eval(interpreter, expr->rhs, true);
 
-    if (lhs->type != ValueTypeStack)
+    if (lhs->type != ValueTypeStack) {
+        value_dereference(lhs);
         interpreter_error(interpreter, expr->lhs->state, "Expected stack on the left of 'at' when setting value");
+    }
+
+    rhs = expr_eval(interpreter, expr->rhs, true);
 
     value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
 
-    if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length)
+    if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length) {
+        value_dereference(lhs);
+        value_dereference(rhs);
         interpreter_error(interpreter, expr->rhs->state, "Index too big");
+    }
 
     value_dereference(lhs->as_stack.values[rhs->as_number.as_int]);
     lhs->as_stack.values[rhs->as_number.as_int] = value;
@@ -162,26 +174,50 @@ static RaelValue interpret_value_at(struct Interpreter* const interpreter, struc
     RaelValue lhs, rhs, value;
 
     assert(expr->type == ExprTypeAt);
+    // evaluate the lhs of the at expression
     lhs = expr_eval(interpreter, expr->lhs, true);
-    rhs = expr_eval(interpreter, expr->rhs, true);
 
     if (lhs->type == ValueTypeStack) {
+        // evaluate index
+        rhs = expr_eval(interpreter, expr->rhs, true);
         value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
-        if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length)
+
+        if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length) {
+            value_dereference(lhs);
+            value_dereference(rhs);
             interpreter_error(interpreter, expr->rhs->state, "Index too big");
+        }
+
         value = value_at(lhs, rhs->as_number.as_int);
     } else if (lhs->type == ValueTypeString) {
+        // evaluate index
+        rhs = expr_eval(interpreter, expr->rhs, true);
         value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
-        if ((size_t)rhs->as_number.as_int >= lhs->as_string.length)
+
+        if ((size_t)rhs->as_number.as_int >= lhs->as_string.length) {
+            value_dereference(lhs);
+            value_dereference(rhs);
             interpreter_error(interpreter, expr->rhs->state, "Index too big");
+        }
+
         value = value_at(lhs, rhs->as_number.as_int);
     } else if (lhs->type == ValueTypeRange) {
+        // evaluate index
+        rhs = expr_eval(interpreter, expr->rhs, true);
         value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
-        if ((size_t)rhs->as_number.as_int >= abs(lhs->as_range.end - lhs->as_range.start))
+
+        if ((size_t)rhs->as_number.as_int >= abs(lhs->as_range.end - lhs->as_range.start)) {
+            value_dereference(lhs);
+            value_dereference(rhs);
             interpreter_error(interpreter, expr->rhs->state, "Index too big");
+        }
+
         value = value_at(lhs, rhs->as_number.as_int);
     } else {
-        interpreter_error(interpreter, expr->lhs->state, "Expected string, stack or range on the left of 'at'");
+        // save state, dereference and error
+        struct State state = expr->lhs->state;
+        value_dereference(lhs);
+        interpreter_error(interpreter, state, "Expected string, stack or range on the left of 'at'");
     }
 
     value_dereference(lhs);
@@ -206,8 +242,10 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
         interpreter_error(interpreter, state, "Call not possible on non-routine");
     }
 
-    if (maybe_routine->as_routine.amount_parameters != call.arguments.amount_exprs)
+    if (maybe_routine->as_routine.amount_parameters != call.arguments.amount_exprs) {
+        value_dereference(maybe_routine);
         interpreter_error(interpreter, state, "Arguments don't match parameters");
+    }
 
     // create the routine scope
     scope_construct(&routine_scope, maybe_routine->as_routine.scope);
@@ -253,24 +291,37 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeAdd:
         lhs = expr_eval(interpreter, expr->lhs, true);
-        rhs = expr_eval(interpreter, expr->rhs, true);
 
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = value_create(ValueTypeNumber);
-            value->as_number = number_add(lhs->as_number, rhs->as_number);
-        } else if (lhs->type == ValueTypeString && rhs->type == ValueTypeString) {
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_add(lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_add;
+            }
+        } else if (lhs->type == ValueTypeString) {
             struct RaelStringValue string;
 
-            string.length = lhs->as_string.length + rhs->as_string.length;
-            string.value = malloc(string.length * sizeof(char));
-            string.does_reference_ast = false;
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeString) {
+                string.length = lhs->as_string.length + rhs->as_string.length;
+                string.value = malloc(string.length * sizeof(char));
+                string.does_reference_ast = false;
 
-            strncpy(string.value, lhs->as_string.value, lhs->as_string.length);
-            strncpy(string.value + lhs->as_string.length, rhs->as_string.value, rhs->as_string.length);
+                strncpy(string.value, lhs->as_string.value, lhs->as_string.length);
+                strncpy(string.value + lhs->as_string.length, rhs->as_string.value, rhs->as_string.length);
 
-            value = value_create(ValueTypeString);
-            value->as_string = string;
+                value = value_create(ValueTypeString);
+                value->as_string = string;
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_add;
+            }
         } else {
+        invalid_types_add:
+            value_dereference(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (+) on types");
         }
 
@@ -280,12 +331,19 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeSub:
         lhs = expr_eval(interpreter, expr->lhs, true);
-        rhs = expr_eval(interpreter, expr->rhs, true);
 
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = value_create(ValueTypeNumber);
-            value->as_number = number_sub(lhs->as_number, rhs->as_number);
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_sub(lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_sub;
+            }
         } else {
+        invalid_types_sub:
+            value_dereference(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (-) on types");
         }
 
@@ -295,12 +353,19 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeMul:
         lhs = expr_eval(interpreter, expr->lhs, true);
-        rhs = expr_eval(interpreter, expr->rhs, true);
 
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = value_create(ValueTypeNumber);
-            value->as_number = number_mul(lhs->as_number, rhs->as_number);
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_mul(lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_mul;
+            }
         } else {
+        invalid_types_mul:
+            value_dereference(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (*) on types");
         }
 
@@ -310,12 +375,19 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeDiv:
         lhs = expr_eval(interpreter, expr->lhs, true);
-        rhs = expr_eval(interpreter, expr->rhs, true);
 
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = value_create(ValueTypeNumber);
-            value->as_number = number_div(interpreter, expr->state, lhs->as_number, rhs->as_number);
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_div(interpreter, expr->state, lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_div;
+            }
         } else {
+        invalid_types_div:
+            value_dereference(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (/) on types");
         }
 
@@ -325,12 +397,19 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeMod:
         lhs = expr_eval(interpreter, expr->lhs, true);
-        rhs = expr_eval(interpreter, expr->rhs, true);
 
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = value_create(ValueTypeNumber);
-            value->as_number = number_mod(interpreter, expr->state, lhs->as_number, rhs->as_number);
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_mod(interpreter, expr->state, lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_mod;
+            }
         } else {
+        invalid_types_mod:
+            value_dereference(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (%) on types");
         }
 
@@ -345,21 +424,24 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value = value_create(ValueTypeNumber);
         value->as_number.is_float = false;
 
+        // same pointer same thing
         if (lhs == rhs) {
             value->as_number.as_int = 1;
         } else if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->as_number = number_eq(lhs->as_number, rhs->as_number);
         } else if (lhs->type == ValueTypeString && rhs->type == ValueTypeString) {
-            // if they have the same pointer, they must be equal
+            // if they have the same string pointer, they must be equal
             if (lhs->as_string.value == rhs->as_string.value) {
                 value->as_number.as_int = 1;
             } else {
-                if (lhs->as_string.length == rhs->as_string.length)
+                if (lhs->as_string.length == rhs->as_string.length) {
                     value->as_number.as_int = strncmp(lhs->as_string.value,
                                                       rhs->as_string.value,
                                                       lhs->as_string.length) == 0;
-                else
-                    value->as_number.as_int = 0; // if lengths don't match, the strings don't match
+                } else {
+                    // if lengths don't match, the strings don't match
+                    value->as_number.as_int = 0;
+                }
             }
         } else if (lhs->type == ValueTypeVoid && rhs->type == ValueTypeVoid) {
             value->as_number.as_int = 1;
@@ -373,13 +455,20 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeSmallerThen:
         lhs = expr_eval(interpreter, expr->lhs, true);
-        rhs = expr_eval(interpreter, expr->rhs, true);
 
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = value_create(ValueTypeNumber);
-            value->as_number = number_smaller(lhs->as_number, rhs->as_number);
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_smaller(lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_smaller;
+            }
         } else {
-            interpreter_error(interpreter, expr->state, "Invalid operation (<) on types");
+        invalid_types_smaller:
+            value_dereference(lhs);
+            interpreter_error(interpreter, expr->state, "Invalid operation (-) on types");
         }
 
         value_dereference(lhs);
@@ -388,13 +477,20 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeBiggerThen:
         lhs = expr_eval(interpreter, expr->lhs, true);
-        rhs = expr_eval(interpreter, expr->rhs, true);
 
-        if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value = value_create(ValueTypeNumber);
-            value->as_number = number_bigger(lhs->as_number, rhs->as_number);
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_bigger(lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_bigger;
+            }
         } else {
-            interpreter_error(interpreter, expr->state, "Invalid operation (>) on types");
+        invalid_types_bigger:
+            value_dereference(lhs);
+            interpreter_error(interpreter, expr->state, "Invalid operation (-) on types");
         }
 
         value_dereference(lhs);
@@ -411,18 +507,29 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         lhs = expr_eval(interpreter, expr->lhs, true);
 
         // validate that lhs is an int
-        if (lhs->type != ValueTypeNumber)
+        if (lhs->type != ValueTypeNumber) {
+            value_dereference(lhs);
             interpreter_error(interpreter, expr->lhs->state, "Expected number");
-        if (lhs->as_number.is_float)
+        }
+        if (lhs->as_number.is_float){
+            value_dereference(lhs);
             interpreter_error(interpreter, expr->lhs->state, "Float not allowed in range");
+        }
 
+        // evaluate rhs
         rhs = expr_eval(interpreter, expr->rhs, true);
 
         // validate that rhs is an int
-        if (rhs->type != ValueTypeNumber)
+        if (rhs->type != ValueTypeNumber) {
+            value_dereference(lhs);
+            value_dereference(rhs);
             interpreter_error(interpreter, expr->rhs->state, "Expected number");
-        if (rhs->as_number.is_float)
+        }
+        if (rhs->as_number.is_float) {
+            value_dereference(lhs);
+            value_dereference(rhs);
             interpreter_error(interpreter, expr->rhs->state, "Float not allowed in range");
+        }
 
         value = value_create(ValueTypeRange);
 
@@ -435,14 +542,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeRedirect:
         lhs = expr_eval(interpreter, expr->lhs, true);
-        rhs = expr_eval(interpreter, expr->rhs, true);
 
         if (lhs->type != ValueTypeStack) {
+            value_dereference(lhs);
             interpreter_error(interpreter, expr->lhs->state, "Expected a stack value");
         }
+
         if (lhs->as_stack.length == lhs->as_stack.allocated) {
             lhs->as_stack.values = realloc(lhs->as_stack.values, (lhs->as_stack.allocated += 8) * sizeof(RaelValue));
         }
+
+        rhs = expr_eval(interpreter, expr->rhs, true);
 
         // no need to dereference a *used* value
         lhs->as_stack.values[lhs->as_stack.length++] = rhs;
@@ -479,6 +589,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         RaelValue maybe_number = expr_eval(interpreter, expr->as_single, can_explode);
 
         if (maybe_number->type != ValueTypeNumber) {
+            value_dereference(maybe_number);
             interpreter_error(interpreter, expr->as_single->state, "Expected number");
         }
 
@@ -636,6 +747,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
                 length = abs(iterator->as_range.end - iterator->as_range.start);
                 break;
             default:
+                value_dereference(iterator);
                 interpreter_error(interpreter, node->loop.iterate.expr->state, "Expected an iterable");
             }
 
