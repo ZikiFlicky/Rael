@@ -23,6 +23,9 @@ struct Interpreter {
     bool in_loop;
     bool in_routine;
     RaelValue returned_value;
+
+    // warnings
+    bool warn_undefined;
 };
 
 static void interpreter_interpret_node(struct Interpreter* const interpreter, struct Node* const node);
@@ -246,7 +249,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value = value_eval(interpreter, *expr->as_value);
         break;
     case ExprTypeKey:
-        value = scope_get(interpreter->scope, expr->as_key);
+        value = scope_get(interpreter->scope, expr->as_key, interpreter->warn_undefined);
         break;
     case ExprTypeAdd:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -715,7 +718,7 @@ static void interpreter_interpret_node(struct Interpreter* const interpreter, st
     }
 }
 
-void interpret(struct Node **instructions, char *stream_base) {
+void interpret(struct Node **instructions, char *stream_base, const bool warn_undefined) {
     struct Node *node;
     struct Scope bottom_scope;
     struct Interpreter interp = {
@@ -724,7 +727,8 @@ void interpret(struct Node **instructions, char *stream_base) {
         .in_loop = false,
         .in_routine = false,
         .returned_value = NULL,
-        .stream_base = stream_base
+        .stream_base = stream_base,
+        .warn_undefined = warn_undefined
     };
 
     scope_construct(&bottom_scope, NULL);

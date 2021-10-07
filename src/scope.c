@@ -94,7 +94,7 @@ void scope_set_local(struct Scope *scope, char* const key, RaelValue value) {
     scope->parent = parent;
 }
 
-RaelValue scope_get(struct Scope *scope, char* const key) {
+RaelValue scope_get(struct Scope *scope, char* const key, const bool warn_undefined) {
     for (; scope; scope = scope->parent) {
         if (scope->variables.allocated == 0)
             continue;
@@ -106,6 +106,9 @@ RaelValue scope_get(struct Scope *scope, char* const key) {
             }
         }
     }
+
+    if (warn_undefined)
+        fprintf(stderr, "WARNING: getting undefined variable ':%s'\n", key);
 
     return value_create(ValueTypeVoid);
 }
