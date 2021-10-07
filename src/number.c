@@ -56,6 +56,7 @@ struct NumberExpr number_div(struct Interpreter* const interpreter,
         res.as_float = number_as_float(a) / number_as_float(b);
     } else {
         div_t division;
+
         if (b.as_int == 0)
             interpreter_error(interpreter, state, "Division by zero");
         division = div(a.as_int, b.as_int);
@@ -64,7 +65,7 @@ struct NumberExpr number_div(struct Interpreter* const interpreter,
             res.as_int = division.quot;
         } else {
             res.is_float = true;
-            res.as_float = a.as_int / b.as_int;
+            res.as_float = (double)a.as_int / (double)b.as_int;
         }
     }
     return res;
