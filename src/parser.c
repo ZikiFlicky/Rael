@@ -937,8 +937,10 @@ static struct Instruction *parser_parse_loop(struct Parser* const parser) {
             loop.iterate.key = token_allocate_key(&key_token);
         } else {
             lexer_load_state(&parser->lexer, backtrack);
-            // we already know there is a key
-            assert(loop.while_condition = parser_parse_expr(parser));
+            // we already know there is a key, it must parse at least a key,
+            // if not a full expression
+            loop.while_condition = parser_parse_expr(parser);
+            assert(loop.while_condition);
             loop.type = LoopWhile;
         }
     } else {
