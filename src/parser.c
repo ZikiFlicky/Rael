@@ -792,7 +792,9 @@ static struct Instruction **parser_parse_block(struct Parser* const parser) {
         block[idx++] = inst;
     }
 
-    block[idx] = NULL;
+    block[idx++] = NULL;
+    block = realloc(block, idx * sizeof(struct Instruction *));
+
     return block;
 }
 
