@@ -24,8 +24,17 @@ void value_dereference(RaelValue value) {
             free(value->as_stack.values);
             break;
         case ValueTypeString:
-            if (!value->as_string.does_reference_ast && value->as_string.length)
-                free(value->as_string.value);
+            switch (value->as_string.type) {
+            case StringTypePure:
+                if (!value->as_string.does_reference_ast && value->as_string.length)
+                    free(value->as_string.value);
+                break;
+            case StringTypeSub:
+                value_dereference(value->as_string.reference_string);
+                break;
+            default:
+                RAEL_UNREACHABLE();
+            }
             break;
         case ValueTypeBlame:
             if (value->as_blame.value)

@@ -3,33 +3,16 @@
 
 #include "lexer.h"
 #include "number.h"
-#include "string.h"
 #include "common.h"
+#include "value.h"
 
 #include <stdbool.h>
 
 struct Expr;
 
-enum ValueType {
-    ValueTypeVoid,
-    ValueTypeNumber,
-    ValueTypeString,
-    ValueTypeRoutine,
-    ValueTypeStack,
-    ValueTypeRange,
-    ValueTypeBlame
-};
-
 struct RaelExprList {
     size_t amount_exprs;
     struct Expr **exprs;
-};
-
-struct RaelRoutineValue {
-    struct Scope *scope;
-    char **parameters;
-    size_t amount_parameters;
-    struct Instruction **block;
 };
 
 struct ASTValue {

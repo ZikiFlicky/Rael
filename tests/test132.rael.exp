@@ -1,0 +1,3 @@
+Error [1:17]: Expected non-negative range numbers
+| log "string" at (-1 to 3)
+|                 ^

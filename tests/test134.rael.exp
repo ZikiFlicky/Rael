@@ -1,0 +1,3 @@
+Error [1:17]: Substring out of range
+| log "string" at (1 to 100)
+|                 ^

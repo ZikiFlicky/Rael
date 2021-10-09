@@ -74,6 +74,7 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTVal
     case ValueTypeString:
         // it's okay because strings are immutable
         out_value->as_string = value.as_string;
+        out_value->as_string.type = StringTypePure;
         // flags not to deallocate string, there is still a reference in the ast
         out_value->as_string.does_reference_ast = true;
         break;
@@ -116,6 +117,50 @@ static void value_verify_is_number_uint(struct Interpreter* const interpreter,
     }
 }
 
+static RaelValue string_substr(RaelValue value, size_t start, size_t end) {
+    struct RaelStringValue substr;
+    RaelValue new_string;
+
+    assert(value->type == ValueTypeString);
+    assert(end >= start);
+    assert(start <= value->as_string.length && end <= value->as_string.length);
+
+    substr.type = StringTypeSub;
+    substr.value = value->as_string.value + start;
+    substr.length = end - start;
+
+    switch (value->as_string.type) {
+    case StringTypePure: substr.reference_string = value; break;
+    case StringTypeSub: substr.reference_string = value->as_string.reference_string; break;
+    default: RAEL_UNREACHABLE();
+    }
+
+    ++substr.reference_string->reference_count;
+
+    new_string = value_create(ValueTypeString);
+    new_string->as_string = substr;
+
+    return new_string;
+}
+
+static RaelValue string_plus_string(RaelValue lhs, RaelValue rhs) {
+    RaelValue string;
+
+    assert(lhs->type == ValueTypeString);
+    assert(rhs->type == ValueTypeString);
+
+    string = value_create(ValueTypeString);
+    string->as_string.type = StringTypePure;
+    string->as_string.length = lhs->as_string.length + rhs->as_string.length;
+    string->as_string.value = malloc((string->as_string.length) * sizeof(char));
+
+    // copy other strings' contents
+    strncpy(string->as_string.value, lhs->as_string.value, lhs->as_string.length);
+    strncpy(string->as_string.value + lhs->as_string.length, rhs->as_string.value, rhs->as_string.length);
+
+    return string;
+}
+
 static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, RaelValue value) {
     RaelValue lhs, rhs;
 
@@ -150,11 +195,7 @@ static RaelValue value_at(RaelValue iterable, size_t idx) {
         value = iterable->as_stack.values[idx];
         ++value->reference_count;
     } else if (iterable->type == ValueTypeString) {
-        value = value_create(ValueTypeString);
-        value->as_string.length = 1;
-        value->as_string.value = malloc(1 * sizeof(char));
-        value->as_string.value[0] = iterable->as_string.value[idx];
-        value->as_string.does_reference_ast = false;
+        value = string_substr(iterable, idx, idx + 1);
     } else if (iterable->type == ValueTypeRange) {
         value = value_create(ValueTypeNumber);
         value->as_number.is_float = false;
@@ -190,17 +231,48 @@ static RaelValue interpret_value_at(struct Interpreter* const interpreter, struc
 
         value = value_at(lhs, rhs->as_number.as_int);
     } else if (lhs->type == ValueTypeString) {
-        // evaluate index
         rhs = expr_eval(interpreter, expr->rhs, true);
-        value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
 
-        if ((size_t)rhs->as_number.as_int >= lhs->as_string.length) {
-            value_dereference(lhs);
-            value_dereference(rhs);
-            interpreter_error(interpreter, expr->rhs->state, "Index too big");
+        switch (rhs->type) {
+        case ValueTypeRange:
+            // make sure range numbers are positive, -2 to -3 is not allowed
+            if (rhs->as_range.start < 0 || rhs->as_range.end < 0) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Expected non-negative range numbers");
+            }
+
+            // make sure range direction is not negative, e.g 4 to 2
+            if (rhs->as_range.end < rhs->as_range.start) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Negative range direction for substrings is not allowed");
+            }
+
+            // make sure you are inside of the string's boundaries
+            if ((size_t)rhs->as_range.start > lhs->as_string.length ||
+                (size_t)rhs->as_range.end > lhs->as_string.length) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Substring out of range");
+            }
+
+            value = string_substr(lhs, (size_t)rhs->as_range.start, (size_t)rhs->as_range.end);
+            break;
+        case ValueTypeNumber:
+            value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
+
+            if ((size_t)rhs->as_number.as_int >= lhs->as_string.length) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Index too big");
+            }
+
+            value = value_at(lhs, rhs->as_number.as_int);
+            break;
+        default:
+            interpreter_error(interpreter, expr->rhs->state, "Expected range or number");
         }
-
-        value = value_at(lhs, rhs->as_number.as_int);
     } else if (lhs->type == ValueTypeRange) {
         // evaluate index
         rhs = expr_eval(interpreter, expr->rhs, true);
@@ -302,19 +374,9 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 goto invalid_types_add;
             }
         } else if (lhs->type == ValueTypeString) {
-            struct RaelStringValue string;
-
             rhs = expr_eval(interpreter, expr->rhs, true);
             if (rhs->type == ValueTypeString) {
-                string.length = lhs->as_string.length + rhs->as_string.length;
-                string.value = malloc(string.length * sizeof(char));
-                string.does_reference_ast = false;
-
-                strncpy(string.value, lhs->as_string.value, lhs->as_string.length);
-                strncpy(string.value + lhs->as_string.length, rhs->as_string.value, rhs->as_string.length);
-
-                value = value_create(ValueTypeString);
-                value->as_string = string;
+                value = string_plus_string(lhs, rhs);
             } else {
                 value_dereference(rhs);
                 goto invalid_types_add;
@@ -430,18 +492,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         } else if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
             value->as_number = number_eq(lhs->as_number, rhs->as_number);
         } else if (lhs->type == ValueTypeString && rhs->type == ValueTypeString) {
-            // if they have the same string pointer, they must be equal
-            if (lhs->as_string.value == rhs->as_string.value) {
-                value->as_number.as_int = 1;
-            } else {
-                if (lhs->as_string.length == rhs->as_string.length) {
+            if (lhs->as_string.length == rhs->as_string.length) {
+                if (lhs->as_string.value == rhs->as_string.value) {
+                    value->as_number.as_int = 1;
+                } else {
                     value->as_number.as_int = strncmp(lhs->as_string.value,
                                                       rhs->as_string.value,
                                                       lhs->as_string.length) == 0;
-                } else {
-                    // if lengths don't match, the strings don't match
-                    value->as_number.as_int = 0;
                 }
+            } else {
+                // if lengths don't match, the strings don't match
+                value->as_number.as_int = 0;
             }
         } else if (lhs->type == ValueTypeVoid && rhs->type == ValueTypeVoid) {
             value->as_number.as_int = 1;

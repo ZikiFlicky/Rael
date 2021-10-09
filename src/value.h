@@ -1,7 +1,7 @@
 #ifndef RAEL_VALUE_H
 #define RAEL_VALUE_H
 
-#include "parser.h"
+#include "common.h"
 #include "number.h"
 #include "string.h"
 
@@ -10,6 +10,16 @@
 struct RaelValue;
 
 typedef struct RaelValue* RaelValue;
+
+enum ValueType {
+    ValueTypeVoid,
+    ValueTypeNumber,
+    ValueTypeString,
+    ValueTypeRoutine,
+    ValueTypeStack,
+    ValueTypeRange,
+    ValueTypeBlame
+};
 
 struct RaelRangeValue {
     int start, end;
@@ -23,6 +33,26 @@ struct RaelStackValue {
 struct RaelBlameValue {
     RaelValue value;
     struct State original_place;
+};
+
+struct RaelRoutineValue {
+    struct Scope *scope;
+    char **parameters;
+    size_t amount_parameters;
+    struct Instruction **block;
+};
+
+struct RaelStringValue {
+    enum {
+        StringTypePure,
+        StringTypeSub
+    } type;
+    char *value;
+    size_t length;
+    union {
+        bool does_reference_ast;
+        RaelValue reference_string;
+    };
 };
 
 // the dynamic value abstraction layer
