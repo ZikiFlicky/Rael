@@ -6,7 +6,7 @@
 #include <string.h>
 #include <assert.h>
 
-void interpret(struct Node **instructions, char *base_stream, const bool warn_undefined);
+void interpret(struct Instruction **instructions, char *base_stream, const bool warn_undefined);
 
 static void print_help(void) {
     puts("Welcome to the Rael programming language!");

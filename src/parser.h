@@ -29,7 +29,7 @@ struct RaelRoutineValue {
     struct Scope *scope;
     char **parameters;
     size_t amount_parameters;
-    struct Node **block;
+    struct Instruction **block;
 };
 
 struct ASTValue {
@@ -95,31 +95,31 @@ struct Expr {
     };
 };
 
-enum NodeType {
-    NodeTypeLog = 1,
-    NodeTypeIf,
-    NodeTypeLoop,
-    NodeTypePureExpr,
-    NodeTypeReturn,
-    NodeTypeBreak,
-    NodeTypeCatch
+enum InstructionType {
+    InstructionTypeLog = 1,
+    InstructionTypeIf,
+    InstructionTypeLoop,
+    InstructionTypePureExpr,
+    InstructionTypeReturn,
+    InstructionTypeBreak,
+    InstructionTypeCatch
 };
 
-struct IfStatementNode {
+struct IfInstruction {
     struct Expr *condition;
-    struct Node **block;
+    struct Instruction **block;
     enum {
         ElseTypeNone,
         ElseTypeBlock,
-        ElseTypeNode
+        ElseTypeInstruction
     } else_type;
     union {
-        struct Node **else_block;
-        struct Node *else_node;
+        struct Instruction **else_block;
+        struct Instruction *else_instruction;
     };
 };
 
-struct LoopNode {
+struct LoopInstruction {
     enum {
         LoopWhile,
         LoopThrough, // iterate
@@ -132,35 +132,35 @@ struct LoopNode {
             struct Expr *expr;
         } iterate;
     };
-    struct Node **block;
+    struct Instruction **block;
 };
 
-struct CatchNode {
+struct CatchInstruction {
     struct Expr *catch_expr;
-    struct Node **handle_block;
+    struct Instruction **handle_block;
 };
 
-struct Node {
-    enum NodeType type;
+struct Instruction {
+    enum InstructionType type;
     struct State state;
     union {
         struct RaelExprList log_values;
-        struct IfStatementNode if_stat;
-        struct LoopNode loop;
+        struct IfInstruction if_stat;
+        struct LoopInstruction loop;
         struct Expr *pure;
         struct Expr *return_value;
-        struct CatchNode catch;
+        struct CatchInstruction catch;
     };
 };
 
 struct Parser {
     struct Lexer lexer;
-    struct Node** nodes;
+    struct Instruction** instructions;
     size_t idx, allocated;
 };
 
-struct Node **parse(char* const stream);
+struct Instruction **parse(char* const stream);
 
-void node_delete(struct Node* const node);
+void instruction_delete(struct Instruction* const instruction);
 
 #endif // RAEL_PARSER_H

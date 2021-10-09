@@ -11,9 +11,9 @@
 #include <assert.h>
 
 static struct Expr *parser_parse_expr(struct Parser* const parser);
-static struct Node *parser_parse_node(struct Parser* const parser);
-static struct ASTValue *parser_parse_node_routine(struct Parser* const parser);
-static struct Node **parser_parse_block(struct Parser* const parser);
+static struct Instruction *parser_parse_instr(struct Parser* const parser);
+static struct ASTValue *parser_parse_instr_routine(struct Parser* const parser);
+static struct Instruction **parser_parse_block(struct Parser* const parser);
 static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 static struct Expr *parser_parse_expr_keyword(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
@@ -21,11 +21,11 @@ static void expr_delete(struct Expr* const expr);
 static void parser_state_error(struct Parser* const parser, struct State state, const char* const error_message) {
     rael_show_error_message(state, error_message);
 
-    // destroy all of the parsed nodes
+    // destroy all of the parsed instructions
     for (size_t i = 0; i < parser->idx; ++i)
-        node_delete(parser->nodes[i]);
+        instruction_delete(parser->instructions[i]);
 
-    free(parser->nodes);
+    free(parser->instructions);
     free(parser->lexer.stream_base);
 
     exit(1);
@@ -35,13 +35,13 @@ static inline void parser_error(struct Parser* const parser, const char* const e
     parser_state_error(parser, lexer_dump_state(&parser->lexer), error_message);
 }
 
-static void parser_push(struct Parser* const parser, struct Node* const node) {
+static void parser_push(struct Parser* const parser, struct Instruction* const inst) {
     if (parser->allocated == 0) {
-        parser->nodes = malloc(((parser->allocated = 32)+1) * sizeof(struct Node*));
+        parser->instructions = malloc(((parser->allocated = 32)+1) * sizeof(struct Instruction*));
     } else if (parser->idx == 32) {
-        parser->nodes = realloc(parser->nodes, (parser->allocated += 32)+1 * sizeof(struct Node*));
+        parser->instructions = realloc(parser->instructions, (parser->allocated += 32)+1 * sizeof(struct Instruction*));
     }
-    parser->nodes[parser->idx++] = node;
+    parser->instructions[parser->idx++] = inst;
 }
 
 static bool parser_match(struct Parser* const parser, enum TokenName token) {
@@ -145,7 +145,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct ASTValue *value;
 
-    if ((value = parser_parse_node_routine(parser)) ||
+    if ((value = parser_parse_instr_routine(parser)) ||
         (value = parser_parse_stack(parser))        ||
         (value = parser_parse_number(parser))) {
         expr = malloc(sizeof(struct Expr));
@@ -607,8 +607,8 @@ loop_end:
     return expr;
 }
 
-static struct Node *parser_parse_node_pure(struct Parser* const parser) {
-    struct Node *node;
+static struct Instruction *parser_parse_instr_pure(struct Parser* const parser) {
+    struct Instruction *inst;
     struct Expr *expr;
     struct State backtrack = lexer_dump_state(&parser->lexer);
 
@@ -628,10 +628,10 @@ static struct Node *parser_parse_node_pure(struct Parser* const parser) {
 
     return NULL;
 end:
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypePureExpr;
-    node->pure = expr;
-    return node;
+    inst = malloc(sizeof(struct Instruction));
+    inst->type = InstructionTypePureExpr;
+    inst->pure = expr;
+    return inst;
 }
 
 /*
@@ -681,10 +681,10 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
     };
 }
 
-static struct Node *parser_parse_node_catch(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_catch(struct Parser* const parser) {
     struct State backtrack = lexer_dump_state(&parser->lexer);
-    struct Node *node;
-    struct CatchNode catch;
+    struct Instruction *inst;
+    struct CatchInstruction catch;
 
     if (!parser_match(parser, TokenNameCatch))
         return NULL;
@@ -706,15 +706,15 @@ static struct Node *parser_parse_node_catch(struct Parser* const parser) {
 
     parser_maybe_expect_newline(parser);
 
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypeCatch;
-    node->catch = catch;
+    inst = malloc(sizeof(struct Instruction));
+    inst->type = InstructionTypeCatch;
+    inst->catch = catch;
 
-    return node;
+    return inst;
 }
 
-static struct Node *parser_parse_node_log(struct Parser* const parser) {
-    struct Node *node;
+static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
+    struct Instruction *inst;
     struct RaelExprList expr_list;
 
     if (!parser_match(parser, TokenNameLog))
@@ -725,15 +725,15 @@ static struct Node *parser_parse_node_log(struct Parser* const parser) {
 
     parser_expect_newline(parser);
 
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypeLog;
-    node->log_values = expr_list;
+    inst = malloc(sizeof(struct Instruction));
+    inst->type = InstructionTypeLog;
+    inst->log_values = expr_list;
 
-    return node;
+    return inst;
 }
 
-static struct Node *parser_parse_node_return(struct Parser* const parser) {
-    struct Node *node;
+static struct Instruction *parser_parse_instr_return(struct Parser* const parser) {
+    struct Instruction *inst;
     struct Expr *expr;
 
     if (!parser_match(parser, TokenNameCaret))
@@ -747,37 +747,37 @@ static struct Node *parser_parse_node_return(struct Parser* const parser) {
         parser_error(parser, "Expected an expression or nothing after \"^\"");
     }
 
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypeReturn;
-    node->return_value = expr;
-    return node;
+    inst = malloc(sizeof(struct Instruction));
+    inst->type = InstructionTypeReturn;
+    inst->return_value = expr;
+    return inst;
 }
 
-static struct Node *parser_parse_node_break(struct Parser* const parser) {
-    struct Node *node;
+static struct Instruction *parser_parse_instr_break(struct Parser* const parser) {
+    struct Instruction *inst;
 
     if (!parser_match(parser, TokenNameSemicolon))
         return NULL;
 
     parser_expect_newline(parser);
 
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypeBreak;
-    return node;
+    inst = malloc(sizeof(struct Instruction));
+    inst->type = InstructionTypeBreak;
+    return inst;
 }
 
-static struct Node **parser_parse_block(struct Parser* const parser) {
-    struct Node **nodes;
-    size_t node_amount, node_idx = 0;
+static struct Instruction **parser_parse_block(struct Parser* const parser) {
+    struct Instruction **block;
+    size_t allocated, idx = 0;
 
     if (!parser_match(parser, TokenNameLeftCur))
         return NULL;
 
     parser_maybe_expect_newline(parser);
-    nodes = malloc(((node_amount = 32)+1) * sizeof(struct Node *));
+    block = malloc(((allocated = 32)+1) * sizeof(struct Instruction *));
     while (true) {
-        struct Node *node;
-        if (!(node = parser_parse_node(parser))) {
+        struct Instruction *inst;
+        if (!(inst = parser_parse_instr(parser))) {
             if (!lexer_tokenize(&parser->lexer))
                 parser_error(parser, "Unmatched '}'");
             if (parser->lexer.token.name == TokenNameRightCur) {
@@ -786,17 +786,17 @@ static struct Node **parser_parse_block(struct Parser* const parser) {
                 parser_error(parser, "Unexpected token");
             }
         }
-        if (node_idx == node_amount) {
-            nodes = realloc(nodes, ((node_amount += 32)+1) * sizeof(struct Node *));
+        if (idx == allocated) {
+            block = realloc(block, ((allocated += 32)+1) * sizeof(struct Instruction *));
         }
-        nodes[node_idx++] = node;
+        block[idx++] = inst;
     }
 
-    nodes[node_idx] = NULL;
-    return nodes;
+    block[idx] = NULL;
+    return block;
 }
 
-static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
+static struct ASTValue *parser_parse_instr_routine(struct Parser* const parser) {
     struct ASTValue *value;
     struct RaelRoutineValue decl;
     struct State backtrack;
@@ -868,9 +868,9 @@ static struct ASTValue *parser_parse_node_routine(struct Parser* const parser) {
     return value;
 }
 
-static struct Node *parser_parse_if_statement(struct Parser* const parser) {
-    struct Node *node;
-    struct IfStatementNode if_stat = {
+static struct Instruction *parser_parse_if_statement(struct Parser* const parser) {
+    struct Instruction *inst;
+    struct IfInstruction if_stat = {
         .block = NULL,
         .else_type = ElseTypeNone,
         .condition = NULL
@@ -887,8 +887,8 @@ static struct Node *parser_parse_if_statement(struct Parser* const parser) {
 
     parser_maybe_expect_newline(parser);
 
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypeIf;
+    inst = malloc(sizeof(struct Instruction));
+    inst->type = InstructionTypeIf;
 
     if (!parser_match(parser, TokenNameElse))
         goto end;
@@ -897,21 +897,21 @@ static struct Node *parser_parse_if_statement(struct Parser* const parser) {
 
     if ((if_stat.else_block = parser_parse_block(parser))) {
         if_stat.else_type = ElseTypeBlock;
-    } else if ((if_stat.else_node = parser_parse_node(parser))) {
-        if_stat.else_type = ElseTypeNode;
+    } else if ((if_stat.else_instruction = parser_parse_instr(parser))) {
+        if_stat.else_type = ElseTypeInstruction;
     } else {
         parser_error(parser, "Expected a block or an instruction after 'else' keyword");
     }
 
     parser_maybe_expect_newline(parser);
 end:
-    node->if_stat = if_stat;
-    return node;
+    inst->if_stat = if_stat;
+    return inst;
 }
 
-static struct Node *parser_parse_loop(struct Parser* const parser) {
-    struct Node *node;
-    struct LoopNode loop;
+static struct Instruction *parser_parse_loop(struct Parser* const parser) {
+    struct Instruction *inst;
+    struct LoopInstruction loop;
     struct State backtrack;
 
     if (!parser_match(parser, TokenNameLoop))
@@ -951,34 +951,34 @@ static struct Node *parser_parse_loop(struct Parser* const parser) {
 
 loop_parsing_end:
     parser_maybe_expect_newline(parser);
-    node = malloc(sizeof(struct Node));
-    node->type = NodeTypeLoop;
-    node->loop = loop;
-    return node;
+    inst = malloc(sizeof(struct Instruction));
+    inst->type = InstructionTypeLoop;
+    inst->loop = loop;
+    return inst;
 }
 
-static struct Node *parser_parse_node(struct Parser* const parser) {
-    struct Node *node;
+static struct Instruction *parser_parse_instr(struct Parser* const parser) {
+    struct Instruction *inst;
     struct State prev_state = lexer_dump_state(&parser->lexer);
-    if ((node = parser_parse_node_pure(parser))    ||
-        (node = parser_parse_node_log(parser))     ||
-        (node = parser_parse_if_statement(parser)) ||
-        (node = parser_parse_loop(parser))         ||
-        (node = parser_parse_node_return(parser))  ||
-        (node = parser_parse_node_break(parser))   ||
-        (node = parser_parse_node_catch(parser))) {
-        node->state = prev_state;
-        return node;
+    if ((inst = parser_parse_instr_pure(parser))    ||
+        (inst = parser_parse_instr_log(parser))     ||
+        (inst = parser_parse_if_statement(parser)) ||
+        (inst = parser_parse_loop(parser))         ||
+        (inst = parser_parse_instr_return(parser))  ||
+        (inst = parser_parse_instr_break(parser))   ||
+        (inst = parser_parse_instr_catch(parser))) {
+        inst->state = prev_state;
+        return inst;
     }
     return NULL;
 }
 
-struct Node **parse(char* const stream) {
-    struct Node *node;
+struct Instruction **parse(char* const stream) {
+    struct Instruction *inst;
     struct Parser parser = {
         .allocated = 0,
         .idx = 0,
-        .nodes = NULL,
+        .instructions = NULL,
         .lexer = {
             .line = 1,
             .column = 1,
@@ -987,19 +987,17 @@ struct Node **parse(char* const stream) {
         }
     };
     parser_maybe_expect_newline(&parser);
-    while ((node = parser_parse_node(&parser))) {
-        parser_push(&parser, node);
+    while ((inst = parser_parse_instr(&parser))) {
+        parser_push(&parser, inst);
     }
     parser_push(&parser, NULL);
 
     if (lexer_tokenize(&parser.lexer))
         parser_error(&parser, "Syntax Error");
-    return parser.nodes;
+    return parser.instructions;
 }
 
 static void expr_delete(struct Expr* const expr);
-
-void node_delete(struct Node* const node);
 
 static void astvalue_delete(struct ASTValue* value) {
     switch (value->type) {
@@ -1018,7 +1016,7 @@ static void astvalue_delete(struct ASTValue* value) {
         free(value->as_routine.parameters);
 
         for (size_t i = 0; value->as_routine.block[i]; ++i) {
-            node_delete(value->as_routine.block[i]);
+            instruction_delete(value->as_routine.block[i]);
         }
 
         free(value->as_routine.block);
@@ -1093,24 +1091,24 @@ static void expr_delete(struct Expr* const expr) {
     free(expr);
 }
 
-void node_delete(struct Node* const node) {
-    switch (node->type) {
-    case NodeTypeIf:
-        expr_delete(node->if_stat.condition);
+void instruction_delete(struct Instruction* const inst) {
+    switch (inst->type) {
+    case InstructionTypeIf:
+        expr_delete(inst->if_stat.condition);
 
-        for (size_t i = 0; node->if_stat.block[i]; ++i)
-            node_delete(node->if_stat.block[i]);
+        for (size_t i = 0; inst->if_stat.block[i]; ++i)
+            instruction_delete(inst->if_stat.block[i]);
 
-        free(node->if_stat.block);
+        free(inst->if_stat.block);
 
-        switch (node->if_stat.else_type) {
+        switch (inst->if_stat.else_type) {
         case ElseTypeBlock:
-            for (size_t i = 0; node->if_stat.else_block[i]; ++i)
-                node_delete(node->if_stat.else_block[i]);
-            free(node->if_stat.else_block);
+            for (size_t i = 0; inst->if_stat.else_block[i]; ++i)
+                instruction_delete(inst->if_stat.else_block[i]);
+            free(inst->if_stat.else_block);
             break;
-        case ElseTypeNode:
-            node_delete(node->if_stat.else_node);
+        case ElseTypeInstruction:
+            instruction_delete(inst->if_stat.else_instruction);
             break;
         case ElseTypeNone:
             break;
@@ -1119,21 +1117,21 @@ void node_delete(struct Node* const node) {
         }
 
         break;
-    case NodeTypeLog:
-        for (size_t i = 0; i < node->log_values.amount_exprs; ++i) {
-            expr_delete(node->log_values.exprs[i]);
+    case InstructionTypeLog:
+        for (size_t i = 0; i < inst->log_values.amount_exprs; ++i) {
+            expr_delete(inst->log_values.exprs[i]);
         }
 
-        free(node->log_values.exprs);
+        free(inst->log_values.exprs);
         break;
-    case NodeTypeLoop:
-        switch (node->loop.type) {
+    case InstructionTypeLoop:
+        switch (inst->loop.type) {
         case LoopWhile:
-            expr_delete(node->loop.while_condition);
+            expr_delete(inst->loop.while_condition);
             break;
         case LoopThrough:
-            free(node->loop.iterate.key);
-            expr_delete(node->loop.iterate.expr);
+            free(inst->loop.iterate.key);
+            expr_delete(inst->loop.iterate.expr);
             break;
         case LoopForever:
             break;
@@ -1141,31 +1139,31 @@ void node_delete(struct Node* const node) {
             RAEL_UNREACHABLE();
         }
 
-        for (size_t i = 0; node->loop.block[i]; ++i) {
-            node_delete(node->loop.block[i]);
+        for (size_t i = 0; inst->loop.block[i]; ++i) {
+            instruction_delete(inst->loop.block[i]);
         }
 
-        free(node->loop.block);
+        free(inst->loop.block);
         break;
-    case NodeTypePureExpr:
-        expr_delete(node->pure);
+    case InstructionTypePureExpr:
+        expr_delete(inst->pure);
         break;
-    case NodeTypeReturn:
-        if (node->return_value) {
-            expr_delete(node->return_value);
+    case InstructionTypeReturn:
+        if (inst->return_value) {
+            expr_delete(inst->return_value);
         }
         break;
-    case NodeTypeBreak:
+    case InstructionTypeBreak:
         break;
-    case NodeTypeCatch:
-        expr_delete(node->catch.catch_expr);
-        if (node->catch.handle_block) {
-            for (size_t i = 0; node->catch.handle_block[i]; ++i)
-                node_delete(node->catch.handle_block[i]);
+    case InstructionTypeCatch:
+        expr_delete(inst->catch.catch_expr);
+        if (inst->catch.handle_block) {
+            for (size_t i = 0; inst->catch.handle_block[i]; ++i)
+                instruction_delete(inst->catch.handle_block[i]);
         }
         break;
     default:
         RAEL_UNREACHABLE();
     }
-    free(node);
+    free(inst);
 }
