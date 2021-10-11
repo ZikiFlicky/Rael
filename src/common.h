@@ -6,7 +6,7 @@
 
 #define RAEL_UNREACHABLE()                                                             \
     do {                                                                               \
-        fprintf(stderr, "unreachable code block reached (%s:%d)", __FILE__, __LINE__); \
+        fprintf(stderr, "Unreachable code block reached (%s:%d)\n", __FILE__, __LINE__); \
         abort();                                                                       \
     } while(0)
 
