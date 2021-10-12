@@ -1,0 +1,3 @@
+Error [1:61]: Stack slicing out of range
+| log { "a", "programming", "language", "called", "rael" } at (1 to 100) 
+|                                                             ^

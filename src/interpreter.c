@@ -143,6 +143,31 @@ static RaelValue string_substr(RaelValue value, size_t start, size_t end) {
     return new_string;
 }
 
+static RaelValue stack_slice(RaelValue stack, size_t start, size_t end) {
+    RaelValue new_stack;
+    RaelValue *new_dump;
+    size_t length;
+
+    assert(stack->type == ValueTypeStack);
+    assert(end >= start);
+    assert(start <= stack->as_stack.length && end <= stack->as_stack.length);
+
+    new_dump = malloc((length = end - start) * sizeof(RaelValue));
+
+    for (size_t i = 0; i < length; ++i) {
+        RaelValue value = stack->as_stack.values[start + i];
+        ++value->reference_count;
+        new_dump[i] = value;
+    }
+
+    new_stack = value_create(ValueTypeStack);
+    new_stack->as_stack.allocated = length;
+    new_stack->as_stack.length = length;
+    new_stack->as_stack.values = new_dump;
+
+    return new_stack;
+}
+
 static RaelValue string_plus_string(RaelValue lhs, RaelValue rhs) {
     RaelValue string;
 
@@ -219,17 +244,57 @@ static RaelValue interpret_value_at(struct Interpreter* const interpreter, struc
     lhs = expr_eval(interpreter, expr->lhs, true);
 
     if (lhs->type == ValueTypeStack) {
-        // evaluate index
         rhs = expr_eval(interpreter, expr->rhs, true);
-        value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
 
-        if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length) {
-            value_dereference(lhs);
-            value_dereference(rhs);
-            interpreter_error(interpreter, expr->rhs->state, "Index too big");
+        switch (rhs->type) {
+        case ValueTypeNumber:
+            if (rhs->as_number.is_float) {
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Float index is not allowed");
+            }
+            if (rhs->as_number.as_int < 0) {
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "A negative index is not allowed");
+            }
+            if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Index too big");
+            }
+            value = value_at(lhs, rhs->as_number.as_int);
+            break;
+        case ValueTypeRange: {
+            int start = rhs->as_range.start,
+                end = rhs->as_range.end;
+            size_t length = lhs->as_stack.length;
+
+            // make sure range numbers are positive, -2 to 3 is not allowed
+            if (start < 0 || end < 0) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Negative range numbers for stack slicing are not allowed");
+            }
+
+            // make sure range direction is not negative
+            if (end < start) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Range start mustn't be smaller than its end when slicing a stack");
+            }
+
+            // make sure you are inside of the stack's boundaries
+            if ((size_t)start > length || (size_t)end > length) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Stack slicing out of range");
+            }
+
+            value = stack_slice(lhs, (size_t)start, (size_t)end);
+            break;
         }
-
-        value = value_at(lhs, rhs->as_number.as_int);
+        default:
+            interpreter_error(interpreter, expr->rhs->state, "Expected number or range");
+        }
     } else if (lhs->type == ValueTypeString) {
         rhs = expr_eval(interpreter, expr->rhs, true);
 
@@ -609,15 +674,15 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             interpreter_error(interpreter, expr->lhs->state, "Expected a stack value");
         }
 
-        if (lhs->as_stack.length == lhs->as_stack.allocated) {
+        if (lhs->as_stack.allocated == 0) {
+            lhs->as_stack.values = malloc((lhs->as_stack.allocated = 8) * sizeof(RaelValue));
+        } else if (lhs->as_stack.length == lhs->as_stack.allocated) {
             lhs->as_stack.values = realloc(lhs->as_stack.values, (lhs->as_stack.allocated += 8) * sizeof(RaelValue));
         }
 
+        // eval the rhs, push it and set the stack as the return value
         rhs = expr_eval(interpreter, expr->rhs, true);
-
-        // no need to dereference a *used* value
         lhs->as_stack.values[lhs->as_stack.length++] = rhs;
-
         value = lhs;
         break;
     case ExprTypeSizeof: {

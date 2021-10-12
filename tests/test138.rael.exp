@@ -1,0 +1,3 @@
+Error [1:35]: Range start mustn't be smaller than its end when slicing a stack
+| log { 1, 2, 66, 234, 11, 75, 2 }at(3 to 1)
+|                                   ^
