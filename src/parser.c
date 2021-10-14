@@ -999,12 +999,9 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     return NULL;
 }
 
-struct Instruction **parse(char* const stream, bool stream_on_heap) {
+struct Instruction **rael_parse(char* const stream, bool stream_on_heap) {
     struct Instruction *inst;
     struct Parser parser = {
-        .allocated = 0,
-        .idx = 0,
-        .instructions = NULL,
         .lexer = {
             .line = 1,
             .column = 1,

@@ -16,7 +16,7 @@ enum ProgramInterrupt {
 
 struct Interpreter {
     char *stream_base;
-    bool stream_on_heap;
+    const bool stream_on_heap;
     struct Instruction **instructions;
     size_t idx;
     struct Scope *scope;
@@ -957,7 +957,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     }
 }
 
-void interpret(struct Instruction **instructions, char *stream_base, const bool stream_on_heap, const bool warn_undefined) {
+void rael_interpret(struct Instruction **instructions, char *stream_base, const bool stream_on_heap, const bool warn_undefined) {
     struct Instruction *instruction;
     struct Scope bottom_scope;
     struct Interpreter interp = {
