@@ -37,7 +37,9 @@ enum TokenName {
     TokenNameTo,
     TokenNameBlame,
     TokenNameCatch,
-    TokenNameWith
+    TokenNameWith,
+    TokenNameAmpersand,
+    TokenNamePipe
 };
 
 struct Token {

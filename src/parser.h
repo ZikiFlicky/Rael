@@ -43,7 +43,9 @@ enum ExprType {
     ExprTypeSizeof,
     ExprTypeTo,
     ExprTypeBlame,
-    ExprTypeSet
+    ExprTypeSet,
+    ExprTypeAnd,
+    ExprTypeOr
 };
 
 struct RoutineCallExpr {

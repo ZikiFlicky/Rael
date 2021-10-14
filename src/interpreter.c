@@ -753,6 +753,40 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         }
         ++value->reference_count;
         break;
+    case ExprTypeAnd: {
+        int result = 0;
+        lhs = expr_eval(interpreter, expr->lhs, true);
+
+        if (value_as_bool(lhs) == true) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            result = value_as_bool(rhs) == true ? 1 : 0;
+            value_dereference(rhs);
+        }
+        value_dereference(lhs);
+
+        value = value_create(ValueTypeNumber);
+        value->as_number.is_float = false;
+        value->as_number.as_int = result;
+        break;
+    }
+    case ExprTypeOr: {
+        int result = 0;
+        lhs = expr_eval(interpreter, expr->lhs, true);
+
+        if (value_as_bool(lhs) == true) {
+            result = 1;
+        } else {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            result = value_as_bool(rhs) == true ? 1 : 0;
+            value_dereference(rhs);
+        }
+        value_dereference(lhs);
+
+        value = value_create(ValueTypeNumber);
+        value->as_number.is_float = false;
+        value->as_number.as_int = result;
+        break;
+    }
     default:
         RAEL_UNREACHABLE();
     }
