@@ -6,7 +6,7 @@
 #include <string.h>
 #include <assert.h>
 
-void interpret(struct Instruction **instructions, char *base_stream, const bool warn_undefined);
+void interpret(struct Instruction **instructions, char *base_stream, const bool stream_on_heap, const bool warn_undefined);
 
 static void print_help(void) {
     puts("Welcome to the Rael programming language!");
@@ -93,10 +93,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    interpret(parse(stream_base), stream_base, undefined_errors);
-
-    if (do_free)
-        free(stream_base);
+    interpret(parse(stream_base, do_free), stream_base, do_free, undefined_errors);
 
     return 0;
 }

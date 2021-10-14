@@ -24,7 +24,8 @@ void lexer_load_state(struct Lexer* const lexer, struct State state) {
 
 static void lexer_error(struct Lexer* const lexer, const char* const error_message) {
     rael_show_error_message(lexer_dump_state(lexer), error_message);
-    free(lexer->stream_base);
+    if (lexer->stream_on_heap)
+        free(lexer->stream_base);
     exit(1);
 }
 

@@ -142,7 +142,7 @@ struct Parser {
     size_t idx, allocated;
 };
 
-struct Instruction **parse(char* const stream);
+struct Instruction **parse(char* const stream, bool stream_on_heap);
 
 void instruction_delete(struct Instruction* const instruction);
 

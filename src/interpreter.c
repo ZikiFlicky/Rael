@@ -16,6 +16,7 @@ enum ProgramInterrupt {
 
 struct Interpreter {
     char *stream_base;
+    bool stream_on_heap;
     struct Instruction **instructions;
     size_t idx;
     struct Scope *scope;
@@ -55,12 +56,14 @@ static void interpreter_destroy_all(struct Interpreter* const interpreter) {
         instruction_delete(interpreter->instructions[i]);
 
     free(interpreter->instructions);
+
+    if (interpreter->stream_on_heap)
+        free(interpreter->stream_base);
 }
 
 void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message) {
     rael_show_error_message(state, error_message);
     interpreter_destroy_all(interpreter);
-    free(interpreter->stream_base);
     exit(1);
 }
 
@@ -777,8 +780,6 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
 
         interpreter_destroy_all(interpreter);
 
-        free(interpreter->stream_base);
-
         exit(1);
     }
 
@@ -956,7 +957,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     }
 }
 
-void interpret(struct Instruction **instructions, char *stream_base, const bool warn_undefined) {
+void interpret(struct Instruction **instructions, char *stream_base, const bool stream_on_heap, const bool warn_undefined) {
     struct Instruction *instruction;
     struct Scope bottom_scope;
     struct Interpreter interp = {
@@ -966,7 +967,8 @@ void interpret(struct Instruction **instructions, char *stream_base, const bool 
         .in_routine = false,
         .returned_value = NULL,
         .stream_base = stream_base,
-        .warn_undefined = warn_undefined
+        .warn_undefined = warn_undefined,
+        .stream_on_heap = stream_on_heap
     };
 
     scope_construct(&bottom_scope, NULL);

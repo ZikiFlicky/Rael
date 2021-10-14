@@ -26,7 +26,8 @@ static void parser_state_error(struct Parser* const parser, struct State state, 
         instruction_delete(parser->instructions[i]);
 
     free(parser->instructions);
-    free(parser->lexer.stream_base);
+    if (parser->lexer.stream_on_heap)
+        free(parser->lexer.stream_base);
 
     exit(1);
 }
@@ -998,7 +999,7 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     return NULL;
 }
 
-struct Instruction **parse(char* const stream) {
+struct Instruction **parse(char* const stream, bool stream_on_heap) {
     struct Instruction *inst;
     struct Parser parser = {
         .allocated = 0,
@@ -1008,7 +1009,8 @@ struct Instruction **parse(char* const stream) {
             .line = 1,
             .column = 1,
             .stream = stream,
-            .stream_base = stream
+            .stream_base = stream,
+            .stream_on_heap = stream_on_heap
         }
     };
     parser_maybe_expect_newline(&parser);
