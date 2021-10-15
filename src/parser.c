@@ -804,9 +804,7 @@ static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
     if (!parser_match(parser, TokenNameLog))
         return NULL;
 
-    if ((expr_list = parser_parse_csv(parser, false)).amount_exprs == 0)
-        parser_error(parser, "Expected at least one expression after \"log\"");
-
+    expr_list = parser_parse_csv(parser, false);
     parser_expect_newline(parser);
 
     inst = malloc(sizeof(struct Instruction));

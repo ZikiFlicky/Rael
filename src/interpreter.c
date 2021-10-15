@@ -828,12 +828,14 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     switch (instruction->type) {
     case InstructionTypeLog: {
         RaelValue value;
-        value_log((value = expr_eval(interpreter, instruction->csv.exprs[0], true)));
-        value_dereference(value);
-        for (size_t i = 1; i < instruction->csv.amount_exprs; ++i) {
-            printf(" ");
-            value_log((value = expr_eval(interpreter, instruction->csv.exprs[i], true)));
+        if (instruction->csv.amount_exprs > 0) {
+            value_log((value = expr_eval(interpreter, instruction->csv.exprs[0], true)));
             value_dereference(value);
+            for (size_t i = 1; i < instruction->csv.amount_exprs; ++i) {
+                printf(" ");
+                value_log((value = expr_eval(interpreter, instruction->csv.exprs[i], true)));
+                value_dereference(value);
+            }
         }
         printf("\n");
         break;
