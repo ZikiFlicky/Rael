@@ -87,7 +87,8 @@ enum InstructionType {
     InstructionTypePureExpr,
     InstructionTypeReturn,
     InstructionTypeBreak,
-    InstructionTypeCatch
+    InstructionTypeCatch,
+    InstructionTypeShow
 };
 
 struct IfInstruction {
@@ -129,7 +130,7 @@ struct Instruction {
     enum InstructionType type;
     struct State state;
     union {
-        struct RaelExprList log_values;
+        struct RaelExprList csv;
         struct IfInstruction if_stat;
         struct LoopInstruction loop;
         struct Expr *pure;

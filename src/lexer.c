@@ -313,6 +313,9 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     // try to tokenize `with`
     if (lexer_match_keyword(lexer, "with", 4, TokenNameWith))
         return true;
+    // try to tokenize `show`
+    if (lexer_match_keyword(lexer, "show", 4, TokenNameShow))
+        return true;
     lexer_error(lexer, "Unrecognized token");
     return false;
 }

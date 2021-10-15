@@ -9,6 +9,7 @@ enum TokenName {
     TokenNameNumber,
     TokenNameNewline,
     TokenNameLog,
+    TokenNameShow,
     TokenNameKey,
     TokenNameAdd,
     TokenNameSub,

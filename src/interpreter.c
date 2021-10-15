@@ -806,14 +806,10 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             value_dereference(value->as_blame.value); // dereference
         }
         printf("\n");
-
         rael_show_line_state(state);
-
         // dereference the blame value
         value_dereference(value);
-
         interpreter_destroy_all(interpreter);
-
         exit(1);
     }
 
@@ -832,14 +828,22 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     switch (instruction->type) {
     case InstructionTypeLog: {
         RaelValue value;
-        value_log((value = expr_eval(interpreter, instruction->log_values.exprs[0], true)));
-        value_dereference(value); // dereference
-        for (size_t i = 1; i < instruction->log_values.amount_exprs; ++i) {
+        value_log((value = expr_eval(interpreter, instruction->csv.exprs[0], true)));
+        value_dereference(value);
+        for (size_t i = 1; i < instruction->csv.amount_exprs; ++i) {
             printf(" ");
-            value_log((value = expr_eval(interpreter, instruction->log_values.exprs[i], true)));
-            value_dereference(value); // dereference
+            value_log((value = expr_eval(interpreter, instruction->csv.exprs[i], true)));
+            value_dereference(value);
         }
         printf("\n");
+        break;
+    }
+    case InstructionTypeShow: {
+        for (size_t i = 0; i < instruction->csv.amount_exprs; ++i) {
+            RaelValue value = expr_eval(interpreter, instruction->csv.exprs[i], true);
+            value_log(value);
+            value_dereference(value);
+        }
         break;
     }
     case InstructionTypeIf: {

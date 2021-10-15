@@ -811,7 +811,26 @@ static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
 
     inst = malloc(sizeof(struct Instruction));
     inst->type = InstructionTypeLog;
-    inst->log_values = expr_list;
+    inst->csv = expr_list;
+
+    return inst;
+}
+
+static struct Instruction *parser_parse_instr_show(struct Parser* const parser) {
+    struct Instruction *inst;
+    struct RaelExprList expr_list;
+
+    if (!parser_match(parser, TokenNameShow))
+        return NULL;
+
+    if ((expr_list = parser_parse_csv(parser, false)).amount_exprs == 0)
+        parser_error(parser, "Expected at least one expression after \"show\"");
+
+    parser_expect_newline(parser);
+
+    inst = malloc(sizeof(struct Instruction));
+    inst->type = InstructionTypeShow;
+    inst->csv = expr_list;
 
     return inst;
 }
@@ -1050,11 +1069,12 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     struct State prev_state = lexer_dump_state(&parser->lexer);
     if ((inst = parser_parse_instr_pure(parser))    ||
         (inst = parser_parse_instr_log(parser))     ||
-        (inst = parser_parse_if_statement(parser)) ||
-        (inst = parser_parse_loop(parser))         ||
+        (inst = parser_parse_if_statement(parser))  ||
+        (inst = parser_parse_loop(parser))          ||
         (inst = parser_parse_instr_return(parser))  ||
         (inst = parser_parse_instr_break(parser))   ||
-        (inst = parser_parse_instr_catch(parser))) {
+        (inst = parser_parse_instr_catch(parser))   ||
+        (inst = parser_parse_instr_show(parser))) {
         inst->state = prev_state;
         return inst;
     }
@@ -1206,11 +1226,12 @@ void instruction_delete(struct Instruction* const inst) {
 
         break;
     case InstructionTypeLog:
-        for (size_t i = 0; i < inst->log_values.amount_exprs; ++i) {
-            expr_delete(inst->log_values.exprs[i]);
+    case InstructionTypeShow:
+        for (size_t i = 0; i < inst->csv.amount_exprs; ++i) {
+            expr_delete(inst->csv.exprs[i]);
         }
 
-        free(inst->log_values.exprs);
+        free(inst->csv.exprs);
         break;
     case InstructionTypeLoop:
         switch (inst->loop.type) {
