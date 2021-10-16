@@ -143,3 +143,55 @@ bool value_as_bool(const RaelValue value) {
         RAEL_UNREACHABLE();
     }
 }
+
+
+bool values_equal(const RaelValue lhs, const RaelValue rhs) {
+    bool res;
+    // if they have the same pointer they must be equal
+    if (lhs == rhs) {
+        res = true;
+    } else if (lhs->type != rhs->type) {
+        res = false;
+    } else {
+        const enum ValueType type = lhs->type;
+
+        switch (type) {
+        case ValueTypeNumber:
+            res = number_eq(lhs->as_number, rhs->as_number).as_int;
+            break;
+        case ValueTypeString:
+            if (lhs->as_string.length == rhs->as_string.length) {
+                if (lhs->as_string.value == rhs->as_string.value)
+                    res = true;
+                else
+                    res = strncmp(lhs->as_string.value, rhs->as_string.value, lhs->as_string.length) == 0;
+            } else {
+                res = false;
+            }
+            break;
+        case ValueTypeVoid:
+            res = true;
+            break;
+        case ValueTypeStack:
+            if (lhs->as_stack.length == rhs->as_stack.length) {
+                res = true;
+                for (size_t i = 0; i < lhs->as_stack.length; ++i) {
+                    if (!values_equal(lhs->as_stack.values[i], rhs->as_stack.values[i])) {
+                        res = false;
+                        break;
+                    }
+                }
+            } else {
+                res = false;
+            }
+            break;
+        case ValueTypeRange:
+            res = lhs->as_range.start == rhs->as_range.start && lhs->as_range.end == rhs->as_range.end;
+            break;
+        default:
+            res = false;
+        }
+    }
+
+    return res;
+}

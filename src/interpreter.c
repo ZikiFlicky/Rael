@@ -557,34 +557,10 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
 
         value = value_create(ValueTypeNumber);
         value->as_number.is_float = false;
-
-        // same pointer same thing
-        if (lhs == rhs) {
-            value->as_number.as_int = 1;
-        } else if (lhs->type == ValueTypeNumber && rhs->type == ValueTypeNumber) {
-            value->as_number = number_eq(lhs->as_number, rhs->as_number);
-        } else if (lhs->type == ValueTypeString && rhs->type == ValueTypeString) {
-            if (lhs->as_string.length == rhs->as_string.length) {
-                if (lhs->as_string.value == rhs->as_string.value) {
-                    value->as_number.as_int = 1;
-                } else {
-                    value->as_number.as_int = strncmp(lhs->as_string.value,
-                                                      rhs->as_string.value,
-                                                      lhs->as_string.length) == 0;
-                }
-            } else {
-                // if lengths don't match, the strings don't match
-                value->as_number.as_int = 0;
-            }
-        } else if (lhs->type == ValueTypeVoid && rhs->type == ValueTypeVoid) {
-            value->as_number.as_int = 1;
-        } else {
-            value->as_number.as_int = 0;
-        }
+        value->as_number.as_int = values_equal(lhs, rhs) ? 1 : 0;
 
         value_dereference(lhs);
         value_dereference(rhs);
-
         break;
     case ExprTypeSmallerThen:
         lhs = expr_eval(interpreter, expr->lhs, true);

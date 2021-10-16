@@ -79,4 +79,6 @@ void value_log(RaelValue value);
 
 bool value_as_bool(const RaelValue value);
 
+bool values_equal(const RaelValue lhs, const RaelValue rhs);
+
 #endif
