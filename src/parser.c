@@ -73,9 +73,10 @@ static bool parser_match(struct Parser* const parser, enum TokenName token) {
 }
 
 static void parser_expect_newline(struct Parser* const parser) {
+    struct State backtrack = lexer_dump_state(&parser->lexer);
     if (lexer_tokenize(&parser->lexer)) {
         if (parser->lexer.token.name != TokenNameNewline) {
-            parser_error(parser, "Expected newline after expression");
+            parser_state_error(parser, backtrack, "Expected newline after expression");
         }
     }
 }
