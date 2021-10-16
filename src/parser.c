@@ -155,14 +155,39 @@ static struct ASTValue *parser_parse_number(struct Parser* const parser) {
     return value;
 }
 
+static struct ASTValue *parser_parse_type(struct Parser* const parser) {
+    struct ASTValue *value;
+    enum ValueType type;
+    struct State backtrack = lexer_dump_state(&parser->lexer);
+
+    if (!lexer_tokenize(&parser->lexer))
+        return NULL;
+
+    // get the type
+    switch (parser->lexer.token.name) {
+    case TokenNameTypeNumber:  type = ValueTypeNumber; break;
+    case TokenNameTypeString:  type = ValueTypeString; break;
+    case TokenNameTypeRoutine: type = ValueTypeRoutine; break;
+    case TokenNameTypeStack:   type = ValueTypeStack; break;
+    case TokenNameTypeRange:   type = ValueTypeRange; break;
+    default: lexer_load_state(&parser->lexer, backtrack); return NULL;
+    }
+
+    value = malloc(sizeof(struct ASTValue));
+    value->type = ValueTypeType;
+    value->as_type = type;
+    return value;
+}
+
 static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     struct Expr *expr;
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct ASTValue *value;
 
     if ((value = parser_parse_instr_routine(parser)) ||
-        (value = parser_parse_stack(parser))        ||
-        (value = parser_parse_number(parser))) {
+        (value = parser_parse_stack(parser))         ||
+        (value = parser_parse_number(parser))        ||
+        (value = parser_parse_type(parser))) {
         expr = malloc(sizeof(struct Expr));
         expr->type = ExprTypeValue;
         expr->as_value = value;
@@ -1121,6 +1146,7 @@ static void astvalue_delete(struct ASTValue* value) {
     switch (value->type) {
     case ValueTypeVoid:
     case ValueTypeNumber:
+    case ValueTypeType:
         break;
     case ValueTypeString:
         if (value->as_string.length > 0)

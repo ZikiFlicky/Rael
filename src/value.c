@@ -47,6 +47,20 @@ void value_dereference(RaelValue value) {
     }
 }
 
+static char *value_type_to_string(enum ValueType type) {
+    switch (type) {
+    case ValueTypeVoid: return "Void";
+    case ValueTypeNumber: return "Number";
+    case ValueTypeString: return "String";
+    case ValueTypeRoutine: return "Routine";
+    case ValueTypeStack: return "Stack";
+    case ValueTypeRange: return "Range";
+    case ValueTypeBlame: return "Blame";
+    case ValueTypeType: return "Type";
+    default: RAEL_UNREACHABLE();
+    }
+}
+
 void value_log_as_original(RaelValue value) {
     switch (value->type) {
     case ValueTypeNumber:
@@ -103,6 +117,9 @@ void value_log_as_original(RaelValue value) {
         break;
     case ValueTypeRange:
         printf("%d to %d", value->as_range.start, value->as_range.end);
+        break;
+    case ValueTypeType:
+        printf("%s", value_type_to_string(value->as_type));
         break;
     default:
         RAEL_UNREACHABLE();
@@ -168,6 +185,9 @@ bool values_equal(const RaelValue lhs, const RaelValue rhs) {
             } else {
                 res = false;
             }
+            break;
+        case ValueTypeType:
+            res = lhs->as_type == rhs->as_type;
             break;
         case ValueTypeVoid:
             res = true;

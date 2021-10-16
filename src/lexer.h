@@ -40,7 +40,12 @@ enum TokenName {
     TokenNameCatch,
     TokenNameWith,
     TokenNameAmpersand,
-    TokenNamePipe
+    TokenNamePipe,
+    TokenNameTypeNumber,
+    TokenNameTypeString,
+    TokenNameTypeRoutine,
+    TokenNameTypeStack,
+    TokenNameTypeRange
 };
 
 struct Token {

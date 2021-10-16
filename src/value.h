@@ -18,7 +18,8 @@ enum ValueType {
     ValueTypeRoutine,
     ValueTypeStack,
     ValueTypeRange,
-    ValueTypeBlame
+    ValueTypeBlame,
+    ValueTypeType
 };
 
 struct RaelRangeValue {
@@ -66,6 +67,7 @@ struct RaelValue {
         struct RaelStackValue as_stack;
         struct RaelRangeValue as_range;
         struct RaelBlameValue as_blame;
+        enum ValueType as_type;
     };
 };
 

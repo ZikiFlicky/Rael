@@ -319,6 +319,21 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     // try to tokenize `show`
     if (lexer_match_keyword(lexer, "show", 4, TokenNameShow))
         return true;
+    // try to tokenize `Number`
+    if (lexer_match_keyword(lexer, "Number", 6, TokenNameTypeNumber))
+        return true;
+    // try to tokenize `String`
+    if (lexer_match_keyword(lexer, "String", 6, TokenNameTypeString))
+        return true;
+    // try to tokenize `Routine`
+    if (lexer_match_keyword(lexer, "Routine", 7, TokenNameTypeRoutine))
+        return true;
+    // try to tokenize `Stack`
+    if (lexer_match_keyword(lexer, "Stack", 5, TokenNameTypeStack))
+        return true;
+    // try to tokenize `Range`
+    if (lexer_match_keyword(lexer, "Range", 5, TokenNameTypeRange))
+        return true;
     lexer_error(lexer, "Unrecognized token");
     return false;
 }

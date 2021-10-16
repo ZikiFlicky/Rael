@@ -101,6 +101,9 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTVal
         break;
     case ValueTypeVoid:
         break;
+    case ValueTypeType:
+        out_value->as_type = value.as_type;
+        break;
     default:
         RAEL_UNREACHABLE();
     }

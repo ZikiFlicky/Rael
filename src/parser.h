@@ -22,6 +22,7 @@ struct ASTValue {
         struct NumberExpr as_number;
         struct RaelRoutineValue as_routine;
         struct RaelExprList as_stack;
+        enum ValueType as_type;
     };
 };
 
