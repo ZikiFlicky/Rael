@@ -60,7 +60,7 @@ static bool lexer_clean(struct Lexer* const lexer) {
 
 static bool lexer_match_keyword(struct Lexer* const lexer, const char* const keyword,
                                         const size_t length, const enum TokenName name) {
-    if (strncmp(lexer->stream, keyword, length) == 0) {
+    if (strncmp(lexer->stream, keyword, length) == 0 && !is_identifier_char(lexer->stream[length])) {
         lexer->token.name = name;
         lexer->token.string = lexer->stream;
         lexer->token.length = length;
