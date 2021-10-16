@@ -49,7 +49,7 @@ void value_dereference(RaelValue value) {
 
 static char *value_type_to_string(enum ValueType type) {
     switch (type) {
-    case ValueTypeVoid: return "Void";
+    case ValueTypeVoid: return "VoidType";
     case ValueTypeNumber: return "Number";
     case ValueTypeString: return "String";
     case ValueTypeRoutine: return "Routine";
