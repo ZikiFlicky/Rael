@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 enum ProgramInterrupt {
     ProgramInterruptNone,
@@ -61,8 +62,11 @@ static void interpreter_destroy_all(struct Interpreter* const interpreter) {
         free(interpreter->stream_base);
 }
 
-void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message) {
-    rael_show_error_message(state, error_message);
+void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message, ...) {
+    va_list va;
+    va_start(va, error_message);
+    rael_show_error_message(state, error_message, va);
+    va_end(va);
     interpreter_destroy_all(interpreter);
     exit(1);
 }

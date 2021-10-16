@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdarg.h>
 
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Instruction *parser_parse_instr(struct Parser* const parser);
@@ -18,8 +19,12 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
 static struct Expr *parser_parse_expr_at(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
 
-static void parser_state_error(struct Parser* const parser, struct State state, const char* const error_message) {
-    rael_show_error_message(state, error_message);
+static inline void internal_parser_state_error(struct Parser* const parser, struct State state,
+                                               const char* const error_message, va_list va) {
+    rael_show_error_message(state, error_message, va);
+
+    // we don't return to the function because we exit, so let's just destroy the va here
+    va_end(va);
 
     // destroy all of the parsed instructions
     for (size_t i = 0; i < parser->idx; ++i)
@@ -32,8 +37,16 @@ static void parser_state_error(struct Parser* const parser, struct State state, 
     exit(1);
 }
 
-static inline void parser_error(struct Parser* const parser, const char* const error_message) {
-    parser_state_error(parser, lexer_dump_state(&parser->lexer), error_message);
+static void parser_state_error(struct Parser* const parser, struct State state, const char* const error_message, ...) {
+    va_list va;
+    va_start(va, error_message);
+    internal_parser_state_error(parser, state, error_message, va);
+}
+
+static void parser_error(struct Parser* const parser, char* error_message, ...) {
+    va_list va;
+    va_start(va, error_message);
+    internal_parser_state_error(parser, lexer_dump_state(&parser->lexer), error_message, va);
 }
 
 static void parser_push(struct Parser* const parser, struct Instruction* const inst) {

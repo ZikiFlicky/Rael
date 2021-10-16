@@ -1,5 +1,7 @@
 #include "common.h"
 
+#include <stdarg.h>
+
 void rael_show_line_state(struct State state) {
     printf("| ");
     for (int i = -state.column + 1; state.stream_pos[i] && state.stream_pos[i] != '\n'; ++i) {
@@ -20,17 +22,14 @@ void rael_show_line_state(struct State state) {
     printf("^\n");
 }
 
-void rael_show_error_message(struct State state, const char* const error_message) {
+void rael_show_error_message(struct State state, const char* const error_message, va_list va) {
     // advance all whitespace
     while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
         ++state.column;
         ++state.stream_pos;
     }
-    printf("Error [%zu:%zu]: %s\n", state.line, state.column, error_message);
+    printf("Error [%zu:%zu]: ", state.line, state.column);
+    vprintf(error_message, va);
+    printf("\n");
     rael_show_line_state(state);
-}
-
-void rael_error(struct State state, const char* const error_message) {
-    rael_show_error_message(state, error_message);
-    exit(1);
 }
