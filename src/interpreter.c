@@ -770,6 +770,13 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value->as_number.as_int = result;
         break;
     }
+    case ExprTypeTypeof:
+        single = expr_eval(interpreter, expr->as_single, true);
+
+        value = value_create(ValueTypeType);
+        value->as_type = single->type;
+        value_dereference(single);
+        break;
     default:
         RAEL_UNREACHABLE();
     }

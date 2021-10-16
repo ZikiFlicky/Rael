@@ -330,7 +330,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             return NULL;
 
         switch (parser->lexer.token.name) {
-        case TokenNameSub: {
+        case TokenNameSub: { // -
             struct Expr *to_negative;
 
             if (!(to_negative = parser_parse_expr_single(parser)))
@@ -351,6 +351,18 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeSizeof;
             expr->as_single = sizeof_value;
+            break;
+        }
+        case TokenNameTypeof: {
+            struct Expr *typeof_value;
+
+            if (!(typeof_value = parser_parse_expr_single(parser))) {
+                parser_error(parser, "Expected value after 'typeof'");
+            }
+
+            expr = malloc(sizeof(struct Expr));
+            expr->type = ExprTypeTypeof;
+            expr->as_single = typeof_value;
             break;
         }
         case TokenNameLeftParen: {
@@ -1211,6 +1223,7 @@ static void expr_delete(struct Expr* const expr) {
         expr_delete(expr->rhs);
         break;
     case ExprTypeSizeof:
+    case ExprTypeTypeof:
     case ExprTypeNeg:
         expr_delete(expr->as_single);
         break;

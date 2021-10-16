@@ -42,6 +42,7 @@ enum ExprType {
     ExprTypeAt,
     ExprTypeRedirect,
     ExprTypeSizeof,
+    ExprTypeTypeof,
     ExprTypeTo,
     ExprTypeBlame,
     ExprTypeSet,

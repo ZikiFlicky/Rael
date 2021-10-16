@@ -1,0 +1,2 @@
+log typeof("string") = typeof("string1")
+log typeof("string") = typeof(1)

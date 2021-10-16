@@ -45,7 +45,8 @@ enum TokenName {
     TokenNameTypeString,
     TokenNameTypeRoutine,
     TokenNameTypeStack,
-    TokenNameTypeRange
+    TokenNameTypeRange,
+    TokenNameTypeof
 };
 
 struct Token {

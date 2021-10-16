@@ -1,0 +1,7 @@
+log typeof("string")
+log typeof(123)
+log typeof(routine(){})
+log typeof({ 1, 2, 3 })
+log typeof(1 to 3)
+log typeof(Void)
+log typeof typeof 1
