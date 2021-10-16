@@ -111,7 +111,7 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTVal
     return out_value;
 }
 
-static void value_verify_is_number_uint(struct Interpreter* const interpreter,
+static void value_verify_uint(struct Interpreter* const interpreter,
                                         struct State number_state, RaelValue number) {
     if (number->type != ValueTypeNumber) {
         value_dereference(number);
@@ -209,7 +209,7 @@ static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, 
 
     rhs = expr_eval(interpreter, expr->rhs, true);
 
-    value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
+    value_verify_uint(interpreter, expr->rhs->state, rhs);
 
     if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length) {
         value_dereference(lhs);
@@ -223,7 +223,7 @@ static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, 
     value_dereference(rhs);
 }
 
-static RaelValue value_at(RaelValue iterable, size_t idx) {
+static RaelValue value_at_idx(RaelValue iterable, size_t idx) {
     RaelValue value;
 
     if (iterable->type == ValueTypeStack) {
@@ -246,129 +246,167 @@ static RaelValue value_at(RaelValue iterable, size_t idx) {
     return value;
 }
 
+static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack, struct Expr *at_expr) {
+    RaelValue at_value, out_value;
+
+    assert(stack->type == ValueTypeStack);
+    at_value = expr_eval(interpreter, at_expr->rhs, true);
+
+    switch (at_value->type) {
+    case ValueTypeNumber:
+        if (at_value->as_number.is_float) {
+            value_dereference(stack);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Float index is not allowed");
+        }
+        if (at_value->as_number.as_int < 0) {
+            value_dereference(stack);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "A negative index is not allowed");
+        }
+        if ((size_t)at_value->as_number.as_int >= stack->as_stack.length) {
+            value_dereference(stack);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
+        }
+
+        out_value = value_at_idx(stack, at_value->as_number.as_int);
+        break;
+    case ValueTypeRange: {
+        int start = at_value->as_range.start,
+            end = at_value->as_range.end;
+        size_t length = stack->as_stack.length;
+
+        // make sure range numbers are positive, -2 to 3 is not allowed
+        if (start < 0 || end < 0) {
+            value_dereference(stack);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Negative range numbers for stack slicing are not allowed");
+        }
+
+        // make sure range direction is not negative
+        if (end < start) {
+            value_dereference(stack);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Range start mustn't be smaller than its end when slicing a stack");
+        }
+
+        // make sure you are inside of the stack's boundaries
+        if ((size_t)start > length || (size_t)end > length) {
+            value_dereference(stack);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Stack slicing out of range");
+        }
+
+        out_value = stack_slice(stack, (size_t)start, (size_t)end);
+        break;
+    }
+    default:
+        interpreter_error(interpreter, at_expr->rhs->state, "Expected number or range");
+    }
+
+    value_dereference(stack); // lhs
+    value_dereference(at_value); // rhs
+    return out_value;
+}
+
+static RaelValue string_at(struct Interpreter* const interpreter, RaelValue string, struct Expr *at_expr) {
+    RaelValue at_value, out_value;
+
+    assert(string->type == ValueTypeString);
+    at_value = expr_eval(interpreter, at_expr->rhs, true);
+
+    switch (at_value->type) {
+    case ValueTypeRange:
+        // make sure range numbers are positive, -2 to -3 is not allowed
+        if (at_value->as_range.start < 0 || at_value->as_range.end < 0) {
+            value_dereference(string);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Expected non-negative range numbers");
+        }
+        // make sure range direction is not negative, e.g 4 to 2
+        if (at_value->as_range.end < at_value->as_range.start) {
+            value_dereference(string);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Negative range direction for substrings is not allowed");
+        }
+        // make sure you are inside of the string's boundaries
+        if ((size_t)at_value->as_range.start > string->as_string.length ||
+            (size_t)at_value->as_range.end > string->as_string.length) {
+            value_dereference(string);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Substring out of range");
+        }
+
+        out_value = string_substr(string, (size_t)at_value->as_range.start, (size_t)at_value->as_range.end);
+        break;
+    case ValueTypeNumber:
+        value_verify_uint(interpreter, at_expr->rhs->state, at_value);
+        if ((size_t)at_value->as_number.as_int >= string->as_string.length) {
+            value_dereference(string);
+            value_dereference(at_value);
+            interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
+        }
+
+        out_value = value_at_idx(string, at_value->as_number.as_int);
+        break;
+    default:
+        interpreter_error(interpreter, at_expr->rhs->state, "Expected range or number");
+    }
+
+    value_dereference(string);   // lhs
+    value_dereference(at_value); // rhs
+    return out_value;
+}
+
+static RaelValue range_at(struct Interpreter* const interpreter, RaelValue range, struct Expr *at_expr) {
+    RaelValue at_value, out_value;
+
+    assert(range->type == ValueTypeRange);
+    at_value = expr_eval(interpreter, at_expr->rhs, true);
+
+    // evaluate index
+    at_value = expr_eval(interpreter, at_expr->rhs, true);
+
+    value_verify_uint(interpreter, at_expr->rhs->state, at_value);
+
+    if ((size_t)at_value->as_number.as_int >= abs(range->as_range.end - range->as_range.start)) {
+        value_dereference(range);
+        value_dereference(at_value);
+        interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
+    }
+
+    out_value = value_at_idx(range, at_value->as_number.as_int);
+
+    value_dereference(range);    // lhs
+    value_dereference(at_value); // rhs
+    return out_value;
+}
+
 static RaelValue interpret_value_at(struct Interpreter* const interpreter, struct Expr *expr) {
-    RaelValue lhs, rhs, value;
+    RaelValue lhs, value;
 
     assert(expr->type == ExprTypeAt);
     // evaluate the lhs of the at expression
     lhs = expr_eval(interpreter, expr->lhs, true);
 
-    if (lhs->type == ValueTypeStack) {
-        rhs = expr_eval(interpreter, expr->rhs, true);
-
-        switch (rhs->type) {
-        case ValueTypeNumber:
-            if (rhs->as_number.is_float) {
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Float index is not allowed");
-            }
-            if (rhs->as_number.as_int < 0) {
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "A negative index is not allowed");
-            }
-            if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length) {
-                value_dereference(lhs);
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Index too big");
-            }
-            value = value_at(lhs, rhs->as_number.as_int);
-            break;
-        case ValueTypeRange: {
-            int start = rhs->as_range.start,
-                end = rhs->as_range.end;
-            size_t length = lhs->as_stack.length;
-
-            // make sure range numbers are positive, -2 to 3 is not allowed
-            if (start < 0 || end < 0) {
-                value_dereference(lhs);
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Negative range numbers for stack slicing are not allowed");
-            }
-
-            // make sure range direction is not negative
-            if (end < start) {
-                value_dereference(lhs);
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Range start mustn't be smaller than its end when slicing a stack");
-            }
-
-            // make sure you are inside of the stack's boundaries
-            if ((size_t)start > length || (size_t)end > length) {
-                value_dereference(lhs);
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Stack slicing out of range");
-            }
-
-            value = stack_slice(lhs, (size_t)start, (size_t)end);
-            break;
-        }
-        default:
-            interpreter_error(interpreter, expr->rhs->state, "Expected number or range");
-        }
-    } else if (lhs->type == ValueTypeString) {
-        rhs = expr_eval(interpreter, expr->rhs, true);
-
-        switch (rhs->type) {
-        case ValueTypeRange:
-            // make sure range numbers are positive, -2 to -3 is not allowed
-            if (rhs->as_range.start < 0 || rhs->as_range.end < 0) {
-                value_dereference(lhs);
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Expected non-negative range numbers");
-            }
-
-            // make sure range direction is not negative, e.g 4 to 2
-            if (rhs->as_range.end < rhs->as_range.start) {
-                value_dereference(lhs);
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Negative range direction for substrings is not allowed");
-            }
-
-            // make sure you are inside of the string's boundaries
-            if ((size_t)rhs->as_range.start > lhs->as_string.length ||
-                (size_t)rhs->as_range.end > lhs->as_string.length) {
-                value_dereference(lhs);
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Substring out of range");
-            }
-
-            value = string_substr(lhs, (size_t)rhs->as_range.start, (size_t)rhs->as_range.end);
-            break;
-        case ValueTypeNumber:
-            value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
-
-            if ((size_t)rhs->as_number.as_int >= lhs->as_string.length) {
-                value_dereference(lhs);
-                value_dereference(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Index too big");
-            }
-
-            value = value_at(lhs, rhs->as_number.as_int);
-            break;
-        default:
-            interpreter_error(interpreter, expr->rhs->state, "Expected range or number");
-        }
-    } else if (lhs->type == ValueTypeRange) {
-        // evaluate index
-        rhs = expr_eval(interpreter, expr->rhs, true);
-        value_verify_is_number_uint(interpreter, expr->rhs->state, rhs);
-
-        if ((size_t)rhs->as_number.as_int >= abs(lhs->as_range.end - lhs->as_range.start)) {
-            value_dereference(lhs);
-            value_dereference(rhs);
-            interpreter_error(interpreter, expr->rhs->state, "Index too big");
-        }
-
-        value = value_at(lhs, rhs->as_number.as_int);
-    } else {
+    switch (lhs->type) {
+    case ValueTypeStack:
+        value = stack_at(interpreter, lhs, expr);
+        break;
+    case ValueTypeString:
+        value = string_at(interpreter, lhs, expr);
+        break;
+    case ValueTypeRange:
+        value = range_at(interpreter, lhs, expr);
+        break;
+    default: {
         // save state, dereference and error
         struct State state = expr->lhs->state;
         value_dereference(lhs);
         interpreter_error(interpreter, state, "Expected string, stack or range on the left of 'at'");
     }
-
-    value_dereference(lhs);
-    value_dereference(rhs);
+    }
 
     return value;
 }
@@ -909,7 +947,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
             }
 
             for (size_t i = 0; i < length; ++i) {
-                scope_set(interpreter->scope, instruction->loop.iterate.key, value_at(iterator, i));
+                scope_set(interpreter->scope, instruction->loop.iterate.key, value_at_idx(iterator, i));
                 block_run(interpreter, instruction->loop.block);
 
                 if (interpreter->interrupt == ProgramInterruptBreak) {
