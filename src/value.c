@@ -65,7 +65,7 @@ void value_log_as_original(RaelValue value) {
     switch (value->type) {
     case ValueTypeNumber:
         if (value->as_number.is_float)
-            printf("%g", value->as_number.as_float);
+            printf("%.17g", value->as_number.as_float);
         else
             printf("%d", value->as_number.as_int);
         break;

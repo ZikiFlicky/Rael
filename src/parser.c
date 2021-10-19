@@ -117,11 +117,10 @@ static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
 
 static struct ASTValue *parser_parse_number(struct Parser* const parser) {
     struct ASTValue *value;
-    struct NumberExpr number;
-    double as_float = 0.f;
-    int as_int = 0;
-
-    number.is_float = false;
+    bool is_float = false;
+    int decimal = 0;
+    double fractional;
+    size_t since_dot;
 
     if (!parser_match(parser, TokenNameNumber))
         return NULL;
@@ -129,28 +128,37 @@ static struct ASTValue *parser_parse_number(struct Parser* const parser) {
     value = malloc(sizeof(struct ASTValue));
     for (size_t i = 0; i < parser->lexer.token.length; ++i) {
         if (parser->lexer.token.string[i] == '.') {
-            if (!number.is_float) {
-                number.is_float = true;
+            if (!is_float) {
+                is_float = true;
+                since_dot = 0;
+                fractional = 0;
                 continue;
             }
         }
-        if (!number.is_float) {
-            as_int *= 10;
-            as_int += parser->lexer.token.string[i] - '0';
+        if (is_float) {
+            double digit = parser->lexer.token.string[i] - '0';
+            ++since_dot;
+            for (size_t i = 0; i < since_dot; ++i)
+                digit /= 10;
+            fractional += digit;
+        } else {
+            decimal *= 10;
+            decimal += parser->lexer.token.string[i] - '0';
         }
-        as_float *= 10;
-        as_float += parser->lexer.token.string[i] - '0';
-        if (number.is_float)
-            as_float /= 10;
     }
 
-    if (number.is_float)
-        number.as_float = as_float;
-    else
-        number.as_int = as_int;
-
     value->type = ValueTypeNumber;
-    value->as_number = number;
+    if (is_float) {
+        value->as_number = (struct NumberExpr) {
+            .is_float = true,
+            .as_float = (double)decimal + fractional
+        };
+    } else {
+        value->as_number = (struct NumberExpr) {
+            .is_float = false,
+            .as_int = decimal
+        };
+    }
 
     return value;
 }
