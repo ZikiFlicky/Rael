@@ -574,10 +574,42 @@ static struct Expr *parser_parse_expr_range(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_range(parser)))
+        return NULL;
+
+    for (;;) {
+        struct Expr *new_expr;
+        struct State backtrack = lexer_dump_state(&parser->lexer);
+
+        if (lexer_tokenize(&parser->lexer)) {
+            if (parser->lexer.token.name == TokenNameAt) {
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeAt;
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_range(parser))) {
+                    parser_state_error(parser, backtrack, "Expected a value after 'at'");
+                }
+            } else {
+                lexer_load_state(&parser->lexer, backtrack);
+                break;
+            }
+        } else {
+            break;
+        }
+
+        new_expr->state = backtrack;
+        expr = new_expr;
+    }
+    return expr;
+}
+
+static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_expr_at(parser)))
         return NULL;
 
     for (;;) {
@@ -590,21 +622,21 @@ static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeEquals;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_range(parser)))
+                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '='");
                 break;
             case TokenNameSmallerThan:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeSmallerThen;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_range(parser)))
+                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '<'");
                 break;
             case TokenNameBiggerThan:
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeBiggerThen;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_range(parser)))
+                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '>'");
                 break;
             default:
@@ -622,42 +654,10 @@ loop_end:
     return expr;
 }
 
-static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
-    struct Expr *expr;
-
-    if (!(expr = parser_parse_expr_comparison(parser)))
-        return NULL;
-
-    for (;;) {
-        struct Expr *new_expr;
-        struct State backtrack = lexer_dump_state(&parser->lexer);
-
-        if (lexer_tokenize(&parser->lexer)) {
-            if (parser->lexer.token.name == TokenNameAt) {
-                new_expr = malloc(sizeof(struct Expr));
-                new_expr->type = ExprTypeAt;
-                new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_comparison(parser))) {
-                    parser_state_error(parser, backtrack, "Expected a value after 'at'");
-                }
-            } else {
-                lexer_load_state(&parser->lexer, backtrack);
-                break;
-            }
-        } else {
-            break;
-        }
-
-        new_expr->state = backtrack;
-        expr = new_expr;
-    }
-    return expr;
-}
-
 static struct Expr *parser_parse_expr_and(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_expr_at(parser)))
+    if (!(expr = parser_parse_expr_comparison(parser)))
         return NULL;
 
     for (;;) {
@@ -669,7 +669,7 @@ static struct Expr *parser_parse_expr_and(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeAnd;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
+                if (!(new_expr->rhs = parser_parse_expr_comparison(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '&'");
             } else {
                 lexer_load_state(&parser->lexer, backtrack);
