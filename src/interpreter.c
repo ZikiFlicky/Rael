@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <limits.h>
 
 enum ProgramInterrupt {
     ProgramInterruptNone,
@@ -112,7 +113,7 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTVal
 }
 
 static void value_verify_uint(struct Interpreter* const interpreter,
-                                        struct State number_state, RaelValue number) {
+                              struct State number_state, RaelValue number) {
     if (number->type != ValueTypeNumber) {
         value_dereference(number);
         interpreter_error(interpreter, number_state, "Expected number");
@@ -482,6 +483,34 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             if (rhs->type == ValueTypeNumber) {
                 value = value_create(ValueTypeNumber);
                 value->as_number = number_add(lhs->as_number, rhs->as_number);
+            } else if (rhs->type == ValueTypeString) {
+                int number;
+                struct RaelStringValue string, new_string;
+
+                if (lhs->as_number.is_float) {
+                    value_dereference(lhs);
+                    value_dereference(rhs);
+                    interpreter_error(interpreter, expr->lhs->state, "Expected a whole number");
+                }
+
+                number = lhs->as_number.as_int;
+                if (number < CHAR_MIN || number > CHAR_MAX) {
+                    value_dereference(lhs);
+                    value_dereference(rhs);
+                    interpreter_error(interpreter, expr->lhs->state, "Number %d is not in ascii", number);
+                }
+
+                string = rhs->as_string;
+                new_string = (struct RaelStringValue) {
+                    .length = 1,
+                    .value = malloc((rhs->as_string.length + 1) * sizeof(char))
+                };
+                new_string.value[0] = (char)number;
+                strncpy(new_string.value + 1, string.value, string.length);
+                new_string.length += string.length;
+
+                value = value_create(ValueTypeString);
+                value->as_string = new_string;
             } else {
                 value_dereference(rhs);
                 goto invalid_types_add;
@@ -490,6 +519,34 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             rhs = expr_eval(interpreter, expr->rhs, true);
             if (rhs->type == ValueTypeString) {
                 value = string_plus_string(lhs, rhs);
+            } else if (rhs->type == ValueTypeNumber) {
+                int number;
+                struct RaelStringValue string, new_string;
+
+                if (rhs->as_number.is_float) {
+                    value_dereference(lhs);
+                    value_dereference(rhs);
+                    interpreter_error(interpreter, expr->rhs->state, "Expected a whole number");
+                }
+
+                number = rhs->as_number.as_int;
+                if (number < CHAR_MIN || number > CHAR_MAX) {
+                    value_dereference(lhs);
+                    value_dereference(rhs);
+                    interpreter_error(interpreter, expr->rhs->state, "Number %d is not in ascii", number);
+                }
+
+                string = lhs->as_string;
+                new_string = (struct RaelStringValue) {
+                    .length = string.length,
+                    .value = malloc((string.length + 1) * sizeof(char))
+                };
+
+                strncpy(new_string.value, string.value, string.length);
+                new_string.value[new_string.length++] = (char)number;
+
+                value = value_create(ValueTypeString);
+                value->as_string = new_string;
             } else {
                 value_dereference(rhs);
                 goto invalid_types_add;

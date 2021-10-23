@@ -1,0 +1,3 @@
+Error [1:11]: Expected a whole number
+| log "A" + 65.12
+|           ^
