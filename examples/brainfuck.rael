@@ -1,8 +1,7 @@
 %% brainfuck in rael
-%% not complete yet because there is no readline input yet
-%% set your input here
-:input "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>."
-:tape_size 1000
+%% not fully complete: ',' isn't impleted yet
+:input getstring("Enter brainfuck code: ")
+:tape_size 128
 
 :i 0
 :tape { }
