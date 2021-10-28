@@ -72,6 +72,26 @@ void interpreter_error(struct Interpreter* const interpreter, struct State state
     exit(1);
 }
 
+static struct RaelStringValue rael_readline(void) {
+    size_t allocated, idx = 0;
+    char *string = malloc((allocated = 32) * sizeof(char));
+    char c;
+
+    while ((c = getchar()) != '\r' && c != '\n') {
+        if (idx == allocated)
+            string = realloc(string, (allocated += 32) * sizeof(char));
+        string[idx++] = c;
+    }
+    fflush(stdin);
+
+    string = realloc(string, (allocated = idx) * sizeof(char));
+
+    return (struct RaelStringValue) {
+        .value = string,
+        .length = allocated
+    };
+}
+
 static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTValue value) {
     RaelValue out_value = value_create(value.type);
 
@@ -871,6 +891,13 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value = value_create(ValueTypeType);
         value->as_type = single->type;
         value_dereference(single);
+        break;
+    case ExprTypeGetString:
+        single = expr_eval(interpreter, expr->as_single, true);
+        value_log(single);
+        value_dereference(single);
+        value = value_create(ValueTypeString);
+        value->as_string = rael_readline();
         break;
     default:
         RAEL_UNREACHABLE();

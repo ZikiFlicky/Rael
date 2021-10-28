@@ -373,6 +373,18 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             expr->as_single = typeof_value;
             break;
         }
+        case TokenNameGetString: {
+            struct Expr *in_value;
+
+            if (!(in_value = parser_parse_expr_single(parser))) {
+                parser_error(parser, "Expected value after 'getstring'");
+            }
+
+            expr = malloc(sizeof(struct Expr));
+            expr->type = ExprTypeGetString;
+            expr->as_single = in_value;
+            break;
+        }
         case TokenNameLeftParen: {
             struct State last_state = lexer_dump_state(&parser->lexer);
 
@@ -1232,6 +1244,7 @@ static void expr_delete(struct Expr* const expr) {
         break;
     case ExprTypeSizeof:
     case ExprTypeTypeof:
+    case ExprTypeGetString:
     case ExprTypeNeg:
         expr_delete(expr->as_single);
         break;
