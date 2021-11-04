@@ -1,11 +1,12 @@
-%% brainfuck in rael
-%% not fully complete: ',' isn't impleted yet
+%% Brainfuck, implemented in Rael
 :input getstring("Enter brainfuck code: ")
 :tape_size 128
 
 :i 0
 :tape { }
 :tape_idx 0
+
+:input_stream ""
 
 routine() {
     :n :tape_size
@@ -54,7 +55,7 @@ routine() {
     } else if :c = "." {
         :out {"Log"}
     } else if :c = "," {
-        ^ blame "Not implemented yet"
+        :out {"Get"}
     }
     :i :i + 1
     ^ :out
@@ -93,6 +94,12 @@ routine() {
         }
     } else if :instruction at 0 = "Log" {
         show "" + (:tape at :tape_idx)
+    } else if :instruction at 0 = "Get" {
+        if sizeof(:input_stream) = 0 {
+            :input_stream :input_stream + getstring("") + "\n"
+        }
+        :tape at :tape_idx :input_stream to Stack at 0
+        :input_stream :input_stream at (1 to sizeof(:input_stream))
     } else {
         ^ blame "Unexpected instruction"
     }
@@ -121,9 +128,7 @@ routine() {
     loop :instruction through :all_instructions {
         :run_instruction(:instruction)
     }
-    %% :a get("Enter ")
 }
-
 
 routine() {
     :run_all()
