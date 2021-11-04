@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <math.h>
 #include <limits.h>
 
 enum ProgramInterrupt {
@@ -242,6 +243,28 @@ static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, 
     lhs->as_stack.values[rhs->as_number.as_int] = value;
     value_dereference(lhs);
     value_dereference(rhs);
+}
+
+static void stack_push(RaelValue stack, RaelValue value) {
+    RaelValue *values;
+    size_t allocated, length;
+    assert(stack->type == ValueTypeStack);
+    values = stack->as_stack.values;
+    allocated = stack->as_stack.allocated;
+    length = stack->as_stack.length;
+
+    // allocate additional space for stack if there isn't enough
+    if (allocated == 0)
+        values = malloc((allocated = 16) * sizeof(RaelValue));
+    else if (length >= allocated)
+        values = realloc(values, (allocated += 16) * sizeof(RaelValue));
+    values[length++] = value;
+
+    stack->as_stack = (struct RaelStackValue) {
+        .values = values,
+        .allocated = allocated,
+        .length = length
+    };
 }
 
 static RaelValue value_at_idx(RaelValue iterable, size_t idx) {
@@ -485,6 +508,173 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
     return interpreter->returned_value;
 }
 
+static char *type_to_string(enum ValueType type) {
+    switch (type) {
+    case ValueTypeVoid: return "VoidType";
+    case ValueTypeNumber: return "Number";
+    case ValueTypeString: return "String";
+    case ValueTypeRoutine: return "Routine";
+    case ValueTypeStack: return "Stack";
+    case ValueTypeRange: return "Range";
+    case ValueTypeType: return "Type";
+    default: RAEL_UNREACHABLE();
+    }
+}
+
+static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue value, enum ValueType cast_type, struct State value_state) {
+    RaelValue casted;
+    enum ValueType value_type = value->type;
+
+    if (value_type == cast_type) {
+        // because you reference the returned value as a new value
+        // and deallocate the old one, even if it has the same address
+        ++value->reference_count;
+        return value;
+    }
+
+    switch (cast_type) {
+    case ValueTypeString:
+        casted = value_create(ValueTypeString);
+        switch (value->type) {
+        case ValueTypeVoid:
+            casted->as_string = (struct RaelStringValue) {
+                .type = StringTypePure,
+                .does_reference_ast = false,
+                .length = 4,
+                .value = malloc(4 * sizeof(char))
+            };
+            // to avoid the warnings when strncpying
+            memcpy(casted->as_string.value, "Void", 4 * sizeof(char));
+            break;
+        case ValueTypeNumber: {
+            // FIXME: make float conversions more accurate
+            bool is_negative;
+            int decimal;
+            double fractional;
+            size_t allocated, idx = 0;
+            char *string = malloc((allocated = 10) * sizeof(char));
+            size_t middle;
+
+            if (value->as_number.is_float) {
+                is_negative = value->as_number.as_float < 0;
+                decimal = abs((int)value->as_number.as_float);
+                fractional = fmod(fabs(value->as_number.as_float), 1);
+            } else {
+                is_negative = value->as_number.as_int < 0;
+                decimal = abs(value->as_number.as_int);
+                fractional = 0.f;
+            }
+
+            do {
+                if (idx >= allocated)
+                    string = realloc(string, (allocated += 10) * sizeof(char));
+                string[idx++] = '0' + (decimal % 10);
+                decimal = (decimal - decimal % 10) / 10;
+            } while (decimal);
+
+            // minimize size, and add a '-' to be flipped at the end
+            if (is_negative) {
+                string = realloc(string, (allocated = idx + 1) * sizeof(char));
+                string[idx++] = '-';
+            } else {
+                string = realloc(string, (allocated = idx) * sizeof(char));
+            }
+
+            middle = (idx - idx % 2) / 2;
+
+            // flip string
+            for (size_t i = 0; i < middle; ++i) {
+                char c = string[i];
+                string[i] = string[idx - i - 1];
+                string[idx - i - 1] = c;
+            }
+
+            if (fractional) {
+                size_t characters_added = 0;
+                string = realloc(string, (allocated += 4) * sizeof(char));
+                string[idx++] = '.';
+                fractional *= 10;
+                do {
+                    double new_fractional = fmod(fractional, 1);
+                    if (idx >= allocated)
+                        string = realloc(string, (allocated += 4) * sizeof(char));
+                    string[idx++] = '0' + (int)(fractional - new_fractional);
+                    fractional = new_fractional;
+                } while (++characters_added < 14 && (int)(fractional *= 10));
+
+                string = realloc(string, (allocated = idx) * sizeof(char));
+            }
+
+            casted = value_create(ValueTypeString);
+            casted->as_string = (struct RaelStringValue) {
+                .type = StringTypePure,
+                .does_reference_ast = false,
+                .length = allocated,
+                .value = string
+            };
+            break;
+        }
+        default:
+            goto invalid_cast;
+        }
+        break;
+    case ValueTypeNumber: // convert to number
+        switch (value->type) {
+        case ValueTypeVoid: // from void
+            casted = value_create(ValueTypeNumber);
+            casted->as_number = (struct NumberExpr) {
+                .as_int = 0
+            };
+            break;
+        case ValueTypeString: { // from string
+            bool is_negative = false;
+            casted = value_create(ValueTypeNumber);
+            if (value->as_string.length > 0)
+                is_negative = value->as_string.value[0] == '-';
+
+            // try to convert to an int
+            if (value->as_string.length == (is_negative?1:0) ||
+                !number_from_string(value->as_string.value + is_negative, value->as_string.length - is_negative, &casted->as_number)) {
+                value_dereference(casted);
+                interpreter_error(interpreter, value_state, "The string '%.*s' can't be parsed as a number",
+                                  (int)value->as_string.length, value->as_string.value);
+            }
+            if (is_negative)
+                casted->as_number = number_mul(casted->as_number, (struct NumberExpr) { .as_int = -1 });
+            break;
+        }
+        default:
+            goto invalid_cast;
+        }
+        break;
+    case ValueTypeStack:
+        switch (value->type) {
+        case ValueTypeString:
+            casted = value_create(ValueTypeStack);
+            casted->as_stack = (struct RaelStackValue) {};
+            for (size_t i = 0; i < value->as_string.length; ++i) {
+                RaelValue char_value = value_create(ValueTypeNumber);
+                char_value->as_number = (struct NumberExpr) {
+                    .as_int = (int)value->as_string.value[i]
+                };
+                stack_push(casted, char_value);
+            }
+            break;
+        default:
+            goto invalid_cast;
+        }
+        break;
+    default:
+        goto invalid_cast;
+    }
+
+    return casted;
+invalid_cast:
+    interpreter_error(interpreter, value_state, "Cannot cast value of type '%s' to a value of type '%s'",
+                      type_to_string(value_type), type_to_string(cast_type));
+    RAEL_UNREACHABLE();
+}
+
 static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* const expr, const bool can_explode) {
     RaelValue lhs, rhs, single, value;
 
@@ -497,6 +687,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeAdd:
         lhs = expr_eval(interpreter, expr->lhs, true);
+
 
         if (lhs->type == ValueTypeNumber) {
             rhs = expr_eval(interpreter, expr->rhs, true);
@@ -732,40 +923,43 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         break;
     case ExprTypeTo:
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        // validate that lhs is an int
-        if (lhs->type != ValueTypeNumber) {
-            value_dereference(lhs);
-            interpreter_error(interpreter, expr->lhs->state, "Expected number");
-        }
-        if (lhs->as_number.is_float){
-            value_dereference(lhs);
-            interpreter_error(interpreter, expr->lhs->state, "Float not allowed in range");
-        }
-
-        // evaluate rhs
         rhs = expr_eval(interpreter, expr->rhs, true);
 
-        // validate that rhs is an int
-        if (rhs->type != ValueTypeNumber) {
+        switch (rhs->type) {
+        // range
+        case ValueTypeNumber:
+            if (rhs->as_number.is_float) {
+                value_dereference(lhs);
+                value_dereference(rhs);
+                interpreter_error(interpreter, expr->rhs->state, "Float not allowed in range");
+            }
+
+            // validate that lhs is an int
+            if (lhs->type != ValueTypeNumber) {
+                value_dereference(lhs);
+                interpreter_error(interpreter, expr->lhs->state, "Expected number");
+            }
+            if (lhs->as_number.is_float){
+                value_dereference(lhs);
+                interpreter_error(interpreter, expr->lhs->state, "Float not allowed in range");
+            }
+
+            value = value_create(ValueTypeRange);
+            value->as_range.start = lhs->as_number.as_int;
+            value->as_range.end = rhs->as_number.as_int;
+            break;
+        // cast
+        case ValueTypeType:
+            value = value_cast(interpreter, lhs, rhs->as_type, expr->lhs->state);
+            break;
+        default:
             value_dereference(lhs);
             value_dereference(rhs);
-            interpreter_error(interpreter, expr->rhs->state, "Expected number");
+            interpreter_error(interpreter, expr->rhs->state, "Expected number or type");
         }
-        if (rhs->as_number.is_float) {
-            value_dereference(lhs);
-            value_dereference(rhs);
-            interpreter_error(interpreter, expr->rhs->state, "Float not allowed in range");
-        }
-
-        value = value_create(ValueTypeRange);
-
-        value->as_range.start = lhs->as_number.as_int;
-        value->as_range.end = rhs->as_number.as_int;
 
         value_dereference(lhs);
         value_dereference(rhs);
-
         break;
     case ExprTypeRedirect:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -775,15 +969,9 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             interpreter_error(interpreter, expr->lhs->state, "Expected a stack value");
         }
 
-        if (lhs->as_stack.allocated == 0) {
-            lhs->as_stack.values = malloc((lhs->as_stack.allocated = 8) * sizeof(RaelValue));
-        } else if (lhs->as_stack.length == lhs->as_stack.allocated) {
-            lhs->as_stack.values = realloc(lhs->as_stack.values, (lhs->as_stack.allocated += 8) * sizeof(RaelValue));
-        }
-
         // eval the rhs, push it and set the stack as the return value
         rhs = expr_eval(interpreter, expr->rhs, true);
-        lhs->as_stack.values[lhs->as_stack.length++] = rhs;
+        stack_push(lhs, rhs);
         value = lhs;
         break;
     case ExprTypeSizeof: {

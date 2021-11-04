@@ -1,0 +1,10 @@
+125
+1232
+1231
+{ 49, 50, 51 }
+Voidd
+1
+123.230
+Error [8:6]: Cannot cast value of type 'Number' to a value of type 'Stack'
+| log (123.23 to Stack)
+|      ^

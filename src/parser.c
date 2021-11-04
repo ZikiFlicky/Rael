@@ -114,52 +114,18 @@ static struct ASTValue *parser_parse_stack(struct Parser* const parser) {
     value->as_stack = stack;
     return value;
 }
-
 static struct ASTValue *parser_parse_number(struct Parser* const parser) {
     struct ASTValue *value;
-    bool is_float = false;
-    int decimal = 0;
-    double fractional;
-    size_t since_dot;
+    bool success;
 
     if (!parser_match(parser, TokenNameNumber))
         return NULL;
 
     value = malloc(sizeof(struct ASTValue));
-    for (size_t i = 0; i < parser->lexer.token.length; ++i) {
-        if (parser->lexer.token.string[i] == '.') {
-            if (!is_float) {
-                is_float = true;
-                since_dot = 0;
-                fractional = 0;
-                continue;
-            }
-        }
-        if (is_float) {
-            double digit = parser->lexer.token.string[i] - '0';
-            ++since_dot;
-            for (size_t i = 0; i < since_dot; ++i)
-                digit /= 10;
-            fractional += digit;
-        } else {
-            decimal *= 10;
-            decimal += parser->lexer.token.string[i] - '0';
-        }
-    }
-
     value->type = ValueTypeNumber;
-    if (is_float) {
-        value->as_number = (struct NumberExpr) {
-            .is_float = true,
-            .as_float = (double)decimal + fractional
-        };
-    } else {
-        value->as_number = (struct NumberExpr) {
-            .is_float = false,
-            .as_int = decimal
-        };
-    }
-
+    // this should always work
+    success = number_from_string(parser->lexer.token.string, parser->lexer.token.length, &value->as_number);
+    assert(success);
     return value;
 }
 

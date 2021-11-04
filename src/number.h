@@ -36,4 +36,6 @@ struct NumberExpr number_smaller(struct NumberExpr a, struct NumberExpr b);
 
 struct NumberExpr number_bigger(struct NumberExpr a, struct NumberExpr b);
 
+bool number_from_string(char *string, size_t length, struct NumberExpr *out_number);
+
 #endif // RAEL_NUMBER_H

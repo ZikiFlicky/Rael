@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message);
 
@@ -127,4 +128,55 @@ struct NumberExpr number_bigger(struct NumberExpr a, struct NumberExpr b) {
         res.as_int = a.as_int > b.as_int;
     }
     return res;
+}
+
+bool number_from_string(char *string, size_t length, struct NumberExpr *out_number) {
+    bool is_float = false;
+    int decimal = 0;
+    double fractional;
+    size_t since_dot;
+
+    if (length == 0)
+        return false;
+
+    for (size_t i = 0; i < length; ++i) {
+        if (string[i] == '.') {
+            if (!is_float) {
+                is_float = true;
+                since_dot = 0;
+                fractional = 0;
+                continue;
+            }
+        }
+        if (is_float) {
+            double digit;
+
+            if (!isdigit(string[i]))
+                return false;
+            digit = string[i] - '0';
+            ++since_dot;
+            for (size_t i = 0; i < since_dot; ++i)
+                digit /= 10;
+            fractional += digit;
+        } else {
+            decimal *= 10;
+            if (!isdigit(string[i]))
+                return false;
+            decimal += string[i] - '0';
+        }
+    }
+
+    if (is_float) {
+        *out_number = (struct NumberExpr) {
+            .is_float = true,
+            .as_float = (double)decimal + fractional
+        };
+    } else {
+        *out_number = (struct NumberExpr) {
+            .is_float = false,
+            .as_int = decimal
+        };
+    }
+
+    return true;
 }
