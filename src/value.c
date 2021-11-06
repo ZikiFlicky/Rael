@@ -150,14 +150,10 @@ bool value_as_bool(const RaelValue value) {
             return value->as_number.as_float != 0.0f;
         else
             return value->as_number.as_int != 0;
-    case ValueTypeRoutine:
-        return true;
     case ValueTypeStack:
         return value->as_stack.length != 0;
-    case ValueTypeRange:
-        return true;
     default:
-        RAEL_UNREACHABLE();
+        return true;
     }
 }
 

@@ -1,0 +1,5 @@
+if String {
+    log "true"
+} else {
+    log "false"
+}
