@@ -1,0 +1,3 @@
+Error [1:8]: Unrecognized token
+| log 123.
+|        ^
