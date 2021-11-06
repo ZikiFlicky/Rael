@@ -944,6 +944,8 @@ static struct ASTValue *parser_parse_instr_routine(struct Parser* const parser) 
     if (!parser_match(parser, TokenNameRoutine))
         return NULL;
 
+    backtrack = lexer_dump_state(&parser->lexer);
+
     if (!parser_match(parser, TokenNameLeftParen))
         parser_state_error(parser, backtrack, "Expected '(' after 'routine'");
 
