@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 RaelValue value_create(enum ValueType type) {
     RaelValue value = malloc(sizeof(struct RaelValue));
@@ -164,9 +165,10 @@ bool values_equal(const RaelValue lhs, const RaelValue rhs) {
     if (lhs == rhs) {
         res = true;
     } else if (lhs->type != rhs->type) {
+        // if they don't share the same type they are not equal
         res = false;
     } else {
-        const enum ValueType type = lhs->type;
+        enum ValueType type = lhs->type;
 
         switch (type) {
         case ValueTypeNumber:
@@ -210,4 +212,108 @@ bool values_equal(const RaelValue lhs, const RaelValue rhs) {
     }
 
     return res;
+}
+
+bool value_is_iterable(RaelValue value) {
+    switch (value->type) {
+    case ValueTypeString:
+    case ValueTypeStack:
+    case ValueTypeRange:
+        return true;
+    default:
+        return false;
+    }
+}
+
+size_t value_get_length(RaelValue value) {
+    size_t length;
+    assert(value_is_iterable(value));
+    switch (value->type) {
+    case ValueTypeString:
+        length = value->as_string.length;
+        break;
+    case ValueTypeStack:
+        length = value->as_stack.length;
+        break;
+    case ValueTypeRange:
+        length = (size_t)abs(value->as_range.end - value->as_range.start);
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+    return length;
+}
+
+RaelValue value_at_idx(RaelValue value, size_t idx) {
+    RaelValue out;
+
+    assert(value_is_iterable(value));
+    assert(idx < value_get_length(value));
+
+    switch (value->type) {
+    case ValueTypeStack:
+        out = value->as_stack.values[idx];
+        ++out->reference_count;
+        break;
+    case ValueTypeString:
+        out = string_substr(value, idx, idx + 1);
+        break;
+    case ValueTypeRange:
+        out = value_create(ValueTypeNumber);
+        out->as_number.is_float = false;
+
+        if (value->as_range.end > value->as_range.start)
+            out->as_number.as_int = value->as_range.start + idx;
+        else
+            out->as_number.as_int = value->as_range.start - idx;
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+
+    return out;
+}
+
+RaelValue string_substr(RaelValue value, size_t start, size_t end) {
+    struct RaelStringValue substr;
+    RaelValue new_string;
+
+    assert(value->type == ValueTypeString);
+    assert(end >= start);
+    assert(start <= value->as_string.length && end <= value->as_string.length);
+
+    substr.type = StringTypeSub;
+    substr.value = value->as_string.value + start;
+    substr.length = end - start;
+
+    switch (value->as_string.type) {
+    case StringTypePure: substr.reference_string = value; break;
+    case StringTypeSub: substr.reference_string = value->as_string.reference_string; break;
+    default: RAEL_UNREACHABLE();
+    }
+
+    ++substr.reference_string->reference_count;
+
+    new_string = value_create(ValueTypeString);
+    new_string->as_string = substr;
+
+    return new_string;
+}
+
+RaelValue string_plus_string(RaelValue lhs, RaelValue rhs) {
+    RaelValue string;
+
+    assert(lhs->type == ValueTypeString);
+    assert(rhs->type == ValueTypeString);
+
+    string = value_create(ValueTypeString);
+    string->as_string.type = StringTypePure;
+    string->as_string.length = lhs->as_string.length + rhs->as_string.length;
+    string->as_string.value = malloc((string->as_string.length) * sizeof(char));
+
+    // copy other strings' contents
+    strncpy(string->as_string.value, lhs->as_string.value, lhs->as_string.length);
+    strncpy(string->as_string.value + lhs->as_string.length, rhs->as_string.value, rhs->as_string.length);
+
+    return string;
 }

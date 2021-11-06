@@ -149,32 +149,6 @@ static void value_verify_uint(struct Interpreter* const interpreter,
     }
 }
 
-static RaelValue string_substr(RaelValue value, size_t start, size_t end) {
-    struct RaelStringValue substr;
-    RaelValue new_string;
-
-    assert(value->type == ValueTypeString);
-    assert(end >= start);
-    assert(start <= value->as_string.length && end <= value->as_string.length);
-
-    substr.type = StringTypeSub;
-    substr.value = value->as_string.value + start;
-    substr.length = end - start;
-
-    switch (value->as_string.type) {
-    case StringTypePure: substr.reference_string = value; break;
-    case StringTypeSub: substr.reference_string = value->as_string.reference_string; break;
-    default: RAEL_UNREACHABLE();
-    }
-
-    ++substr.reference_string->reference_count;
-
-    new_string = value_create(ValueTypeString);
-    new_string->as_string = substr;
-
-    return new_string;
-}
-
 static RaelValue stack_slice(RaelValue stack, size_t start, size_t end) {
     RaelValue new_stack;
     RaelValue *new_dump;
@@ -198,24 +172,6 @@ static RaelValue stack_slice(RaelValue stack, size_t start, size_t end) {
     new_stack->as_stack.values = new_dump;
 
     return new_stack;
-}
-
-static RaelValue string_plus_string(RaelValue lhs, RaelValue rhs) {
-    RaelValue string;
-
-    assert(lhs->type == ValueTypeString);
-    assert(rhs->type == ValueTypeString);
-
-    string = value_create(ValueTypeString);
-    string->as_string.type = StringTypePure;
-    string->as_string.length = lhs->as_string.length + rhs->as_string.length;
-    string->as_string.value = malloc((string->as_string.length) * sizeof(char));
-
-    // copy other strings' contents
-    strncpy(string->as_string.value, lhs->as_string.value, lhs->as_string.length);
-    strncpy(string->as_string.value + lhs->as_string.length, rhs->as_string.value, rhs->as_string.length);
-
-    return string;
 }
 
 static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, RaelValue value) {
@@ -265,29 +221,6 @@ static void stack_push(RaelValue stack, RaelValue value) {
         .allocated = allocated,
         .length = length
     };
-}
-
-static RaelValue value_at_idx(RaelValue iterable, size_t idx) {
-    RaelValue value;
-
-    if (iterable->type == ValueTypeStack) {
-        value = iterable->as_stack.values[idx];
-        ++value->reference_count;
-    } else if (iterable->type == ValueTypeString) {
-        value = string_substr(iterable, idx, idx + 1);
-    } else if (iterable->type == ValueTypeRange) {
-        value = value_create(ValueTypeNumber);
-        value->as_number.is_float = false;
-
-        if (iterable->as_range.end > iterable->as_range.start)
-            value->as_number.as_int = iterable->as_range.start + idx;
-        else
-            value->as_number.as_int = iterable->as_range.start - idx;
-    } else {
-        RAEL_UNREACHABLE();
-    }
-
-    return value;
 }
 
 static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack, struct Expr *at_expr) {
@@ -974,32 +907,22 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         stack_push(lhs, rhs);
         value = lhs;
         break;
-    case ExprTypeSizeof: {
-        int size;
+    case ExprTypeSizeof:
         single = expr_eval(interpreter, expr->as_single, true);
 
-        // FIXME: those int conversions aren't really safe
-        switch (single->type) {
-        case ValueTypeStack:
-            size = (int)single->as_stack.length;
-            break;
-        case ValueTypeString:
-            size = (int)single->as_string.length;
-            break;
-        default:
+        if (!value_is_iterable(single)) {
+            value_dereference(single);
             interpreter_error(interpreter, expr->as_single->state, "Unsupported type for 'sizeof' operation");
         }
 
         value = value_create(ValueTypeNumber);
         value->as_number = (struct NumberExpr) {
             .is_float = false,
-            .as_int = size
+            .as_int = (int)value_get_length(single)
         };
 
         value_dereference(single);
-
         break;
-    }
     case ExprTypeNeg: {
         RaelValue maybe_number = expr_eval(interpreter, expr->as_single, can_explode);
 
@@ -1201,24 +1124,14 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         }
         case LoopThrough: {
             RaelValue iterator = expr_eval(interpreter, instruction->loop.iterate.expr, true);
-            size_t length;
 
-            switch (iterator->type) {
-            case ValueTypeString:
-                length = iterator->as_string.length;
-                break;
-            case ValueTypeStack:
-                length = iterator->as_stack.length;
-                break;
-            case ValueTypeRange:
-                length = abs(iterator->as_range.end - iterator->as_range.start);
-                break;
-            default:
+            if (!value_is_iterable(iterator)) {
                 value_dereference(iterator);
                 interpreter_error(interpreter, instruction->loop.iterate.expr->state, "Expected an iterable");
             }
 
-            for (size_t i = 0; i < length; ++i) {
+            // calculate length every time because stacks can always grow
+            for (size_t i = 0; i < value_get_length(iterator); ++i) {
                 scope_set(interpreter->scope, instruction->loop.iterate.key, value_at_idx(iterator, i));
                 block_run(interpreter, instruction->loop.block);
 

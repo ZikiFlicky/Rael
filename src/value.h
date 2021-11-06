@@ -83,4 +83,14 @@ bool value_as_bool(const RaelValue value);
 
 bool values_equal(const RaelValue lhs, const RaelValue rhs);
 
+bool value_is_iterable(RaelValue value);
+
+size_t value_get_length(RaelValue value);
+
+RaelValue value_at_idx(RaelValue value, size_t idx);
+
+RaelValue string_substr(RaelValue value, size_t start, size_t end);
+
+RaelValue string_plus_string(RaelValue lhs, RaelValue rhs);
+
 #endif
