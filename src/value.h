@@ -61,7 +61,7 @@ struct RaelValue {
     enum ValueType type;
     size_t reference_count;
     union {
-        struct NumberExpr as_number;
+        struct RaelNumberValue as_number;
         struct RaelStringValue as_string;
         struct RaelRoutineValue as_routine;
         struct RaelStackValue as_stack;

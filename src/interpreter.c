@@ -555,7 +555,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
         switch (value->type) {
         case ValueTypeVoid: // from void
             casted = value_create(ValueTypeNumber);
-            casted->as_number = (struct NumberExpr) {
+            casted->as_number = (struct RaelNumberValue) {
                 .as_int = 0
             };
             break;
@@ -573,7 +573,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
                                   (int)value->as_string.length, value->as_string.value);
             }
             if (is_negative)
-                casted->as_number = number_mul(casted->as_number, (struct NumberExpr) { .as_int = -1 });
+                casted->as_number = number_mul(casted->as_number, (struct RaelNumberValue) { .as_int = -1 });
             break;
         }
         default:
@@ -587,7 +587,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
             casted->as_stack = (struct RaelStackValue) {};
             for (size_t i = 0; i < value->as_string.length; ++i) {
                 RaelValue char_value = value_create(ValueTypeNumber);
-                char_value->as_number = (struct NumberExpr) {
+                char_value->as_number = (struct RaelNumberValue) {
                     .as_int = (int)value->as_string.value[i]
                 };
                 stack_push(casted, char_value);
@@ -916,7 +916,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         }
 
         value = value_create(ValueTypeNumber);
-        value->as_number = (struct NumberExpr) {
+        value->as_number = (struct RaelNumberValue) {
             .is_float = false,
             .as_int = (int)value_get_length(single)
         };

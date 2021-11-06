@@ -19,7 +19,7 @@ struct ASTValue {
     enum ValueType type;
     union {
         struct RaelStringValue as_string;
-        struct NumberExpr as_number;
+        struct RaelNumberValue as_number;
         struct RaelRoutineValue as_routine;
         struct RaelExprList as_stack;
         enum ValueType as_type;

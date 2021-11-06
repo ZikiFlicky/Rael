@@ -7,12 +7,12 @@
 
 void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message);
 
-static inline double number_as_float(struct NumberExpr n) {
+static inline double number_as_float(struct RaelNumberValue n) {
     return n.is_float ? n.as_float : (double)n.as_int;
 }
 
-struct NumberExpr number_add(struct NumberExpr a, struct NumberExpr b) {
-    struct NumberExpr res;
+struct RaelNumberValue number_add(struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
     if (a.is_float || b.is_float) {
         res.is_float = true;
         res.as_float = number_as_float(a) + number_as_float(b);
@@ -23,8 +23,8 @@ struct NumberExpr number_add(struct NumberExpr a, struct NumberExpr b) {
     return res;
 }
 
-struct NumberExpr number_sub(struct NumberExpr a, struct NumberExpr b) {
-    struct NumberExpr res;
+struct RaelNumberValue number_sub(struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
     if (a.is_float || b.is_float) {
         res.is_float = true;
         res.as_float = number_as_float(a) - number_as_float(b);
@@ -35,8 +35,8 @@ struct NumberExpr number_sub(struct NumberExpr a, struct NumberExpr b) {
     return res;
 }
 
-struct NumberExpr number_mul(struct NumberExpr a, struct NumberExpr b) {
-    struct NumberExpr res;
+struct RaelNumberValue number_mul(struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
     if (a.is_float || b.is_float) {
         res.is_float = true;
         res.as_float = number_as_float(a) * number_as_float(b);
@@ -47,9 +47,9 @@ struct NumberExpr number_mul(struct NumberExpr a, struct NumberExpr b) {
     return res;
 }
 
-struct NumberExpr number_div(struct Interpreter* const interpreter,
-                             struct State state, struct NumberExpr a, struct NumberExpr b) {
-    struct NumberExpr res;
+struct RaelNumberValue number_div(struct Interpreter* const interpreter,
+                             struct State state, struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
     if (a.is_float || b.is_float) {
         res.is_float = true;
         if (number_as_float(b) == 0.f)
@@ -72,8 +72,8 @@ struct NumberExpr number_div(struct Interpreter* const interpreter,
     return res;
 }
 
-struct NumberExpr number_mod(struct Interpreter* const interpreter, struct State state, struct NumberExpr a, struct NumberExpr b) {
-    struct NumberExpr res;
+struct RaelNumberValue number_mod(struct Interpreter* const interpreter, struct State state, struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
     if (a.is_float || b.is_float) {
         res.is_float = true;
         if (number_as_float(b) == 0.f)
@@ -88,7 +88,7 @@ struct NumberExpr number_mod(struct Interpreter* const interpreter, struct State
     return res;
 }
 
-struct NumberExpr number_neg(struct NumberExpr n) {
+struct RaelNumberValue number_neg(struct RaelNumberValue n) {
     if (n.is_float) {
         n.as_float = -n.as_float;
     } else {
@@ -97,8 +97,8 @@ struct NumberExpr number_neg(struct NumberExpr n) {
     return n;
 }
 
-struct NumberExpr number_eq(struct NumberExpr a, struct NumberExpr b) {
-    struct NumberExpr res;
+struct RaelNumberValue number_eq(struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
     res.is_float = false;
     if (a.is_float || b.is_float) {
         res.as_int = number_as_float(a) == number_as_float(b);
@@ -108,8 +108,8 @@ struct NumberExpr number_eq(struct NumberExpr a, struct NumberExpr b) {
     return res;
 }
 
-struct NumberExpr number_smaller(struct NumberExpr a, struct NumberExpr b) {
-    struct NumberExpr res;
+struct RaelNumberValue number_smaller(struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
     res.is_float = false;
     if (a.is_float || b.is_float) {
         res.as_int = number_as_float(a) < number_as_float(b);
@@ -119,8 +119,8 @@ struct NumberExpr number_smaller(struct NumberExpr a, struct NumberExpr b) {
     return res;
 }
 
-struct NumberExpr number_bigger(struct NumberExpr a, struct NumberExpr b) {
-    struct NumberExpr res;
+struct RaelNumberValue number_bigger(struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
     res.is_float = false;
     if (a.is_float || b.is_float) {
         res.as_int = number_as_float(a) > number_as_float(b);
@@ -130,7 +130,7 @@ struct NumberExpr number_bigger(struct NumberExpr a, struct NumberExpr b) {
     return res;
 }
 
-bool number_from_string(char *string, size_t length, struct NumberExpr *out_number) {
+bool number_from_string(char *string, size_t length, struct RaelNumberValue *out_number) {
     bool is_float = false;
     int decimal = 0;
     double fractional;
@@ -167,12 +167,12 @@ bool number_from_string(char *string, size_t length, struct NumberExpr *out_numb
     }
 
     if (is_float) {
-        *out_number = (struct NumberExpr) {
+        *out_number = (struct RaelNumberValue) {
             .is_float = true,
             .as_float = (double)decimal + fractional
         };
     } else {
-        *out_number = (struct NumberExpr) {
+        *out_number = (struct RaelNumberValue) {
             .is_float = false,
             .as_int = decimal
         };
