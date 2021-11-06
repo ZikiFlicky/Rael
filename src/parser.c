@@ -13,7 +13,6 @@
 
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Instruction *parser_parse_instr(struct Parser* const parser);
-static struct ASTValue *parser_parse_instr_routine(struct Parser* const parser);
 static struct Instruction **parser_parse_block(struct Parser* const parser);
 static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 static struct Expr *parser_parse_expr_at(struct Parser* const parser);
@@ -153,12 +152,86 @@ static struct ASTValue *parser_parse_type(struct Parser* const parser) {
     return value;
 }
 
+static struct ASTValue *parser_parse_routine(struct Parser* const parser) {
+    struct ASTValue *value;
+    struct RaelRoutineValue decl;
+    struct State backtrack;
+
+    if (!parser_match(parser, TokenNameRoutine))
+        return NULL;
+
+    backtrack = lexer_dump_state(&parser->lexer);
+
+    if (!parser_match(parser, TokenNameLeftParen))
+        parser_state_error(parser, backtrack, "Expected '(' after 'routine'");
+
+    backtrack = lexer_dump_state(&parser->lexer);
+
+    if (!lexer_tokenize(&parser->lexer))
+        parser_error(parser, "Unexpected EOF");
+
+    switch (parser->lexer.token.name) {
+    case TokenNameRightParen:
+        decl.amount_parameters = 0;
+        decl.parameters = NULL;
+        break;
+    case TokenNameKey: {
+        size_t allocated;
+
+        decl.parameters = malloc((allocated = 4) * sizeof(struct Expr*));
+        decl.amount_parameters = 0;
+        decl.parameters[decl.amount_parameters++] = token_allocate_key(&parser->lexer.token);
+
+        for (;;) {
+            backtrack = lexer_dump_state(&parser->lexer);
+
+            if (!lexer_tokenize(&parser->lexer))
+                parser_error(parser, "Unexpected EOF");
+
+            if (parser->lexer.token.name == TokenNameRightParen)
+                break;
+
+            if (parser->lexer.token.name != TokenNameComma) {
+                parser_state_error(parser, backtrack, "Expected a Comma");
+            }
+
+            backtrack = lexer_dump_state(&parser->lexer);
+            if (!parser_match(parser, TokenNameKey))
+                parser_state_error(parser, backtrack, "Expected key");
+
+            if (decl.amount_parameters == allocated)
+                decl.parameters = realloc(decl.parameters, (allocated += 3) * sizeof(struct Expr*));
+
+            // verify there are no duplicate parameters
+            for (size_t parameter = 0; parameter < decl.amount_parameters; ++parameter) {
+                if (strncmp(parser->lexer.token.string, decl.parameters[parameter], parser->lexer.token.length) == 0) {
+                    parser_state_error(parser, backtrack, "Duplicate parameter on routine decleration");
+                }
+            }
+            decl.parameters[decl.amount_parameters++] = token_allocate_key(&parser->lexer.token);
+        }
+        break;
+    }
+    default:
+        parser_state_error(parser, backtrack, "Expected key");
+    }
+
+    if (!(decl.block = parser_parse_block(parser))) {
+        parser_error(parser, "Expected block after routine decleration");
+    }
+
+    value = malloc(sizeof(struct ASTValue));
+    value->type = ValueTypeRoutine;
+    value->as_routine = decl;
+    return value;
+}
+
 static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     struct Expr *expr;
     struct State backtrack = lexer_dump_state(&parser->lexer);
     struct ASTValue *value;
 
-    if ((value = parser_parse_instr_routine(parser)) ||
+    if ((value = parser_parse_routine(parser)) ||
         (value = parser_parse_stack(parser))         ||
         (value = parser_parse_number(parser))        ||
         (value = parser_parse_type(parser))) {
@@ -934,80 +1007,6 @@ static struct Instruction **parser_parse_block(struct Parser* const parser) {
     block = realloc(block, idx * sizeof(struct Instruction *));
 
     return block;
-}
-
-static struct ASTValue *parser_parse_instr_routine(struct Parser* const parser) {
-    struct ASTValue *value;
-    struct RaelRoutineValue decl;
-    struct State backtrack;
-
-    if (!parser_match(parser, TokenNameRoutine))
-        return NULL;
-
-    backtrack = lexer_dump_state(&parser->lexer);
-
-    if (!parser_match(parser, TokenNameLeftParen))
-        parser_state_error(parser, backtrack, "Expected '(' after 'routine'");
-
-    backtrack = lexer_dump_state(&parser->lexer);
-
-    if (!lexer_tokenize(&parser->lexer))
-        parser_error(parser, "Unexpected EOF");
-
-    switch (parser->lexer.token.name) {
-    case TokenNameRightParen:
-        decl.amount_parameters = 0;
-        decl.parameters = NULL;
-        break;
-    case TokenNameKey: {
-        size_t allocated;
-
-        decl.parameters = malloc((allocated = 4) * sizeof(struct Expr*));
-        decl.amount_parameters = 0;
-        decl.parameters[decl.amount_parameters++] = token_allocate_key(&parser->lexer.token);
-
-        for (;;) {
-            backtrack = lexer_dump_state(&parser->lexer);
-
-            if (!lexer_tokenize(&parser->lexer))
-                parser_error(parser, "Unexpected EOF");
-
-            if (parser->lexer.token.name == TokenNameRightParen)
-                break;
-
-            if (parser->lexer.token.name != TokenNameComma) {
-                parser_state_error(parser, backtrack, "Expected a Comma");
-            }
-
-            backtrack = lexer_dump_state(&parser->lexer);
-            if (!parser_match(parser, TokenNameKey))
-                parser_state_error(parser, backtrack, "Expected key");
-
-            if (decl.amount_parameters == allocated)
-                decl.parameters = realloc(decl.parameters, (allocated += 3) * sizeof(struct Expr*));
-
-            // verify there are no duplicate parameters
-            for (size_t parameter = 0; parameter < decl.amount_parameters; ++parameter) {
-                if (strncmp(parser->lexer.token.string, decl.parameters[parameter], parser->lexer.token.length) == 0) {
-                    parser_state_error(parser, backtrack, "Duplicate parameter on routine decleration");
-                }
-            }
-            decl.parameters[decl.amount_parameters++] = token_allocate_key(&parser->lexer.token);
-        }
-        break;
-    }
-    default:
-        parser_state_error(parser, backtrack, "Expected key");
-    }
-
-    if (!(decl.block = parser_parse_block(parser))) {
-        parser_error(parser, "Expected block after routine decleration");
-    }
-
-    value = malloc(sizeof(struct ASTValue));
-    value->type = ValueTypeRoutine;
-    value->as_routine = decl;
-    return value;
 }
 
 static struct Instruction *parser_parse_if_statement(struct Parser* const parser) {
