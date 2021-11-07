@@ -73,17 +73,21 @@ void interpreter_error(struct Interpreter* const interpreter, struct State state
     exit(1);
 }
 
-static struct RaelStringValue rael_readline(void) {
+static struct RaelStringValue rael_readline(struct Interpreter* const interpreter, struct State state) {
     size_t allocated, idx = 0;
     char *string = malloc((allocated = 32) * sizeof(char));
     char c;
 
-    while ((c = getchar()) != '\r' && c != '\n') {
+    while (!feof(stdin) && (c = getchar()) != '\r' && c != '\n') {
         if (idx == allocated)
             string = realloc(string, (allocated += 32) * sizeof(char));
         string[idx++] = c;
     }
-    fflush(stdin);
+    if (feof(stdin)) {
+        printf("\n");
+        free(string);
+        interpreter_error(interpreter, state, "EOF reached while reading stdin");
+    }
 
     string = realloc(string, (allocated = idx) * sizeof(char));
 
@@ -1003,13 +1007,18 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value->as_type = single->type;
         value_dereference(single);
         break;
-    case ExprTypeGetString:
+    case ExprTypeGetString: {
+        struct RaelStringValue string;
         single = expr_eval(interpreter, expr->as_single, true);
         value_log(single);
         value_dereference(single);
+        // this is a possible exit point so don't allocate
+        // the value on the heap yet because it could leak
+        string = rael_readline(interpreter, expr->state);
         value = value_create(ValueTypeString);
-        value->as_string = rael_readline();
+        value->as_string = string;
         break;
+    }
     default:
         RAEL_UNREACHABLE();
     }
