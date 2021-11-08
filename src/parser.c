@@ -368,11 +368,44 @@ static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
     return full_expression;
 }
 
+/* infix parsing */
+static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
+    struct Expr *expr;
+
+    if (!(expr = parser_parse_literal_expr(parser)))
+        return NULL;
+
+    for (;;) {
+        struct RoutineCallExpr call;
+        struct State backtrack, start_backtrack;
+
+        start_backtrack = backtrack = lexer_dump_state(&parser->lexer);
+
+        // verify there is '(' after the key?
+        if (!parser_match(parser, TokenNameLeftParen))
+            break;
+
+        call.routine_value = expr;
+        call.arguments = parser_parse_csv(parser, true);
+
+        backtrack = lexer_dump_state(&parser->lexer);
+        if (!parser_match(parser, TokenNameRightParen))
+            parser_state_error(parser, backtrack, "Expected a ')'");
+
+        expr = malloc(sizeof(struct Expr));
+        expr->type = ExprTypeRoutineCall;
+        expr->as_call = call;
+        expr->state = start_backtrack;
+    }
+
+    return expr;
+}
+
 static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     struct Expr *expr;
     struct State backtrack = lexer_dump_state(&parser->lexer);;
 
-    if (!(expr = parser_parse_literal_expr(parser))) {
+    if (!(expr = parser_parse_routine_call(parser))) {
         if (!lexer_tokenize(&parser->lexer))
             return NULL;
 
@@ -391,9 +424,8 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
         case TokenNameSizeof: {
             struct Expr *sizeof_value;
 
-            if (!(sizeof_value = parser_parse_expr_single(parser))) {
+            if (!(sizeof_value = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected value after 'sizeof'");
-            }
 
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeSizeof;
@@ -403,9 +435,8 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
         case TokenNameTypeof: {
             struct Expr *typeof_value;
 
-            if (!(typeof_value = parser_parse_expr_single(parser))) {
+            if (!(typeof_value = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected value after 'typeof'");
-            }
 
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeTypeof;
@@ -415,9 +446,8 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
         case TokenNameGetString: {
             struct Expr *in_value;
 
-            if (!(in_value = parser_parse_expr_single(parser))) {
+            if (!(in_value = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected value after 'getstring'");
-            }
 
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeGetString;
@@ -462,49 +492,10 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     return expr;
 }
 
-
-/** routine call is:
- *    :key(arguments, seperated, by, a, comma)
- *  example:
- *    :add(5, 8)
- **/
-static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
-    // FIXME: find a more elegant solution
-    struct Expr *expr;
-
-    if (!(expr = parser_parse_expr_single(parser)))
-        return NULL;
-
-    for (;;) {
-        struct RoutineCallExpr call;
-        struct State backtrack, start_backtrack;
-
-        start_backtrack = backtrack = lexer_dump_state(&parser->lexer);
-
-        // verify there is '(' after the key?
-        if (!parser_match(parser, TokenNameLeftParen))
-            break;
-
-        call.routine_value = expr;
-        call.arguments = parser_parse_csv(parser, true);
-
-        backtrack = lexer_dump_state(&parser->lexer);
-        if (!parser_match(parser, TokenNameRightParen))
-            parser_state_error(parser, backtrack, "Expected a ')'");
-
-        expr = malloc(sizeof(struct Expr));
-        expr->type = ExprTypeRoutineCall;
-        expr->as_call = call;
-        expr->state = start_backtrack;
-    }
-
-    return expr;
-}
-
 static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_routine_call(parser)))
+    if (!(expr = parser_parse_expr_single(parser)))
         return NULL;
 
     for (;;) {
@@ -517,7 +508,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeMul;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
+                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     parser_state_error(parser, backtrack, "Expected a value after '*'");
                 }
                 break;
@@ -525,7 +516,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeDiv;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
+                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     parser_state_error(parser, backtrack, "Expected a value after '/'");
                 }
                 break;
@@ -533,7 +524,7 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
                 new_expr = malloc(sizeof(struct Expr));
                 new_expr->type = ExprTypeMod;
                 new_expr->lhs = expr;
-                if (!(new_expr->rhs = parser_parse_routine_call(parser))) {
+                if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     parser_state_error(parser, backtrack, "Expected a value after '%'");
                 }
                 break;

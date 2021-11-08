@@ -1,0 +1,5 @@
+:square routine(:0) {
+    ^:0*:0
+}
+
+log -:square(5) + 2
