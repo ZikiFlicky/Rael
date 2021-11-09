@@ -1109,6 +1109,7 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
 }
 
 struct Instruction **rael_parse(char* const stream, bool stream_on_heap) {
+    struct State backtrack;
     struct Instruction *inst;
     struct Parser parser = {
         .lexer = {
@@ -1120,13 +1121,18 @@ struct Instruction **rael_parse(char* const stream, bool stream_on_heap) {
         }
     };
     parser_maybe_expect_newline(&parser);
-    while ((inst = parser_parse_instr(&parser))) {
+    // parse instruction while possible
+    while ((inst = parser_parse_instr(&parser)))
         parser_push(&parser, inst);
-    }
-    parser_push(&parser, NULL);
 
-    if (lexer_tokenize(&parser.lexer))
+    backtrack = lexer_dump_state(&parser.lexer);
+    if (lexer_tokenize(&parser.lexer)) {
+        lexer_load_state(&parser.lexer, backtrack);
         parser_error(&parser, "Syntax Error");
+    }
+
+    // push a terminating NULL
+    parser_push(&parser, NULL);
     return parser.instructions;
 }
 
