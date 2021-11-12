@@ -366,7 +366,7 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
                 expr_delete(match_against);
                 parser_error(parser, "An expression is expected after 'with'");
             }
-            parser_maybe_expect_newline(parser);
+
             // parse the block to execute
             if (!(case_block = parser_parse_block(parser))) {
                 expr_delete(match_against);
@@ -377,6 +377,7 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
                 }
                 parser_error(parser, "Block expected");
             }
+            parser_maybe_expect_newline(parser);
 
             // extend case array if needed
             if (allocated == 0)
@@ -388,11 +389,9 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
                 .case_value = case_value,
                 .case_block = case_block
             };
-            parser_maybe_expect_newline(parser);
             break;
         }
         case TokenNameElse:
-            parser_maybe_expect_newline(parser);
             // parse the part after the 'else'
             if (!(else_block = parser_parse_block(parser))) {
                 expr_delete(match_against);
@@ -1010,8 +1009,6 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
     if (!parser_match(parser, TokenNameWith))
         parser_state_error(parser, backtrack, "Expected 'with'");
 
-    parser_maybe_expect_newline(parser);
-
     if (!(catch.handle_block = parser_parse_block(parser))) {
         parser_error(parser, "Expected block");
     }
@@ -1099,12 +1096,13 @@ static struct Instruction **parser_parse_block(struct Parser* const parser) {
     struct Instruction **block;
     size_t allocated, idx = 0;
 
+    parser_maybe_expect_newline(parser);
     if (!parser_match(parser, TokenNameLeftCur))
         return NULL;
 
     parser_maybe_expect_newline(parser);
     block = malloc(((allocated = 32)+1) * sizeof(struct Instruction *));
-    while (true) {
+    for (;;) {
         struct Instruction *inst;
         if (!(inst = parser_parse_instr(parser))) {
             if (!lexer_tokenize(&parser->lexer))
@@ -1151,8 +1149,6 @@ static struct Instruction *parser_parse_if_statement(struct Parser* const parser
 
     if (!parser_match(parser, TokenNameElse))
         goto end;
-
-    parser_maybe_expect_newline(parser);
 
     if ((if_stat.else_block = parser_parse_block(parser))) {
         if_stat.else_type = ElseTypeBlock;
