@@ -17,22 +17,25 @@ routine() {
 }()
 
 :parse routine() {
-    :out Void
-
     if :i > sizeof(:input) - 1 {
         ^ blame "Parse out of range"
     }
     :c :input at :i
 
-    if :c = ">" {
-        :out {"TapeRight"}
-    } else if :c = "<" {
-        :out {"TapeLeft"}
-    } else if :c = "+" {
-        :out {"Add"}
-    } else if :c = "-" {
-        :out {"Sub"}
-    } else if :c = "[" {
+    :out match :c {
+    with ">" {
+        ^{"TapeRight"}
+    }
+    with "<" {
+        ^{"TapeLeft"}
+    }
+    with "+" {
+        ^{"Add"}
+    }
+    with "-" {
+        ^{"Sub"}
+    }
+    with "[" {
         :i :i + 1
         :instructions {}
 
@@ -40,8 +43,7 @@ routine() {
             if :i > sizeof(:input) - 1 {
                 ^blame "Unmatched '['"
             } else if :input at :i = "]" {
-                :out {"Loop", :instructions}
-                ;
+                ^{"Loop", :instructions}
             } else {
                 %% try to parse
                 :instruction :parse()
@@ -50,35 +52,43 @@ routine() {
                 }
             }
         }
-    } else if :c = "]" {
-        ^ blame "Unmatched '['"
-    } else if :c = "." {
-        :out {"Log"}
-    } else if :c = "," {
-        :out {"Get"}
+    }
+    with "]" {
+        ^blame "Unmatched '['"
+    }
+    with "." {
+        ^{"Log"}
+    }
+    with "," {
+        ^{"Get"}
+    }
     }
     :i :i + 1
-    ^ :out
+    ^:out
 }
 
 :run_instruction routine(:instruction) {
-    if :instruction at 0 = "TapeRight" {
+    ^match :instruction at 0 {
+    with "TapeRight" {
         if :tape_idx = :tape_size - 1 {
             ^blame "Can't move right when on the rightmost tape block"
         }
         :tape_idx :tape_idx + 1
-    } else if :instruction at 0 = "TapeLeft" {
+    }
+    with "TapeLeft" {
         if :tape_idx = 0 {
             ^blame "Can't move left when on the leftmost tape block"
         }
         :tape_idx :tape_idx - 1
-    } else if :instruction at 0 = "Add" {
+    }
+    with "Add" {
         if :tape at :tape_idx = 127 {
             :tape at :tape_idx 0-128
         } else {
             :tape at :tape_idx 1 + (:tape at :tape_idx)
         }
-    } else if :instruction at 0 = "Sub" {
+    }
+    with "Sub" {
         if :tape at :tape_idx = -128 {
             :tape at :tape_idx 127
         } else {
@@ -86,22 +96,27 @@ routine() {
             :new_tape_value :new_tape_value - 1
             :tape at :tape_idx :new_tape_value
         }
-    } else if :instruction at 0 = "Loop" {
+    }
+    with "Loop" {
         loop :tape at :tape_idx {
             loop :1 through :instruction at 1 {
                 :run_instruction(:1)
             }
         }
-    } else if :instruction at 0 = "Log" {
+    }
+    with "Log" {
         show "" + (:tape at :tape_idx)
-    } else if :instruction at 0 = "Get" {
+    }
+    with "Get" {
         if sizeof(:input_stream) = 0 {
             :input_stream :input_stream + getstring("") + "\n"
         }
         :tape at :tape_idx :input_stream to Stack at 0
         :input_stream :input_stream at (1 to sizeof(:input_stream))
-    } else {
-        ^ blame "Unexpected instruction"
+    }
+    else {
+        ^blame "Unexpected instruction"
+    }
     }
 }
 
