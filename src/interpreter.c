@@ -25,7 +25,7 @@ struct Interpreter {
     struct Scope *scope;
     enum ProgramInterrupt interrupt;
     bool in_loop;
-    bool in_routine;
+    bool can_return;
     RaelValue returned_value;
 
     // warnings
@@ -397,11 +397,11 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
     struct Scope routine_scope;
     RaelValue maybe_routine = expr_eval(interpreter, call.routine_value, true);
     const bool in_loop_old = interpreter->in_loop;
-    const bool in_routine_old = interpreter->in_routine;
+    const bool can_return_old = interpreter->can_return;
     struct Scope *prev_scope;
 
     interpreter->in_loop = false;
-    interpreter->in_routine = true;
+    interpreter->can_return = true;
 
     if (maybe_routine->type != ValueTypeRoutine) {
         value_dereference(maybe_routine);
@@ -437,7 +437,7 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
 
     interpreter->interrupt = ProgramInterruptNone;
     interpreter->in_loop = in_loop_old;
-    interpreter->in_routine = in_routine_old;
+    interpreter->can_return = can_return_old;
     // deallocate routine scope and switch scope to previous scope
     scope_dealloc(&routine_scope);
     interpreter->scope = prev_scope;
@@ -1019,6 +1019,48 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value->as_string = string;
         break;
     }
+    case ExprTypeMatch: {
+        RaelValue match_against = expr_eval(interpreter, expr->as_match.match_against, true);
+        bool matched = false;
+        bool old_can_return = interpreter->can_return;
+        interpreter->can_return = true;
+
+        // loop all match cases while there's no match
+        for (size_t i = 0; i < expr->as_match.amount_cases && !matched; ++i) {
+            struct MatchCase match_case = expr->as_match.match_cases[i];
+            // evaluate the value to compare with
+            RaelValue with_value = expr_eval(interpreter, match_case.case_value, true);
+
+            // check if the case matches, and if it does,
+            // run its block and stop the match's execution
+            if (values_equal(match_against, with_value)) {
+                block_run(interpreter, match_case.case_block);
+                matched = true;
+            }
+            value_dereference(with_value);
+        }
+
+        // if you've matched nothing and there's an else case, run the else block
+        if (!matched && expr->as_match.else_block)
+            block_run(interpreter, expr->as_match.else_block);
+
+        // if there was a return, set the match's return value to the return
+        // value and clear the interrupt
+        if (interpreter->interrupt == ProgramInterruptReturn) {
+            // set return value
+            value = interpreter->returned_value;
+            interpreter->interrupt = ProgramInterruptNone;
+        } else {
+            // if there was no interrupt, set the return value to Void
+            value = value_create(ValueTypeVoid);
+        }
+
+        // deallocate the value it matched against because it has no use anymore
+        value_dereference(match_against);
+        // reload last can_return state
+        interpreter->can_return = old_can_return;
+        break;
+    }
     default:
         RAEL_UNREACHABLE();
     }
@@ -1179,7 +1221,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         value_dereference(expr_eval(interpreter, instruction->pure, true));
         break;
     case InstructionTypeReturn: {
-        if (interpreter->in_routine) {
+        if (interpreter->can_return) {
             // if you can set a return value
             if (instruction->return_value) {
                 interpreter->returned_value = expr_eval(interpreter, instruction->return_value, false);
@@ -1226,7 +1268,7 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, const 
         .instructions = instructions,
         .interrupt = ProgramInterruptNone,
         .in_loop = false,
-        .in_routine = false,
+        .can_return = false,
         .returned_value = NULL,
         .stream_base = stream_base,
         .warn_undefined = warn_undefined,

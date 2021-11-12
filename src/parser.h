@@ -48,7 +48,8 @@ enum ExprType {
     ExprTypeBlame,
     ExprTypeSet,
     ExprTypeAnd,
-    ExprTypeOr
+    ExprTypeOr,
+    ExprTypeMatch
 };
 
 struct RoutineCallExpr {
@@ -68,6 +69,16 @@ struct SetExpr {
     struct Expr *expr;
 };
 
+struct MatchExpr {
+    size_t amount_cases;
+    struct Expr *match_against;
+    struct MatchCase {
+        struct Expr *case_value;
+        struct Instruction **case_block;
+    } *match_cases;
+    struct Instruction **else_block;
+};
+
 struct Expr {
     enum ExprType type;
     struct State state;
@@ -80,6 +91,7 @@ struct Expr {
         char *as_key;
         struct RoutineCallExpr as_call;
         struct SetExpr as_set;
+        struct MatchExpr as_match;
     };
 };
 

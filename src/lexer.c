@@ -342,6 +342,9 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     // try to tokenize `getstring`
     if (lexer_match_keyword(lexer, "getstring", 9, TokenNameGetString))
         return true;
+    // try to tokenize `match`
+    if (lexer_match_keyword(lexer, "match", 5, TokenNameMatch))
+        return true;
     lexer_error(lexer, "Unrecognized token");
     return false;
 }

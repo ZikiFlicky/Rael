@@ -1,0 +1,123 @@
+match 1 {
+
+}
+
+match 1 + 2 {
+    with 3 {
+        log "2"
+    }
+    else {
+        log "1"
+    }
+}
+
+match 1 * 2 {
+    with 3 {
+        log "2"
+    }
+    else {
+        log "1"
+    }
+}
+
+match 1 * 2 {
+    with 3 {
+        log "2"
+    }
+    with 2 {
+        log "3"
+    }
+    else {
+        log "1"
+    }
+}
+
+match 2 {
+    with 5 {
+        log "5"
+    }
+}
+
+log match 1 * 2 {
+    with 3 {
+        log "2"
+    }
+    else {
+        log "1"
+    }
+}
+
+log match 1 * 2 {
+    with 2 {
+        ^"2"
+    }
+    else {
+        ^"1"
+    }
+}
+
+log match 1 * 2 {
+    with 2 {
+        show "2"
+    }
+    else {
+        ^"1"
+    }
+}
+
+match 8 + 2 {
+    with 10 {
+        log "1"
+    }
+    with 10 {
+        log "2"
+    }
+    else {
+        log 44
+    }
+}
+
+
+log match 9 + 4 {
+    with 10 {
+        log "1"
+    }
+    with 10 {
+        log "2"
+    }
+    else {
+        ^ "nothing"
+    }
+}
+
+log match 1 {
+
+}
+
+:routine routine(:1) {
+    match :1 {
+        with -2 {
+            log -2
+            ^0
+        }
+        else {
+            log "not -2"
+            ^1
+        }
+    }
+    ^2
+}
+
+log :routine(-2)
+
+loop :i through 4 to 0 {
+    match :i {
+    with 1 {
+        ;
+        log 2
+    }
+    else {
+        log "loop"
+    }
+    }
+}
