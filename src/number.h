@@ -5,9 +5,6 @@
 
 #include <stdbool.h>
 
-struct Interpreter;
-struct Scope;
-
 struct RaelNumberValue {
     bool is_float;
     union {
@@ -22,11 +19,9 @@ struct RaelNumberValue number_sub(struct RaelNumberValue a, struct RaelNumberVal
 
 struct RaelNumberValue number_mul(struct RaelNumberValue a, struct RaelNumberValue b);
 
-struct RaelNumberValue number_div(struct Interpreter* const interpreter, struct State state,
-                             struct RaelNumberValue a, struct RaelNumberValue b);
+bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out);
 
-struct RaelNumberValue number_mod(struct Interpreter* const interpreter, struct State state,
-                             struct RaelNumberValue a, struct RaelNumberValue b);
+bool number_mod(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out);
 
 struct RaelNumberValue number_neg(struct RaelNumberValue n);
 

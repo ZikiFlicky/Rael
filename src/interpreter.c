@@ -759,7 +759,9 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             rhs = expr_eval(interpreter, expr->rhs, true);
             if (rhs->type == ValueTypeNumber) {
                 value = value_create(ValueTypeNumber);
-                value->as_number = number_div(interpreter, expr->state, lhs->as_number, rhs->as_number);
+                if (!number_div(lhs->as_number, rhs->as_number, &value->as_number)) {
+                    interpreter_error(interpreter, expr->state, "Division by zero");
+                }
             } else {
                 value_dereference(rhs);
                 goto invalid_types_div;
@@ -781,7 +783,9 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             rhs = expr_eval(interpreter, expr->rhs, true);
             if (rhs->type == ValueTypeNumber) {
                 value = value_create(ValueTypeNumber);
-                value->as_number = number_mod(interpreter, expr->state, lhs->as_number, rhs->as_number);
+                if (!number_mod(lhs->as_number, rhs->as_number, &value->as_number)) {
+                    interpreter_error(interpreter, expr->state, "Division by zero");
+                }
             } else {
                 value_dereference(rhs);
                 goto invalid_types_mod;

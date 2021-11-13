@@ -1,11 +1,8 @@
 #include "number.h"
-#include "parser.h"
 
 #include <math.h>
 #include <stdlib.h>
 #include <ctype.h>
-
-void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message);
 
 static inline double number_as_float(struct RaelNumberValue n) {
     return n.is_float ? n.as_float : (double)n.as_int;
@@ -47,45 +44,42 @@ struct RaelNumberValue number_mul(struct RaelNumberValue a, struct RaelNumberVal
     return res;
 }
 
-struct RaelNumberValue number_div(struct Interpreter* const interpreter,
-                             struct State state, struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
+bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out) {
     if (a.is_float || b.is_float) {
-        res.is_float = true;
         if (number_as_float(b) == 0.f)
-            interpreter_error(interpreter, state, "Division by zero");
-        res.as_float = number_as_float(a) / number_as_float(b);
+            return false;
+        out->is_float = true;
+        out->as_float = number_as_float(a) / number_as_float(b);
     } else {
         div_t division;
 
         if (b.as_int == 0)
-            interpreter_error(interpreter, state, "Division by zero");
+            return false;
         division = div(a.as_int, b.as_int);
         if (division.rem == 0) {
-            res.is_float = false;
-            res.as_int = division.quot;
+            out->is_float = false;
+            out->as_int = division.quot;
         } else {
-            res.is_float = true;
-            res.as_float = (double)a.as_int / (double)b.as_int;
+            out->is_float = true;
+            out->as_float = (double)a.as_int / (double)b.as_int;
         }
     }
-    return res;
+    return true;
 }
 
-struct RaelNumberValue number_mod(struct Interpreter* const interpreter, struct State state, struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
+bool number_mod(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out) {
     if (a.is_float || b.is_float) {
-        res.is_float = true;
         if (number_as_float(b) == 0.f)
-            interpreter_error(interpreter, state, "Division by zero");
-        res.as_float = fmod(number_as_float(a), number_as_float(b));
+            return false;
+        out->is_float = true;
+        out->as_float = fmod(number_as_float(a), number_as_float(b));
     } else {
-        res.is_float = false;
         if (b.as_int == 0)
-            interpreter_error(interpreter, state, "Division by zero");
-        res.as_int = a.as_int % b.as_int;
+            return false;
+        out->is_float = false;
+        out->as_int = a.as_int % b.as_int;
     }
-    return res;
+    return true;
 }
 
 struct RaelNumberValue number_neg(struct RaelNumberValue n) {
