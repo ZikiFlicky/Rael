@@ -130,6 +130,28 @@ struct RaelNumberValue number_bigger(struct RaelNumberValue a, struct RaelNumber
     return res;
 }
 
+struct RaelNumberValue number_smaller_eq(struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
+    res.is_float = false;
+    if (a.is_float || b.is_float) {
+        res.as_int = number_as_float(a) <= number_as_float(b);
+    } else {
+        res.as_int = a.as_int <= b.as_int;
+    }
+    return res;
+}
+
+struct RaelNumberValue number_bigger_eq(struct RaelNumberValue a, struct RaelNumberValue b) {
+    struct RaelNumberValue res;
+    res.is_float = false;
+    if (a.is_float || b.is_float) {
+        res.as_int = number_as_float(a) >= number_as_float(b);
+    } else {
+        res.as_int = a.as_int >= b.as_int;
+    }
+    return res;
+}
+
 bool number_from_string(char *string, size_t length, struct RaelNumberValue *out_number) {
     bool is_float = false;
     int decimal = 0;

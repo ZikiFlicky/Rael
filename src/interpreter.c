@@ -348,7 +348,6 @@ static RaelValue range_at(struct Interpreter* const interpreter, RaelValue range
 
     // evaluate index
     at_value = expr_eval(interpreter, at_expr->rhs, true);
-
     value_verify_uint(interpreter, at_expr->rhs->state, at_value);
 
     if ((size_t)at_value->as_number.as_int >= abs(range->as_range.end - range->as_range.start)) {
@@ -823,12 +822,11 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         } else {
         invalid_types_smaller:
             value_dereference(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (-) on types");
+            interpreter_error(interpreter, expr->state, "Invalid operation (<) on types");
         }
 
         value_dereference(lhs);
         value_dereference(rhs);
-
         break;
     case ExprTypeBiggerThen:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -845,12 +843,53 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         } else {
         invalid_types_bigger:
             value_dereference(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (-) on types");
+            interpreter_error(interpreter, expr->state, "Invalid operation (>) on types");
         }
 
         value_dereference(lhs);
         value_dereference(rhs);
+        break;
+    case ExprTypeSmallerOrEqual:
+        lhs = expr_eval(interpreter, expr->lhs, true);
 
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_smaller_eq(lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_smaller_eq;
+            }
+        } else {
+        invalid_types_smaller_eq:
+            value_dereference(lhs);
+            interpreter_error(interpreter, expr->state, "Invalid operation (<=) on types");
+        }
+
+        value_dereference(lhs);
+        value_dereference(rhs);
+        break;
+    case ExprTypeBiggerOrEqual:
+        lhs = expr_eval(interpreter, expr->lhs, true);
+
+        if (lhs->type == ValueTypeNumber) {
+            rhs = expr_eval(interpreter, expr->rhs, true);
+            if (rhs->type == ValueTypeNumber) {
+                value = value_create(ValueTypeNumber);
+                value->as_number = number_bigger_eq(lhs->as_number, rhs->as_number);
+            } else {
+                value_dereference(rhs);
+                goto invalid_types_bigger_eq;
+            }
+        } else {
+        invalid_types_bigger_eq:
+            value_dereference(lhs);
+            interpreter_error(interpreter, expr->state, "Invalid operation (>=) on types");
+        }
+
+        value_dereference(lhs);
+        value_dereference(rhs);
         break;
     case ExprTypeRoutineCall:
         value = routine_call_eval(interpreter, expr->as_call, expr->state);

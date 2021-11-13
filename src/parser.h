@@ -39,6 +39,8 @@ enum ExprType {
     ExprTypeEquals,
     ExprTypeSmallerThen,
     ExprTypeBiggerThen,
+    ExprTypeSmallerOrEqual,
+    ExprTypeBiggerOrEqual,
     ExprTypeAt,
     ExprTypeRedirect,
     ExprTypeSizeof,

@@ -25,6 +25,8 @@ enum TokenName {
     TokenNameEquals,
     TokenNameSmallerThan,
     TokenNameBiggerThan,
+    TokenNameSmallerOrEqual,
+    TokenNameBiggerOrEqual,
     TokenNameIf,
     TokenNameElse,
     TokenNameLoop,

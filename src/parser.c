@@ -807,6 +807,20 @@ static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '>'");
                 break;
+            case TokenNameSmallerOrEqual:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeSmallerOrEqual;
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
+                    parser_state_error(parser, backtrack, "Expected a value after '<='");
+                break;
+            case TokenNameBiggerOrEqual:
+                new_expr = malloc(sizeof(struct Expr));
+                new_expr->type = ExprTypeBiggerOrEqual;
+                new_expr->lhs = expr;
+                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
+                    parser_state_error(parser, backtrack, "Expected a value after '>='");
+                break;
             default:
                 lexer_load_state(&parser->lexer, backtrack);
                 goto loop_end;
@@ -1321,6 +1335,8 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeEquals:
     case ExprTypeSmallerThen:
     case ExprTypeBiggerThen:
+    case ExprTypeSmallerOrEqual:
+    case ExprTypeBiggerOrEqual:
     case ExprTypeAt:
     case ExprTypeRedirect:
     case ExprTypeTo:

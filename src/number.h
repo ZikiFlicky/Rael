@@ -36,6 +36,10 @@ struct RaelNumberValue number_smaller(struct RaelNumberValue a, struct RaelNumbe
 
 struct RaelNumberValue number_bigger(struct RaelNumberValue a, struct RaelNumberValue b);
 
+struct RaelNumberValue number_smaller_eq(struct RaelNumberValue a, struct RaelNumberValue b);
+
+struct RaelNumberValue number_bigger_eq(struct RaelNumberValue a, struct RaelNumberValue b);
+
 bool number_from_string(char *string, size_t length, struct RaelNumberValue *out_number);
 
 #endif // RAEL_NUMBER_H
