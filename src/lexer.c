@@ -272,13 +272,6 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == ';') {
-        lexer->token.name = TokenNameSemicolon;
-        lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
-        ++lexer->column;
-        return true;
-    }
     if (lexer->stream[0] == '&') {
         lexer->token.name = TokenNameAmpersand;
         lexer->token.length = 1;
@@ -361,6 +354,9 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         return true;
     // try to tokenize `skip`
     if (lexer_match_keyword(lexer, "skip", 4, TokenNameSkip))
+        return true;
+    // try to tokenize `break`
+    if (lexer_match_keyword(lexer, "break", 5, TokenNameBreak))
         return true;
     lexer_error(lexer, "Unrecognized token");
     return false;

@@ -1,4 +1,4 @@
 rael
-Error [6:5]: ';' has to be inside a loop
-|     ;
+Error [6:5]: 'break' has to be inside a loop
+|     break
 |     ^

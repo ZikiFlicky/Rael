@@ -3,9 +3,9 @@ loop {
         log 2 + 2 * 2
         loop {
             log "rael"
-            ;
+            break
         }
-        ;
+        break
     }
-    ;
+    break
 }

@@ -113,7 +113,7 @@ log :routine(-2)
 loop :i through 4 to 0 {
     match :i {
     with 1 {
-        ;
+        break
         log 2
     }
     else {

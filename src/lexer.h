@@ -36,7 +36,7 @@ enum TokenName {
     TokenNameRedirect,
     TokenNameSizeof,
     TokenNameThrough,
-    TokenNameSemicolon,
+    TokenNameBreak,
     TokenNameSkip,
     TokenNameTo,
     TokenNameBlame,

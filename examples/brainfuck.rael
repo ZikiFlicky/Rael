@@ -125,7 +125,7 @@ routine() {
 
     loop {
         if :i > sizeof(:input) - 1 {
-            ;
+            break
         } else {
             :instruction :parse()
             if :instruction {

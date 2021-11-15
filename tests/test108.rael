@@ -1,4 +1,4 @@
 routine() {
     log "helo"
-    ;
+    break
 }()

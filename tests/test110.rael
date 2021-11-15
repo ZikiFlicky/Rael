@@ -1,7 +1,7 @@
 loop {
     if 1 {
         log 1
-        ;
+        break
     } else {
         log 2
         ^

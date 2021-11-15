@@ -1113,7 +1113,7 @@ static struct Instruction *parser_parse_instr_single(struct Parser* const parser
         return NULL;
 
     switch (parser->lexer.token.name) {
-    case TokenNameSemicolon: type = InstructionTypeBreak; break;
+    case TokenNameBreak: type = InstructionTypeBreak; break;
     case TokenNameSkip: type = InstructionTypeSkip; break;
     default:
         lexer_load_state(&parser->lexer, backtrack);

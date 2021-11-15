@@ -1,4 +1,4 @@
 loop :1 through "abc" {
     log :1
-    ;
+    break
 }

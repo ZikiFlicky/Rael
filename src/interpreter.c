@@ -1287,8 +1287,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     }
     case InstructionTypeBreak:
         if (!interpreter->in_loop)
-            interpreter_error(interpreter, instruction->state, "';' has to be inside a loop");
-
+            interpreter_error(interpreter, instruction->state, "'break' has to be inside a loop");
         interpreter->interrupt = ProgramInterruptBreak;
         break;
     case InstructionTypeSkip:
