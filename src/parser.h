@@ -161,6 +161,8 @@ struct Parser {
     struct Lexer lexer;
     struct Instruction** instructions;
     size_t idx, allocated;
+    bool in_loop;
+    bool can_return;
 };
 
 struct Instruction **rael_parse(char* const stream, bool stream_on_heap);

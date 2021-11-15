@@ -25,8 +25,6 @@ struct Interpreter {
     size_t idx;
     struct Scope *scope;
     enum ProgramInterrupt interrupt;
-    bool in_loop;
-    bool can_return;
     RaelValue returned_value;
 
     // warnings
@@ -396,12 +394,7 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
                                    struct RoutineCallExpr call, struct State state) {
     struct Scope routine_scope;
     RaelValue maybe_routine = expr_eval(interpreter, call.routine_value, true);
-    const bool in_loop_old = interpreter->in_loop;
-    const bool can_return_old = interpreter->can_return;
     struct Scope *prev_scope;
-
-    interpreter->in_loop = false;
-    interpreter->can_return = true;
 
     if (maybe_routine->type != ValueTypeRoutine) {
         value_dereference(maybe_routine);
@@ -436,8 +429,6 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
     }
 
     interpreter->interrupt = ProgramInterruptNone;
-    interpreter->in_loop = in_loop_old;
-    interpreter->can_return = can_return_old;
     // deallocate routine scope and switch scope to previous scope
     scope_dealloc(&routine_scope);
     interpreter->scope = prev_scope;
@@ -1066,8 +1057,6 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
     case ExprTypeMatch: {
         RaelValue match_against = expr_eval(interpreter, expr->as_match.match_against, true);
         bool matched = false;
-        bool old_can_return = interpreter->can_return;
-        interpreter->can_return = true;
 
         // loop all match cases while there's no match
         for (size_t i = 0; i < expr->as_match.amount_cases && !matched; ++i) {
@@ -1195,8 +1184,6 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     }
     case InstructionTypeLoop: {
         struct Scope loop_scope;
-        const bool in_loop_old = interpreter->in_loop;
-        interpreter->in_loop = true;
         interpreter_push_scope(interpreter, &loop_scope);
 
         switch (instruction->loop.type) {
@@ -1262,7 +1249,6 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
             RAEL_UNREACHABLE();
         }
 
-        interpreter->in_loop = in_loop_old;
         interpreter_pop_scope(interpreter);
         break;
     }
@@ -1271,28 +1257,19 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         value_dereference(expr_eval(interpreter, instruction->pure, true));
         break;
     case InstructionTypeReturn: {
-        if (interpreter->can_return) {
-            // if you can set a return value
-            if (instruction->return_value) {
-                interpreter->returned_value = expr_eval(interpreter, instruction->return_value, false);
-            } else {
-                interpreter->returned_value = value_create(ValueTypeVoid);
-            }
+        // if there is a return value, return it, and if there isn't, return a Void
+        if (instruction->return_value) {
+            interpreter->returned_value = expr_eval(interpreter, instruction->return_value, false);
         } else {
-            interpreter_error(interpreter, instruction->state, "'^' outside a routine is not permitted");
+            interpreter->returned_value = value_create(ValueTypeVoid);
         }
-
         interpreter->interrupt = ProgramInterruptReturn;
         break;
     }
     case InstructionTypeBreak:
-        if (!interpreter->in_loop)
-            interpreter_error(interpreter, instruction->state, "'break' has to be inside a loop");
         interpreter->interrupt = ProgramInterruptBreak;
         break;
     case InstructionTypeSkip:
-        if (!interpreter->in_loop)
-            interpreter_error(interpreter, instruction->state, "'skip' has to be inside a loop");
         interpreter->interrupt = ProgramInterruptSkip;
         break;
     case InstructionTypeCatch: {
@@ -1321,8 +1298,6 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, const 
     struct Interpreter interp = {
         .instructions = instructions,
         .interrupt = ProgramInterruptNone,
-        .in_loop = false,
-        .can_return = false,
         .returned_value = NULL,
         .stream_base = stream_base,
         .warn_undefined = warn_undefined,

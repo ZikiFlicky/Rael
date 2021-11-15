@@ -1,4 +1,3 @@
-rael
-Error [6:5]: 'break' has to be inside a loop
+Error [2:5]: 'break' is outside of a loop
 |     break
 |     ^

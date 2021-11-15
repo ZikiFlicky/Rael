@@ -1,4 +1,3 @@
-helo
-Error [3:5]: 'break' has to be inside a loop
+Error [3:5]: 'break' is outside of a loop
 |     break
 |     ^

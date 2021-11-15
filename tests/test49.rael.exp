@@ -1,4 +1,3 @@
-32
-Error [3:5]: '^' outside a routine is not permitted
+Error [3:5]: '^' is outside of a routine and a match statement
 |     ^ "21"
 |     ^

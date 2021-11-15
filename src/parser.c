@@ -157,10 +157,13 @@ static struct ASTValue *parser_parse_routine(struct Parser* const parser) {
     struct ASTValue *value;
     struct RaelRoutineValue decl;
     struct State backtrack;
+    bool old_can_return;
 
     if (!parser_match(parser, TokenNameRoutine))
         return NULL;
 
+    old_can_return = parser->can_return;
+    parser->can_return = true;
     backtrack = lexer_dump_state(&parser->lexer);
 
     if (!parser_match(parser, TokenNameLeftParen))
@@ -224,6 +227,7 @@ static struct ASTValue *parser_parse_routine(struct Parser* const parser) {
     value = malloc(sizeof(struct ASTValue));
     value->type = ValueTypeRoutine;
     value->as_routine = decl;
+    parser->can_return = old_can_return;
     return value;
 }
 
@@ -326,10 +330,14 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
     struct Instruction **else_block = NULL; // the block of the else case
     struct State backtrack;
     bool is_matching = true;
+    bool old_can_return;
 
     // make sure it starts with 'match'
     if (!parser_match(parser, TokenNameMatch))
         return NULL;
+
+    old_can_return = parser->can_return;
+    parser->can_return = true;
 
     // parse the expression you compare against
     if (!(match_against = parser_parse_expr(parser)))
@@ -439,6 +447,7 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
         .match_cases = match_cases,
         .else_block = else_block
     };
+    parser->can_return = old_can_return;
     return expr;
 }
 
@@ -1086,6 +1095,7 @@ static struct Instruction *parser_parse_instr_show(struct Parser* const parser) 
 static struct Instruction *parser_parse_instr_return(struct Parser* const parser) {
     struct Instruction *inst;
     struct Expr *expr;
+    struct State backtrack = lexer_dump_state(&parser->lexer);
 
     if (!parser_match(parser, TokenNameCaret))
         return NULL;
@@ -1096,6 +1106,12 @@ static struct Instruction *parser_parse_instr_return(struct Parser* const parser
         parser_expect_newline(parser);
     } else {
         parser_error(parser, "Expected an expression or nothing after \"^\"");
+    }
+
+    if (!parser->can_return) {
+        if (expr)
+            expr_delete(expr);
+        parser_state_error(parser, backtrack, "'^' is outside of a routine and a match statement");
     }
 
     inst = malloc(sizeof(struct Instruction));
@@ -1113,8 +1129,16 @@ static struct Instruction *parser_parse_instr_single(struct Parser* const parser
         return NULL;
 
     switch (parser->lexer.token.name) {
-    case TokenNameBreak: type = InstructionTypeBreak; break;
-    case TokenNameSkip: type = InstructionTypeSkip; break;
+    case TokenNameBreak:
+        if (!parser->in_loop)
+            parser_state_error(parser, backtrack, "'break' is outside of a loop");
+        type = InstructionTypeBreak;
+        break;
+    case TokenNameSkip:
+        if (!parser->in_loop)
+            parser_state_error(parser, backtrack, "'skip' is outside of a loop");
+        type = InstructionTypeSkip;
+        break;
     default:
         lexer_load_state(&parser->lexer, backtrack);
         return NULL;
@@ -1202,9 +1226,13 @@ static struct Instruction *parser_parse_loop(struct Parser* const parser) {
     struct Instruction *inst;
     struct LoopInstruction loop;
     struct State backtrack;
+    bool old_in_loop;
 
     if (!parser_match(parser, TokenNameLoop))
         return NULL;
+
+    old_in_loop = parser->in_loop;
+    parser->in_loop = true;
 
     if ((loop.block = parser_parse_block(parser))) {
         loop.type = LoopForever;
@@ -1245,6 +1273,7 @@ loop_parsing_end:
     inst = malloc(sizeof(struct Instruction));
     inst->type = InstructionTypeLoop;
     inst->loop = loop;
+    parser->in_loop = old_in_loop;
     return inst;
 }
 
@@ -1275,7 +1304,12 @@ struct Instruction **rael_parse(char* const stream, bool stream_on_heap) {
             .stream = stream,
             .stream_base = stream,
             .stream_on_heap = stream_on_heap
-        }
+        },
+        .idx = 0,
+        .allocated = 0,
+        .instructions = NULL,
+        .can_return = false,
+        .in_loop = false
     };
     parser_maybe_expect_newline(&parser);
     // parse instruction while possible
