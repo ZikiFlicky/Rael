@@ -570,14 +570,25 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             break;
         }
         case TokenNameGetString: {
-            struct Expr *in_value;
+            struct Expr *prompt_value;
 
-            if (!(in_value = parser_parse_expr_single(parser)))
+            if (!(prompt_value = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected value after 'getstring'");
 
             expr = malloc(sizeof(struct Expr));
             expr->type = ExprTypeGetString;
-            expr->as_single = in_value;
+            expr->as_single = prompt_value;
+            break;
+        }
+        case TokenNameEval: {
+            struct Expr *eval_value;
+
+            if (!(eval_value = parser_parse_expr_single(parser)))
+                parser_error(parser, "Expected value after 'eval'");
+
+            expr = malloc(sizeof(struct Expr));
+            expr->type = ExprTypeEval;
+            expr->as_single = eval_value;
             break;
         }
         case TokenNameLeftParen: {
@@ -1093,16 +1104,25 @@ static struct Instruction *parser_parse_instr_return(struct Parser* const parser
     return inst;
 }
 
-static struct Instruction *parser_parse_instr_break(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_single(struct Parser* const parser) {
     struct Instruction *inst;
+    struct State backtrack = lexer_dump_state(&parser->lexer);
+    enum InstructionType type;
 
-    if (!parser_match(parser, TokenNameSemicolon))
+    if (!lexer_tokenize(&parser->lexer))
         return NULL;
 
-    parser_expect_newline(parser);
+    switch (parser->lexer.token.name) {
+    case TokenNameSemicolon: type = InstructionTypeBreak; break;
+    case TokenNameSkip: type = InstructionTypeSkip; break;
+    default:
+        lexer_load_state(&parser->lexer, backtrack);
+        return NULL;
+    }
 
+    parser_expect_newline(parser);
     inst = malloc(sizeof(struct Instruction));
-    inst->type = InstructionTypeBreak;
+    inst->type = type;
     return inst;
 }
 
@@ -1231,13 +1251,13 @@ loop_parsing_end:
 static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     struct Instruction *inst;
     struct State prev_state = lexer_dump_state(&parser->lexer);
-    if ((inst = parser_parse_instr_pure(parser))    ||
-        (inst = parser_parse_instr_log(parser))     ||
-        (inst = parser_parse_if_statement(parser))  ||
-        (inst = parser_parse_loop(parser))          ||
-        (inst = parser_parse_instr_return(parser))  ||
-        (inst = parser_parse_instr_break(parser))   ||
-        (inst = parser_parse_instr_catch(parser))   ||
+    if ((inst = parser_parse_instr_pure(parser))     ||
+        (inst = parser_parse_instr_log(parser))      ||
+        (inst = parser_parse_if_statement(parser))   ||
+        (inst = parser_parse_loop(parser))           ||
+        (inst = parser_parse_instr_return(parser))   ||
+        (inst = parser_parse_instr_single(parser))   ||
+        (inst = parser_parse_instr_catch(parser))    ||
         (inst = parser_parse_instr_show(parser))) {
         inst->state = prev_state;
         return inst;
@@ -1389,9 +1409,7 @@ void instruction_delete(struct Instruction* const inst) {
     switch (inst->type) {
     case InstructionTypeIf:
         expr_delete(inst->if_stat.condition);
-
         block_delete(inst->if_stat.block);
-
         switch (inst->if_stat.else_type) {
         case ElseTypeBlock:
             block_delete(inst->if_stat.else_block);
@@ -1404,7 +1422,6 @@ void instruction_delete(struct Instruction* const inst) {
         default:
             RAEL_UNREACHABLE();
         }
-
         break;
     case InstructionTypeLog:
     case InstructionTypeShow:
@@ -1440,6 +1457,7 @@ void instruction_delete(struct Instruction* const inst) {
         }
         break;
     case InstructionTypeBreak:
+    case InstructionTypeSkip:
         break;
     case InstructionTypeCatch:
         expr_delete(inst->catch.catch_expr);

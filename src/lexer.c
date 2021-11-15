@@ -359,6 +359,9 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     // try to tokenize `match`
     if (lexer_match_keyword(lexer, "match", 5, TokenNameMatch))
         return true;
+    // try to tokenize `skip`
+    if (lexer_match_keyword(lexer, "skip", 4, TokenNameSkip))
+        return true;
     lexer_error(lexer, "Unrecognized token");
     return false;
 }

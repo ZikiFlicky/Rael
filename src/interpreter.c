@@ -15,6 +15,7 @@ enum ProgramInterrupt {
     ProgramInterruptNone,
     ProgramInterruptBreak,
     ProgramInterruptReturn,
+    ProgramInterruptSkip
 };
 
 struct Interpreter {
@@ -1211,6 +1212,8 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
                     break;
                 } else if (interpreter->interrupt == ProgramInterruptReturn) {
                     break;
+                } else if (interpreter->interrupt == ProgramInterruptSkip) {
+                    interpreter->interrupt = ProgramInterruptNone;
                 }
             }
 
@@ -1234,6 +1237,8 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
                     break;
                 } else if (interpreter->interrupt == ProgramInterruptReturn) {
                     break;
+                } else if (interpreter->interrupt == ProgramInterruptSkip) {
+                    interpreter->interrupt = ProgramInterruptNone;
                 }
             }
 
@@ -1248,6 +1253,8 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
                     break;
                 } else if (interpreter->interrupt == ProgramInterruptReturn) {
                     break;
+                } else if (interpreter->interrupt == ProgramInterruptSkip) {
+                    interpreter->interrupt = ProgramInterruptNone;
                 }
             }
             break;
@@ -1283,6 +1290,11 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
             interpreter_error(interpreter, instruction->state, "';' has to be inside a loop");
 
         interpreter->interrupt = ProgramInterruptBreak;
+        break;
+    case InstructionTypeSkip:
+        if (!interpreter->in_loop)
+            interpreter_error(interpreter, instruction->state, "'skip' has to be inside a loop");
+        interpreter->interrupt = ProgramInterruptSkip;
         break;
     case InstructionTypeCatch: {
         RaelValue caught_value = expr_eval(interpreter, instruction->catch.catch_expr, false);

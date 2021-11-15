@@ -1,0 +1,24 @@
+loop :0 through 1 to 9 {
+    skip
+    log 2
+}
+
+loop :i through "Rael is a programming language" {
+    if :i = "R" | :i = "r" {
+        skip
+    }
+    show :i
+}
+log
+
+loop :i through { 1, 2, 3, 4 } {
+    match :i {
+    with 3 {
+        skip 
+    }
+    with 44 {
+        skip
+    }
+    }
+    log :i
+}

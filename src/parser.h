@@ -104,6 +104,7 @@ enum InstructionType {
     InstructionTypePureExpr,
     InstructionTypeReturn,
     InstructionTypeBreak,
+    InstructionTypeSkip,
     InstructionTypeCatch,
     InstructionTypeShow
 };
