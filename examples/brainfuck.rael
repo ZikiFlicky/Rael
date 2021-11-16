@@ -17,9 +17,8 @@ routine() {
 }()
 
 :parse routine() {
-    if :i > sizeof(:input) - 1 {
+    if :i > sizeof(:input) - 1
         ^ blame "Parse out of range"
-    }
     :c :input at :i
 
     :out match :c {
@@ -70,23 +69,20 @@ routine() {
 :run_instruction routine(:instruction) {
     ^match :instruction at 0 {
     with "TapeRight" {
-        if :tape_idx = :tape_size - 1 {
+        if :tape_idx = :tape_size - 1
             ^blame "Can't move right when on the rightmost tape block"
-        }
         :tape_idx :tape_idx + 1
     }
     with "TapeLeft" {
-        if :tape_idx = 0 {
+        if :tape_idx = 0
             ^blame "Can't move left when on the leftmost tape block"
-        }
         :tape_idx :tape_idx - 1
     }
     with "Add" {
-        if :tape at :tape_idx = 127 {
+        if :tape at :tape_idx = 127
             :tape at :tape_idx 0-128
-        } else {
+        else
             :tape at :tape_idx 1 + (:tape at :tape_idx)
-        }
     }
     with "Sub" {
         if :tape at :tape_idx = -128 {
@@ -108,9 +104,9 @@ routine() {
         show "" + (:tape at :tape_idx)
     }
     with "Get" {
-        if sizeof(:input_stream) = 0 {
+        if sizeof(:input_stream) = 0
             :input_stream :input_stream + getstring("") + "\n"
-        }
+
         :tape at :tape_idx :input_stream to Stack at 0
         :input_stream :input_stream at (1 to sizeof(:input_stream))
     }
@@ -128,9 +124,8 @@ routine() {
             break
         } else {
             :instruction :parse()
-            if :instruction {
+            if :instruction
                 :instructions << :instruction
-            }
         }
     }
 
