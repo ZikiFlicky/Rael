@@ -269,7 +269,7 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
         if (end < start) {
             value_deref(stack);
             value_deref(at_value);
-            interpreter_error(interpreter, at_expr->rhs->state, "Range start mustn't be smaller than its end when slicing a stack");
+            interpreter_error(interpreter, at_expr->rhs->state, "Range end is smaller than its start when slicing a stack");
         }
 
         // make sure you are inside of the stack's boundaries
