@@ -1090,8 +1090,6 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
 
         // deallocate the value it matched against because it has no use anymore
         value_dereference(match_against);
-        // reload last can_return state
-        interpreter->can_return = old_can_return;
         break;
     }
     default:

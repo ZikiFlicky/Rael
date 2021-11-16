@@ -589,17 +589,6 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             expr->as_single = prompt_value;
             break;
         }
-        case TokenNameEval: {
-            struct Expr *eval_value;
-
-            if (!(eval_value = parser_parse_expr_single(parser)))
-                parser_error(parser, "Expected value after 'eval'");
-
-            expr = malloc(sizeof(struct Expr));
-            expr->type = ExprTypeEval;
-            expr->as_single = eval_value;
-            break;
-        }
         case TokenNameLeftParen: {
             struct State last_state = lexer_dump_state(&parser->lexer);
 
