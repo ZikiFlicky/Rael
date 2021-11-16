@@ -1,3 +1,3 @@
-Error [1:3]: Division by zero
+Error [tests/test63.rael:1:3]: Division by zero
 | 7 / 0
 |   ^

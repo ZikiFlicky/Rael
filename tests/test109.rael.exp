@@ -1,3 +1,3 @@
-Error [2:5]: 'break' is outside of a loop
+Error [tests/test109.rael:2:5]: 'break' is outside of a loop
 |     break
 |     ^

@@ -1,3 +1,3 @@
-Error [1:7]: Division by zero
+Error [tests/test118.rael:1:7]: Division by zero
 | log 4 % 0
 |       ^

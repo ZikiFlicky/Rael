@@ -1,3 +1,3 @@
-Error [2:15]: Index too big
+Error [tests/test76.rael:2:15]: Index too big
 | log :array at 56
 |               ^

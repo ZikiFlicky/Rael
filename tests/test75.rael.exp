@@ -1,3 +1,3 @@
-Error [2:15]: A negative index is not allowed
+Error [tests/test75.rael:2:15]: A negative index is not allowed
 | log :array at (0-1)
 |               ^

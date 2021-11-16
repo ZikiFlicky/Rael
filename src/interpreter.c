@@ -20,6 +20,7 @@ enum ProgramInterrupt {
 
 struct Interpreter {
     char *stream_base;
+    char* const filename;
     const bool stream_on_heap;
     struct Instruction **instructions;
     size_t idx;
@@ -66,7 +67,7 @@ static void interpreter_destroy_all(struct Interpreter* const interpreter) {
 void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message, ...) {
     va_list va;
     va_start(va, error_message);
-    rael_show_error_message(state, error_message, va);
+    rael_show_error_message(interpreter->filename, state, error_message, va);
     va_end(va);
     interpreter_destroy_all(interpreter);
     exit(1);
@@ -1105,7 +1106,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             ++state.stream_pos;
         }
 
-        printf("Error [%zu:%zu]: ", state.line, state.column);
+        rael_show_error_tag(interpreter->filename, state);
         if (value->as_blame.value) {
             value_log(value->as_blame.value);
             value_deref(value->as_blame.value); // dereference
@@ -1304,7 +1305,8 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     }
 }
 
-void rael_interpret(struct Instruction **instructions, char *stream_base, const bool stream_on_heap, const bool warn_undefined) {
+void rael_interpret(struct Instruction **instructions, char *stream_base, char* const filename,
+                    const bool stream_on_heap, const bool warn_undefined) {
     struct Instruction *instruction;
     struct Scope bottom_scope;
     struct Interpreter interp = {
@@ -1313,7 +1315,8 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, const 
         .returned_value = NULL,
         .stream_base = stream_base,
         .warn_undefined = warn_undefined,
-        .stream_on_heap = stream_on_heap
+        .stream_on_heap = stream_on_heap,
+        .filename = filename
     };
 
     scope_construct(&bottom_scope, NULL);

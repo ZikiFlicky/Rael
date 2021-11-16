@@ -16,8 +16,10 @@ struct State {
     size_t line, column;
 };
 
+void rael_show_error_tag(char* const filename, struct State state);
+
 void rael_show_line_state(struct State state);
 
-void rael_show_error_message(struct State state, const char* const error_message, va_list va);
+void rael_show_error_message(char* const filename, struct State state, const char* const error_message, va_list va);
 
 #endif // RAEL_COMMON_H

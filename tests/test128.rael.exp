@@ -1,3 +1,3 @@
-Error [1:12]: this should explode
+Error [tests/test128.rael:1:12]: this should explode
 | catch blame(blame("this should explode")) with {
 |            ^

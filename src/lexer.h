@@ -62,6 +62,7 @@ struct Token {
 
 struct Lexer {
     struct Token token;
+    char* const filename;
     char *stream, *stream_base;
     bool stream_on_heap;
     size_t line;

@@ -19,9 +19,13 @@ static struct Expr *parser_parse_expr_at(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
 static void block_delete(struct Instruction **block);
 
+static inline char *parser_get_filename(struct Parser* const parser) {
+    return parser->lexer.filename;
+}
+
 static inline void internal_parser_state_error(struct Parser* const parser, struct State state,
                                                const char* const error_message, va_list va) {
-    rael_show_error_message(state, error_message, va);
+    rael_show_error_message(parser_get_filename(parser), state, error_message, va);
 
     // we don't return to the function because we exit, so let's just destroy the va here
     va_end(va);
@@ -1302,11 +1306,12 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     return NULL;
 }
 
-struct Instruction **rael_parse(char* const stream, bool stream_on_heap) {
+struct Instruction **rael_parse(char* const filename, char* const stream, bool stream_on_heap) {
     struct State backtrack;
     struct Instruction *inst;
     struct Parser parser = {
         .lexer = {
+            .filename = filename,
             .line = 1,
             .column = 1,
             .stream = stream,

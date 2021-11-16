@@ -1,3 +1,3 @@
-Error [2:15]: Float index is not allowed
+Error [tests/test74.rael:2:15]: Float index is not allowed
 | log :array at 1.2
 |               ^

@@ -1,3 +1,3 @@
-Error [1:17]: Expected an iterable
+Error [tests/test102.rael:1:17]: Expected an iterable
 | loop :a through 3 {
 |                 ^

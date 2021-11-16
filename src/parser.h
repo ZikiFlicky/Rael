@@ -172,7 +172,7 @@ struct Parser {
     bool can_return;
 };
 
-struct Instruction **rael_parse(char* const stream, bool stream_on_heap);
+struct Instruction **rael_parse(char* const filename, char* const stream, bool stream_on_heap);
 
 void instruction_delete(struct Instruction* const instruction);
 

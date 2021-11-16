@@ -1,3 +1,3 @@
-Error [1:1]: Unrecognized token
+Error [tests/test64.rael:1:1]: Unrecognized token
 | rael
 | ^
