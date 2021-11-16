@@ -803,7 +803,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value_deref(lhs);
         value_deref(rhs);
         break;
-    case ExprTypeSmallerThen:
+    case ExprTypeSmallerThan:
         lhs = expr_eval(interpreter, expr->lhs, true);
 
         if (lhs->type == ValueTypeNumber) {
@@ -824,7 +824,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value_deref(lhs);
         value_deref(rhs);
         break;
-    case ExprTypeBiggerThen:
+    case ExprTypeBiggerThan:
         lhs = expr_eval(interpreter, expr->lhs, true);
 
         if (lhs->type == ValueTypeNumber) {

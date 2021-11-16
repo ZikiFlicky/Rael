@@ -132,7 +132,7 @@ void value_log_as_original(RaelValue value) {
 }
 
 void value_log(RaelValue value) {
-    // only strings are printed differently when `log`ed then inside a stack
+    // only strings are printed differently when `log`ed than inside a stack
     switch (value->type) {
     case ValueTypeString:
         for (size_t i = 0; i < value->as_string.length; ++i)
