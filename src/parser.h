@@ -15,7 +15,7 @@ struct RaelExprList {
     struct Expr **exprs;
 };
 
-struct ASTValue {
+struct ValueExpr {
     enum ValueType type;
     union {
         struct RaelStringValue as_string;
@@ -89,7 +89,7 @@ struct Expr {
             struct Expr *lhs, *rhs;
         };
         struct Expr *as_single;
-        struct ASTValue *as_value;
+        struct ValueExpr *as_value;
         char *as_key;
         struct RoutineCallExpr as_call;
         struct SetExpr as_set;

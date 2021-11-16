@@ -97,7 +97,7 @@ static struct RaelStringValue rael_readline(struct Interpreter* const interprete
     };
 }
 
-static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTValue value) {
+static RaelValue value_eval(struct Interpreter* const interpreter, struct ValueExpr value) {
     RaelValue out_value = value_create(value.type);
 
     switch (value.type) {
