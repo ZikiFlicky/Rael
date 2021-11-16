@@ -139,15 +139,15 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ASTVal
 static void value_verify_uint(struct Interpreter* const interpreter,
                               struct State number_state, RaelValue number) {
     if (number->type != ValueTypeNumber) {
-        value_dereference(number);
+        value_deref(number);
         interpreter_error(interpreter, number_state, "Expected number");
     }
     if (number->as_number.is_float) {
-        value_dereference(number);
+        value_deref(number);
         interpreter_error(interpreter, number_state, "Float index is not allowed");
     }
     if (number->as_number.as_int < 0) {
-        value_dereference(number);
+        value_deref(number);
         interpreter_error(interpreter, number_state, "A negative index is not allowed");
     }
 }
@@ -165,7 +165,7 @@ static RaelValue stack_slice(RaelValue stack, size_t start, size_t end) {
 
     for (size_t i = 0; i < length; ++i) {
         RaelValue value = stack->as_stack.values[start + i];
-        ++value->reference_count;
+        value_ref(value);
         new_dump[i] = value;
     }
 
@@ -184,7 +184,7 @@ static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, 
     lhs = expr_eval(interpreter, expr->lhs, true);
 
     if (lhs->type != ValueTypeStack) {
-        value_dereference(lhs);
+        value_deref(lhs);
         interpreter_error(interpreter, expr->lhs->state, "Expected stack on the left of 'at' when setting value");
     }
 
@@ -193,15 +193,15 @@ static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, 
     value_verify_uint(interpreter, expr->rhs->state, rhs);
 
     if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length) {
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
         interpreter_error(interpreter, expr->rhs->state, "Index too big");
     }
 
-    value_dereference(lhs->as_stack.values[rhs->as_number.as_int]);
+    value_deref(lhs->as_stack.values[rhs->as_number.as_int]);
     lhs->as_stack.values[rhs->as_number.as_int] = value;
-    value_dereference(lhs);
-    value_dereference(rhs);
+    value_deref(lhs);
+    value_deref(rhs);
 }
 
 static void stack_push(RaelValue stack, RaelValue value) {
@@ -235,18 +235,18 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
     switch (at_value->type) {
     case ValueTypeNumber:
         if (at_value->as_number.is_float) {
-            value_dereference(stack);
-            value_dereference(at_value);
+            value_deref(stack);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Float index is not allowed");
         }
         if (at_value->as_number.as_int < 0) {
-            value_dereference(stack);
-            value_dereference(at_value);
+            value_deref(stack);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "A negative index is not allowed");
         }
         if ((size_t)at_value->as_number.as_int >= stack->as_stack.length) {
-            value_dereference(stack);
-            value_dereference(at_value);
+            value_deref(stack);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
         }
 
@@ -259,22 +259,22 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
 
         // make sure range numbers are positive, -2 to 3 is not allowed
         if (start < 0 || end < 0) {
-            value_dereference(stack);
-            value_dereference(at_value);
+            value_deref(stack);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Negative range numbers for stack slicing are not allowed");
         }
 
         // make sure range direction is not negative
         if (end < start) {
-            value_dereference(stack);
-            value_dereference(at_value);
+            value_deref(stack);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Range start mustn't be smaller than its end when slicing a stack");
         }
 
         // make sure you are inside of the stack's boundaries
         if ((size_t)start > length || (size_t)end > length) {
-            value_dereference(stack);
-            value_dereference(at_value);
+            value_deref(stack);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Stack slicing out of range");
         }
 
@@ -285,8 +285,8 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
         interpreter_error(interpreter, at_expr->rhs->state, "Expected number or range");
     }
 
-    value_dereference(stack); // lhs
-    value_dereference(at_value); // rhs
+    value_deref(stack); // lhs
+    value_deref(at_value); // rhs
     return out_value;
 }
 
@@ -300,21 +300,21 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
     case ValueTypeRange:
         // make sure range numbers are positive, -2 to -3 is not allowed
         if (at_value->as_range.start < 0 || at_value->as_range.end < 0) {
-            value_dereference(string);
-            value_dereference(at_value);
+            value_deref(string);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Expected non-negative range numbers");
         }
         // make sure range direction is not negative, e.g 4 to 2
         if (at_value->as_range.end < at_value->as_range.start) {
-            value_dereference(string);
-            value_dereference(at_value);
+            value_deref(string);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Negative range direction for substrings is not allowed");
         }
         // make sure you are inside of the string's boundaries
         if ((size_t)at_value->as_range.start > string->as_string.length ||
             (size_t)at_value->as_range.end > string->as_string.length) {
-            value_dereference(string);
-            value_dereference(at_value);
+            value_deref(string);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Substring out of range");
         }
 
@@ -323,8 +323,8 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
     case ValueTypeNumber:
         value_verify_uint(interpreter, at_expr->rhs->state, at_value);
         if ((size_t)at_value->as_number.as_int >= string->as_string.length) {
-            value_dereference(string);
-            value_dereference(at_value);
+            value_deref(string);
+            value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
         }
 
@@ -334,8 +334,8 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
         interpreter_error(interpreter, at_expr->rhs->state, "Expected range or number");
     }
 
-    value_dereference(string);   // lhs
-    value_dereference(at_value); // rhs
+    value_deref(string);   // lhs
+    value_deref(at_value); // rhs
     return out_value;
 }
 
@@ -350,15 +350,15 @@ static RaelValue range_at(struct Interpreter* const interpreter, RaelValue range
     value_verify_uint(interpreter, at_expr->rhs->state, at_value);
 
     if ((size_t)at_value->as_number.as_int >= abs(range->as_range.end - range->as_range.start)) {
-        value_dereference(range);
-        value_dereference(at_value);
+        value_deref(range);
+        value_deref(at_value);
         interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
     }
 
     out_value = value_at_idx(range, at_value->as_number.as_int);
 
-    value_dereference(range);    // lhs
-    value_dereference(at_value); // rhs
+    value_deref(range);    // lhs
+    value_deref(at_value); // rhs
     return out_value;
 }
 
@@ -382,7 +382,7 @@ static RaelValue interpret_value_at(struct Interpreter* const interpreter, struc
     default: {
         // save state, dereference and error
         struct State state = expr->lhs->state;
-        value_dereference(lhs);
+        value_deref(lhs);
         interpreter_error(interpreter, state, "Expected string, stack or range on the left of 'at'");
     }
     }
@@ -397,12 +397,12 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
     struct Scope *prev_scope;
 
     if (maybe_routine->type != ValueTypeRoutine) {
-        value_dereference(maybe_routine);
+        value_deref(maybe_routine);
         interpreter_error(interpreter, state, "Call not possible on non-routine");
     }
 
     if (maybe_routine->as_routine.amount_parameters != call.arguments.amount_exprs) {
-        value_dereference(maybe_routine);
+        value_deref(maybe_routine);
         interpreter_error(interpreter, state, "Arguments don't match parameters");
     }
 
@@ -456,7 +456,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
     if (value_type == cast_type) {
         // because you reference the returned value as a new value
         // and deallocate the old one, even if it has the same address
-        ++value->reference_count;
+        value_ref(value);
         return value;
     }
 
@@ -563,7 +563,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
             // try to convert to an int
             if (value->as_string.length == (is_negative?1:0) ||
                 !number_from_string(value->as_string.value + is_negative, value->as_string.length - is_negative, &casted->as_number)) {
-                value_dereference(casted);
+                value_deref(casted);
                 interpreter_error(interpreter, value_state, "The string '%.*s' can't be parsed as a number",
                                   (int)value->as_string.length, value->as_string.value);
             }
@@ -627,15 +627,15 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 struct RaelStringValue string, new_string;
 
                 if (lhs->as_number.is_float) {
-                    value_dereference(lhs);
-                    value_dereference(rhs);
+                    value_deref(lhs);
+                    value_deref(rhs);
                     interpreter_error(interpreter, expr->lhs->state, "Expected a whole number");
                 }
 
                 number = lhs->as_number.as_int;
                 if (number < CHAR_MIN || number > CHAR_MAX) {
-                    value_dereference(lhs);
-                    value_dereference(rhs);
+                    value_deref(lhs);
+                    value_deref(rhs);
                     interpreter_error(interpreter, expr->lhs->state, "Number %d is not in ascii", number);
                 }
 
@@ -651,7 +651,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 value = value_create(ValueTypeString);
                 value->as_string = new_string;
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_add;
             }
         } else if (lhs->type == ValueTypeString) {
@@ -663,15 +663,15 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 struct RaelStringValue string, new_string;
 
                 if (rhs->as_number.is_float) {
-                    value_dereference(lhs);
-                    value_dereference(rhs);
+                    value_deref(lhs);
+                    value_deref(rhs);
                     interpreter_error(interpreter, expr->rhs->state, "Expected a whole number");
                 }
 
                 number = rhs->as_number.as_int;
                 if (number < CHAR_MIN || number > CHAR_MAX) {
-                    value_dereference(lhs);
-                    value_dereference(rhs);
+                    value_deref(lhs);
+                    value_deref(rhs);
                     interpreter_error(interpreter, expr->rhs->state, "Number %d is not in ascii", number);
                 }
 
@@ -687,17 +687,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 value = value_create(ValueTypeString);
                 value->as_string = new_string;
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_add;
             }
         } else {
         invalid_types_add:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (+) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
 
         break;
     case ExprTypeSub:
@@ -709,17 +709,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 value = value_create(ValueTypeNumber);
                 value->as_number = number_sub(lhs->as_number, rhs->as_number);
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_sub;
             }
         } else {
         invalid_types_sub:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (-) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
 
         break;
     case ExprTypeMul:
@@ -731,17 +731,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 value = value_create(ValueTypeNumber);
                 value->as_number = number_mul(lhs->as_number, rhs->as_number);
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_mul;
             }
         } else {
         invalid_types_mul:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (*) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
 
         break;
     case ExprTypeDiv:
@@ -755,17 +755,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                     interpreter_error(interpreter, expr->state, "Division by zero");
                 }
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_div;
             }
         } else {
         invalid_types_div:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (/) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
 
         break;
     case ExprTypeMod:
@@ -779,17 +779,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                     interpreter_error(interpreter, expr->state, "Division by zero");
                 }
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_mod;
             }
         } else {
         invalid_types_mod:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (%) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
 
         break;
     case ExprTypeEquals:
@@ -800,8 +800,8 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value->as_number.is_float = false;
         value->as_number.as_int = values_equal(lhs, rhs) ? 1 : 0;
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
         break;
     case ExprTypeSmallerThen:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -812,17 +812,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 value = value_create(ValueTypeNumber);
                 value->as_number = number_smaller(lhs->as_number, rhs->as_number);
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_smaller;
             }
         } else {
         invalid_types_smaller:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (<) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
         break;
     case ExprTypeBiggerThen:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -833,17 +833,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 value = value_create(ValueTypeNumber);
                 value->as_number = number_bigger(lhs->as_number, rhs->as_number);
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_bigger;
             }
         } else {
         invalid_types_bigger:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (>) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
         break;
     case ExprTypeSmallerOrEqual:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -854,17 +854,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 value = value_create(ValueTypeNumber);
                 value->as_number = number_smaller_eq(lhs->as_number, rhs->as_number);
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_smaller_eq;
             }
         } else {
         invalid_types_smaller_eq:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (<=) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
         break;
     case ExprTypeBiggerOrEqual:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -875,17 +875,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 value = value_create(ValueTypeNumber);
                 value->as_number = number_bigger_eq(lhs->as_number, rhs->as_number);
             } else {
-                value_dereference(rhs);
+                value_deref(rhs);
                 goto invalid_types_bigger_eq;
             }
         } else {
         invalid_types_bigger_eq:
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->state, "Invalid operation (>=) on types");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
         break;
     case ExprTypeRoutineCall:
         value = routine_call_eval(interpreter, expr->as_call, expr->state);
@@ -901,18 +901,18 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         // range
         case ValueTypeNumber:
             if (rhs->as_number.is_float) {
-                value_dereference(lhs);
-                value_dereference(rhs);
+                value_deref(lhs);
+                value_deref(rhs);
                 interpreter_error(interpreter, expr->rhs->state, "Float not allowed in range");
             }
 
             // validate that lhs is an int
             if (lhs->type != ValueTypeNumber) {
-                value_dereference(lhs);
+                value_deref(lhs);
                 interpreter_error(interpreter, expr->lhs->state, "Expected number");
             }
             if (lhs->as_number.is_float){
-                value_dereference(lhs);
+                value_deref(lhs);
                 interpreter_error(interpreter, expr->lhs->state, "Float not allowed in range");
             }
 
@@ -925,19 +925,19 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             value = value_cast(interpreter, lhs, rhs->as_type, expr->lhs->state);
             break;
         default:
-            value_dereference(lhs);
-            value_dereference(rhs);
+            value_deref(lhs);
+            value_deref(rhs);
             interpreter_error(interpreter, expr->rhs->state, "Expected number or type");
         }
 
-        value_dereference(lhs);
-        value_dereference(rhs);
+        value_deref(lhs);
+        value_deref(rhs);
         break;
     case ExprTypeRedirect:
         lhs = expr_eval(interpreter, expr->lhs, true);
 
         if (lhs->type != ValueTypeStack) {
-            value_dereference(lhs);
+            value_deref(lhs);
             interpreter_error(interpreter, expr->lhs->state, "Expected a stack value");
         }
 
@@ -950,7 +950,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         single = expr_eval(interpreter, expr->as_single, true);
 
         if (!value_is_iterable(single)) {
-            value_dereference(single);
+            value_deref(single);
             interpreter_error(interpreter, expr->as_single->state, "Unsupported type for 'sizeof' operation");
         }
 
@@ -960,20 +960,20 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
             .as_int = (int)value_get_length(single)
         };
 
-        value_dereference(single);
+        value_deref(single);
         break;
     case ExprTypeNeg: {
         RaelValue maybe_number = expr_eval(interpreter, expr->as_single, can_explode);
 
         if (maybe_number->type != ValueTypeNumber) {
-            value_dereference(maybe_number);
+            value_deref(maybe_number);
             interpreter_error(interpreter, expr->as_single->state, "Expected number");
         }
 
         value = value_create(ValueTypeNumber);
         value->as_number = number_neg(maybe_number->as_number);
 
-        value_dereference(maybe_number);
+        value_deref(maybe_number);
         break;
     }
     case ExprTypeBlame:
@@ -999,7 +999,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         default:
             RAEL_UNREACHABLE();
         }
-        ++value->reference_count;
+        value_ref(value);
         break;
     case ExprTypeAnd: {
         int result = 0;
@@ -1008,9 +1008,9 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         if (value_as_bool(lhs) == true) {
             rhs = expr_eval(interpreter, expr->rhs, true);
             result = value_as_bool(rhs) == true ? 1 : 0;
-            value_dereference(rhs);
+            value_deref(rhs);
         }
-        value_dereference(lhs);
+        value_deref(lhs);
 
         value = value_create(ValueTypeNumber);
         value->as_number.is_float = false;
@@ -1026,9 +1026,9 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         } else {
             rhs = expr_eval(interpreter, expr->rhs, true);
             result = value_as_bool(rhs) == true ? 1 : 0;
-            value_dereference(rhs);
+            value_deref(rhs);
         }
-        value_dereference(lhs);
+        value_deref(lhs);
 
         value = value_create(ValueTypeNumber);
         value->as_number.is_float = false;
@@ -1040,13 +1040,13 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
 
         value = value_create(ValueTypeType);
         value->as_type = single->type;
-        value_dereference(single);
+        value_deref(single);
         break;
     case ExprTypeGetString: {
         struct RaelStringValue string;
         single = expr_eval(interpreter, expr->as_single, true);
         value_log(single);
-        value_dereference(single);
+        value_deref(single);
         // this is a possible exit point so don't allocate
         // the value on the heap yet because it could leak
         string = rael_readline(interpreter, expr->state);
@@ -1070,7 +1070,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 block_run(interpreter, match_case.case_block);
                 matched = true;
             }
-            value_dereference(with_value);
+            value_deref(with_value);
         }
 
         // if you've matched nothing and there's an else case, run the else block
@@ -1089,7 +1089,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         }
 
         // deallocate the value it matched against because it has no use anymore
-        value_dereference(match_against);
+        value_deref(match_against);
         break;
     }
     default:
@@ -1108,12 +1108,12 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         printf("Error [%zu:%zu]: ", state.line, state.column);
         if (value->as_blame.value) {
             value_log(value->as_blame.value);
-            value_dereference(value->as_blame.value); // dereference
+            value_deref(value->as_blame.value); // dereference
         }
         printf("\n");
         rael_show_line_state(state);
         // dereference the blame value
-        value_dereference(value);
+        value_deref(value);
         interpreter_destroy_all(interpreter);
         exit(1);
     }
@@ -1135,11 +1135,11 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         RaelValue value;
         if (instruction->csv.amount_exprs > 0) {
             value_log((value = expr_eval(interpreter, instruction->csv.exprs[0], true)));
-            value_dereference(value);
+            value_deref(value);
             for (size_t i = 1; i < instruction->csv.amount_exprs; ++i) {
                 printf(" ");
                 value_log((value = expr_eval(interpreter, instruction->csv.exprs[i], true)));
-                value_dereference(value);
+                value_deref(value);
             }
         }
         printf("\n");
@@ -1149,7 +1149,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         for (size_t i = 0; i < instruction->csv.amount_exprs; ++i) {
             RaelValue value = expr_eval(interpreter, instruction->csv.exprs[i], true);
             value_log(value);
-            value_dereference(value);
+            value_deref(value);
         }
         break;
     }
@@ -1160,7 +1160,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         interpreter_push_scope(interpreter, &if_scope);
 
         if (value_as_bool((condition = expr_eval(interpreter, instruction->if_stat.condition, true)))) {
-            value_dereference(condition);
+            value_deref(condition);
             block_run(interpreter, instruction->if_stat.block);
         } else {
             switch (instruction->if_stat.else_type) {
@@ -1189,7 +1189,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
             RaelValue condition;
 
             while (value_as_bool((condition = expr_eval(interpreter, instruction->loop.while_condition, true)))) {
-                value_dereference(condition);
+                value_deref(condition);
                 block_run(interpreter, instruction->loop.block);
 
                 if (interpreter->interrupt == ProgramInterruptBreak) {
@@ -1208,7 +1208,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
             RaelValue iterator = expr_eval(interpreter, instruction->loop.iterate.expr, true);
 
             if (!value_is_iterable(iterator)) {
-                value_dereference(iterator);
+                value_deref(iterator);
                 interpreter_error(interpreter, instruction->loop.iterate.expr->state, "Expected an iterable");
             }
 
@@ -1252,7 +1252,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     }
     case InstructionTypePureExpr:
         // dereference result right after evaluation
-        value_dereference(expr_eval(interpreter, instruction->pure, true));
+        value_deref(expr_eval(interpreter, instruction->pure, true));
         break;
     case InstructionTypeReturn: {
         // if there is a return value, return it, and if there isn't, return a Void
@@ -1281,7 +1281,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
             interpreter_pop_scope(interpreter);
         }
 
-        value_dereference(caught_value);
+        value_deref(caught_value);
 
         break;
     }

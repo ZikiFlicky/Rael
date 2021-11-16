@@ -12,7 +12,7 @@ RaelValue value_create(enum ValueType type) {
     return value;
 }
 
-void value_dereference(RaelValue value) {
+void value_deref(RaelValue value) {
     --value->reference_count;
     if (value->reference_count == 0) {
         switch (value->type) {
@@ -20,7 +20,7 @@ void value_dereference(RaelValue value) {
             break;
         case ValueTypeStack:
             for (size_t i = 0; i < value->as_stack.length; ++i) {
-                value_dereference(value->as_stack.values[i]);
+                value_deref(value->as_stack.values[i]);
             }
             free(value->as_stack.values);
             break;
@@ -31,7 +31,7 @@ void value_dereference(RaelValue value) {
                     free(value->as_string.value);
                 break;
             case StringTypeSub:
-                value_dereference(value->as_string.reference_string);
+                value_deref(value->as_string.reference_string);
                 break;
             default:
                 RAEL_UNREACHABLE();
@@ -39,13 +39,17 @@ void value_dereference(RaelValue value) {
             break;
         case ValueTypeBlame:
             if (value->as_blame.value)
-                value_dereference(value->as_blame.value);
+                value_deref(value->as_blame.value);
             break;
         default:
             break;
         }
         free(value);
     }
+}
+
+void value_ref(RaelValue value) {
+    ++value->reference_count;
 }
 
 static char *value_type_to_string(enum ValueType type) {
@@ -253,7 +257,7 @@ RaelValue value_at_idx(RaelValue value, size_t idx) {
     switch (value->type) {
     case ValueTypeStack:
         out = value->as_stack.values[idx];
-        ++out->reference_count;
+        value_ref(out);
         break;
     case ValueTypeString:
         out = string_substr(value, idx, idx + 1);
@@ -292,7 +296,7 @@ RaelValue string_substr(RaelValue value, size_t start, size_t end) {
     default: RAEL_UNREACHABLE();
     }
 
-    ++substr.reference_string->reference_count;
+    value_ref(substr.reference_string);
 
     new_string = value_create(ValueTypeString);
     new_string->as_string = substr;
