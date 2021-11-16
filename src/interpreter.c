@@ -1156,12 +1156,26 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     case InstructionTypeIf: {
         struct Scope if_scope;
         RaelValue condition;
+        bool is_true;
 
         interpreter_push_scope(interpreter, &if_scope);
 
-        if (value_as_bool((condition = expr_eval(interpreter, instruction->if_stat.condition, true)))) {
-            value_deref(condition);
-            block_run(interpreter, instruction->if_stat.block);
+        // evaluate condition and see check it is true then dereference the condition
+        condition = expr_eval(interpreter, instruction->if_stat.condition, true);
+        is_true = value_as_bool(condition);
+        value_deref(condition);
+
+        if (is_true) {
+            switch(instruction->if_stat.if_type) {
+            case IfTypeBlock:
+                block_run(interpreter, instruction->if_stat.if_block);
+                break;
+            case IfTypeInstruction:
+                interpreter_interpret_inst(interpreter, instruction->if_stat.if_instruction);
+                break;
+            default:
+                RAEL_UNREACHABLE();
+            }
         } else {
             switch (instruction->if_stat.else_type) {
             case ElseTypeBlock:

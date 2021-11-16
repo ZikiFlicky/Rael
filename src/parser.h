@@ -110,8 +110,15 @@ enum InstructionType {
 };
 
 struct IfInstruction {
+    enum {
+        IfTypeBlock,
+        IfTypeInstruction
+    } if_type;
     struct Expr *condition;
-    struct Instruction **block;
+    union {
+        struct Instruction **if_block;
+        struct Instruction *if_instruction;
+    };
     enum {
         ElseTypeNone,
         ElseTypeBlock,

@@ -1,0 +1,22 @@
+if 69 = 69
+    log "lol!"
+else
+    log "wat"
+
+if 69 = 42
+    log "lol!"
+else
+    log "wat"
+
+if 699 = 2 {
+    log "how did we get here"
+} else 
+    log "we didn't"
+
+if 0
+    log 1
+else if 0
+    log 2
+else if 0
+    log 3
+else log "What do you want from me"

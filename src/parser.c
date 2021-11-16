@@ -1142,10 +1142,13 @@ static struct Instruction *parser_parse_instr_single(struct Parser* const parser
 static struct Instruction **parser_parse_block(struct Parser* const parser) {
     struct Instruction **block;
     size_t allocated, idx = 0;
+    struct State backtrack = lexer_dump_state(&parser->lexer);
 
     parser_maybe_expect_newline(parser);
-    if (!parser_match(parser, TokenNameLeftCur))
+    if (!parser_match(parser, TokenNameLeftCur)) {
+        lexer_load_state(&parser->lexer, backtrack);
         return NULL;
+    }
 
     parser_maybe_expect_newline(parser);
     block = malloc(((allocated = 32)+1) * sizeof(struct Instruction *));
@@ -1175,19 +1178,31 @@ static struct Instruction **parser_parse_block(struct Parser* const parser) {
 static struct Instruction *parser_parse_if_statement(struct Parser* const parser) {
     struct Instruction *inst;
     struct IfInstruction if_stat = {
-        .block = NULL,
-        .else_type = ElseTypeNone,
-        .condition = NULL
+        .else_type = ElseTypeNone
     };
 
     if (!parser_match(parser, TokenNameIf))
         return NULL;
 
     if (!(if_stat.condition = parser_parse_expr(parser)))
-        parser_error(parser, "Expected an expression after if keyword");
+        parser_error(parser, "No expression after if keyword");
 
-    if (!(if_stat.block = parser_parse_block(parser)))
-        parser_error(parser, "Expected block after if (expr)");
+    // try to parse a block
+    if ((if_stat.if_block = parser_parse_block(parser))) {
+        if_stat.if_type = IfTypeBlock;
+    } else {
+        // if you couldn't parse a block, try to parse a single instruction
+        if (!parser_maybe_expect_newline(parser)) {
+            expr_delete(if_stat.condition);
+            parser_error(parser, "No newline or block after 'if' statement");
+        }
+        if ((if_stat.if_instruction = parser_parse_instr(parser))) {
+            if_stat.if_type = IfTypeInstruction;
+        } else {
+            expr_delete(if_stat.condition);
+            parser_error(parser, "No block or instruction after 'if' statement");
+        }
+    }
 
     parser_maybe_expect_newline(parser);
 
@@ -1199,10 +1214,14 @@ static struct Instruction *parser_parse_if_statement(struct Parser* const parser
 
     if ((if_stat.else_block = parser_parse_block(parser))) {
         if_stat.else_type = ElseTypeBlock;
-    } else if ((if_stat.else_instruction = parser_parse_instr(parser))) {
-        if_stat.else_type = ElseTypeInstruction;
     } else {
-        parser_error(parser, "Expected a block or an instruction after 'else' keyword");
+        parser_maybe_expect_newline(parser);
+        if ((if_stat.else_instruction = parser_parse_instr(parser))) {
+           if_stat.else_type = ElseTypeInstruction;
+        } else {
+            expr_delete(if_stat.condition);
+            parser_error(parser, "Expected a block or an instruction after 'else' keyword");
+        }
     }
 
     parser_maybe_expect_newline(parser);
@@ -1432,7 +1451,18 @@ void instruction_delete(struct Instruction* const inst) {
     switch (inst->type) {
     case InstructionTypeIf:
         expr_delete(inst->if_stat.condition);
-        block_delete(inst->if_stat.block);
+        // remove the if statement part
+        switch (inst->if_stat.if_type) {
+        case IfTypeBlock:
+            block_delete(inst->if_stat.if_block);
+            break;
+        case IfTypeInstruction:
+            instruction_delete(inst->if_stat.if_instruction);
+            break;
+        default:
+            RAEL_UNREACHABLE();
+        }
+        // remove the else statement part
         switch (inst->if_stat.else_type) {
         case ElseTypeBlock:
             block_delete(inst->if_stat.else_block);

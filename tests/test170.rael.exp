@@ -1,0 +1,3 @@
+Error [1:12]: No newline or block after 'if' statement
+| if (1 + 2) log 2
+|            ^
