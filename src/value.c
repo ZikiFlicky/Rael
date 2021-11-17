@@ -66,7 +66,7 @@ static char *value_type_to_string(enum ValueType type) {
     }
 }
 
-void value_log_as_original(RaelValue value) {
+void value_repr(RaelValue value) {
     switch (value->type) {
     case ValueTypeNumber:
         if (value->as_number.is_float)
@@ -116,7 +116,7 @@ void value_log_as_original(RaelValue value) {
         for (size_t i = 0; i < value->as_stack.length; ++i) {
             if (i > 0)
                 printf(", ");
-            value_log_as_original(value->as_stack.values[i]);
+            value_repr(value->as_stack.values[i]);
         }
         printf(" }");
         break;
@@ -139,7 +139,7 @@ void value_log(RaelValue value) {
             putchar(value->as_string.value[i]);
         break;
     default:
-        value_log_as_original(value);
+        value_repr(value);
     }
 }
 

@@ -77,7 +77,7 @@ void value_deref(RaelValue value);
 
 void value_ref(RaelValue value);
 
-void value_log_as_original(RaelValue value);
+void value_repr(RaelValue value);
 
 void value_log(RaelValue value);
 
