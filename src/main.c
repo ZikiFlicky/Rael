@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Can't load string because a code stream was already loaded\n");
                 return 1;
             }
-            if (!(stream = arg))
+            if (!(stream = argv[i]))
                 return 0;
             filename = "<string>";
             on_heap = false;
