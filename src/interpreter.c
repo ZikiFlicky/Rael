@@ -153,80 +153,27 @@ static void value_verify_uint(struct Interpreter* const interpreter,
     }
 }
 
-static RaelValue stack_slice(RaelValue stack, size_t start, size_t end) {
-    RaelValue new_stack;
-    RaelValue *new_dump;
-    size_t length;
-
-    assert(stack->type == ValueTypeStack);
-    assert(end >= start);
-    assert(start <= stack->as_stack.length && end <= stack->as_stack.length);
-
-    new_dump = malloc((length = end - start) * sizeof(RaelValue));
-
-    for (size_t i = 0; i < length; ++i) {
-        RaelValue value = stack->as_stack.values[start + i];
-        value_ref(value);
-        new_dump[i] = value;
-    }
-
-    new_stack = value_create(ValueTypeStack);
-    new_stack->as_stack.allocated = length;
-    new_stack->as_stack.length = length;
-    new_stack->as_stack.values = new_dump;
-
-    return new_stack;
-}
-
-static void stack_set(struct Interpreter* const interpreter, struct Expr *expr, RaelValue value) {
-    RaelValue lhs, rhs;
+static void run_stack_set(struct Interpreter* const interpreter, struct Expr *expr, RaelValue value) {
+    RaelValue stack, idx;
 
     assert(expr->type == ExprTypeAt);
-    lhs = expr_eval(interpreter, expr->lhs, true);
-
-    if (lhs->type != ValueTypeStack) {
-        value_deref(lhs);
+    stack = expr_eval(interpreter, expr->lhs, true);
+    if (stack->type != ValueTypeStack) {
+        value_deref(stack);
         interpreter_error(interpreter, expr->lhs->state, "Expected stack on the left of 'at' when setting value");
     }
 
-    rhs = expr_eval(interpreter, expr->rhs, true);
+    idx = expr_eval(interpreter, expr->rhs, true);
+    value_verify_uint(interpreter, expr->rhs->state, idx);
 
-    value_verify_uint(interpreter, expr->rhs->state, rhs);
-
-    if ((size_t)rhs->as_number.as_int >= lhs->as_stack.length) {
-        value_deref(lhs);
-        value_deref(rhs);
+    if (!stack_set(stack, (size_t)idx->as_number.as_int, value)) {
+        value_deref(stack);
+        value_deref(idx);
         interpreter_error(interpreter, expr->rhs->state, "Index too big");
     }
-
-    value_deref(lhs->as_stack.values[rhs->as_number.as_int]);
-    lhs->as_stack.values[rhs->as_number.as_int] = value;
-    value_deref(lhs);
-    value_deref(rhs);
+    value_deref(stack);
+    value_deref(idx);
 }
-
-static void stack_push(RaelValue stack, RaelValue value) {
-    RaelValue *values;
-    size_t allocated, length;
-    assert(stack->type == ValueTypeStack);
-    values = stack->as_stack.values;
-    allocated = stack->as_stack.allocated;
-    length = stack->as_stack.length;
-
-    // allocate additional space for stack if there isn't enough
-    if (allocated == 0)
-        values = malloc((allocated = 16) * sizeof(RaelValue));
-    else if (length >= allocated)
-        values = realloc(values, (allocated += 16) * sizeof(RaelValue));
-    values[length++] = value;
-
-    stack->as_stack = (struct RaelStackValue) {
-        .values = values,
-        .allocated = allocated,
-        .length = length
-    };
-}
-
 static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack, struct Expr *at_expr) {
     RaelValue at_value, out_value;
 
@@ -245,20 +192,20 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
             value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "A negative index is not allowed");
         }
-        if ((size_t)at_value->as_number.as_int >= stack->as_stack.length) {
+        out_value = stack_get(stack, (size_t)at_value->as_number.as_int);
+        // if is out of range
+        if (!out_value) {
             value_deref(stack);
             value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
         }
-
-        out_value = value_at_idx(stack, at_value->as_number.as_int);
         break;
     case ValueTypeRange: {
         int start = at_value->as_range.start,
             end = at_value->as_range.end;
         size_t length = stack->as_stack.length;
 
-        // make sure range numbers are positive, -2 to 3 is not allowed
+        // make sure range numbers are positive, e.g -2 to 3 is not allowed
         if (start < 0 || end < 0) {
             value_deref(stack);
             value_deref(at_value);
@@ -280,9 +227,12 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
         }
 
         out_value = stack_slice(stack, (size_t)start, (size_t)end);
+        assert(out_value);
         break;
     }
     default:
+        value_deref(stack);
+        value_deref(at_value);
         interpreter_error(interpreter, at_expr->rhs->state, "Expected number or range");
     }
 
@@ -319,7 +269,7 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
             interpreter_error(interpreter, at_expr->rhs->state, "Substring out of range");
         }
 
-        out_value = string_substr(string, (size_t)at_value->as_range.start, (size_t)at_value->as_range.end);
+        out_value = string_slice(string, (size_t)at_value->as_range.start, (size_t)at_value->as_range.end);
         break;
     case ValueTypeNumber:
         value_verify_uint(interpreter, at_expr->rhs->state, at_value);
@@ -329,7 +279,7 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
             interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
         }
 
-        out_value = value_at_idx(string, at_value->as_number.as_int);
+        out_value = value_get(string, (size_t)at_value->as_number.as_int);
         break;
     default:
         interpreter_error(interpreter, at_expr->rhs->state, "Expected range or number");
@@ -356,14 +306,14 @@ static RaelValue range_at(struct Interpreter* const interpreter, RaelValue range
         interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
     }
 
-    out_value = value_at_idx(range, at_value->as_number.as_int);
+    out_value = value_get(range, at_value->as_number.as_int);
 
     value_deref(range);    // lhs
     value_deref(at_value); // rhs
     return out_value;
 }
 
-static RaelValue interpret_value_at(struct Interpreter* const interpreter, struct Expr *expr) {
+static RaelValue value_at(struct Interpreter* const interpreter, struct Expr *expr) {
     RaelValue lhs, value;
 
     assert(expr->type == ExprTypeAt);
@@ -437,26 +387,12 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
     return interpreter->returned_value;
 }
 
-static char *type_to_string(enum ValueType type) {
-    switch (type) {
-    case ValueTypeVoid: return "VoidType";
-    case ValueTypeNumber: return "Number";
-    case ValueTypeString: return "String";
-    case ValueTypeRoutine: return "Routine";
-    case ValueTypeStack: return "Stack";
-    case ValueTypeRange: return "Range";
-    case ValueTypeType: return "Type";
-    default: RAEL_UNREACHABLE();
-    }
-}
-
 static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue value, enum ValueType cast_type, struct State value_state) {
     RaelValue casted;
     enum ValueType value_type = value->type;
 
     if (value_type == cast_type) {
-        // because you reference the returned value as a new value
-        // and deallocate the old one, even if it has the same address
+        // add reference because it is returned
         value_ref(value);
         return value;
     }
@@ -551,9 +487,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
         switch (value->type) {
         case ValueTypeVoid: // from void
             casted = value_create(ValueTypeNumber);
-            casted->as_number = (struct RaelNumberValue) {
-                .as_int = 0
-            };
+            casted->as_number = number_newi(0);
             break;
         case ValueTypeString: { // from string
             bool is_negative = false;
@@ -569,7 +503,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
                                   (int)value->as_string.length, value->as_string.value);
             }
             if (is_negative)
-                casted->as_number = number_mul(casted->as_number, (struct RaelNumberValue) { .as_int = -1 });
+                casted->as_number = number_mul(casted->as_number, number_newi(-1));
             break;
         }
         default:
@@ -583,9 +517,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
             casted->as_stack = (struct RaelStackValue) {};
             for (size_t i = 0; i < value->as_string.length; ++i) {
                 RaelValue char_value = value_create(ValueTypeNumber);
-                char_value->as_number = (struct RaelNumberValue) {
-                    .as_int = (int)value->as_string.value[i]
-                };
+                char_value->as_number = number_newi((int)value->as_string.value[i]);
                 stack_push(casted, char_value);
             }
             break;
@@ -600,7 +532,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
     return casted;
 invalid_cast:
     interpreter_error(interpreter, value_state, "Cannot cast value of type '%s' to a value of type '%s'",
-                      type_to_string(value_type), type_to_string(cast_type));
+                      value_type_to_string(value_type), value_type_to_string(cast_type));
     RAEL_UNREACHABLE();
 }
 
@@ -892,7 +824,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value = routine_call_eval(interpreter, expr->as_call, expr->state);
         break;
     case ExprTypeAt:
-        value = interpret_value_at(interpreter, expr);
+        value = value_at(interpreter, expr);
         break;
     case ExprTypeTo:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -956,10 +888,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         }
 
         value = value_create(ValueTypeNumber);
-        value->as_number = (struct RaelNumberValue) {
-            .is_float = false,
-            .as_int = (int)value_get_length(single)
-        };
+        value->as_number = number_newi((int)value_get_length(single));
 
         value_deref(single);
         break;
@@ -990,7 +919,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         switch (expr->as_set.set_type) {
         case SetTypeAtExpr: {
             value = expr_eval(interpreter, expr->as_set.expr, true);
-            stack_set(interpreter, expr->as_set.as_at_stat, value);
+            run_stack_set(interpreter, expr->as_set.as_at_stat, value);
             break;
         }
         case SetTypeKey:
@@ -1229,7 +1158,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
 
             // calculate length every time because stacks can always grow
             for (size_t i = 0; i < value_get_length(iterator); ++i) {
-                scope_set(interpreter->scope, instruction->loop.iterate.key, value_at_idx(iterator, i));
+                scope_set(interpreter->scope, instruction->loop.iterate.key, value_get(iterator, i));
                 block_run(interpreter, instruction->loop.block);
 
                 if (interpreter->interrupt == ProgramInterruptBreak) {

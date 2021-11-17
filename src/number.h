@@ -13,6 +13,10 @@ struct RaelNumberValue {
     };
 };
 
+struct RaelNumberValue number_newi(int i);
+
+struct RaelNumberValue number_newf(double f);
+
 struct RaelNumberValue number_add(struct RaelNumberValue a, struct RaelNumberValue b);
 
 struct RaelNumberValue number_sub(struct RaelNumberValue a, struct RaelNumberValue b);
@@ -34,6 +38,8 @@ struct RaelNumberValue number_bigger(struct RaelNumberValue a, struct RaelNumber
 struct RaelNumberValue number_smaller_eq(struct RaelNumberValue a, struct RaelNumberValue b);
 
 struct RaelNumberValue number_bigger_eq(struct RaelNumberValue a, struct RaelNumberValue b);
+
+bool number_as_bool(struct RaelNumberValue n);
 
 bool number_from_string(char *string, size_t length, struct RaelNumberValue *out_number);
 

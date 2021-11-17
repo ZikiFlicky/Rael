@@ -4,6 +4,7 @@
 #include "common.h"
 #include "number.h"
 #include "string.h"
+#include "stack.h"
 
 #include <stddef.h>
 
@@ -26,11 +27,6 @@ struct RaelRangeValue {
     int start, end;
 };
 
-struct RaelStackValue {
-    RaelValue *values;
-    size_t length, allocated;
-};
-
 struct RaelBlameValue {
     RaelValue value;
     struct State original_place;
@@ -41,19 +37,6 @@ struct RaelRoutineValue {
     char **parameters;
     size_t amount_parameters;
     struct Instruction **block;
-};
-
-struct RaelStringValue {
-    enum {
-        StringTypePure,
-        StringTypeSub
-    } type;
-    char *value;
-    size_t length;
-    union {
-        bool does_reference_ast;
-        RaelValue reference_string;
-    };
 };
 
 // the dynamic value abstraction layer
@@ -83,16 +66,16 @@ void value_log(RaelValue value);
 
 bool value_as_bool(const RaelValue value);
 
-bool values_equal(const RaelValue lhs, const RaelValue rhs);
+bool values_equal(const RaelValue value, const RaelValue value2);
 
 bool value_is_iterable(RaelValue value);
 
 size_t value_get_length(RaelValue value);
 
-RaelValue value_at_idx(RaelValue value, size_t idx);
+RaelValue value_get(RaelValue value, size_t idx);
 
-RaelValue string_substr(RaelValue value, size_t start, size_t end);
+RaelValue range_get(RaelValue range, size_t idx);
 
-RaelValue string_plus_string(RaelValue lhs, RaelValue rhs);
+char *value_type_to_string(enum ValueType type);
 
 #endif

@@ -4,52 +4,53 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-static inline double number_as_float(struct RaelNumberValue n) {
+/* number to float */
+static inline double number_to_float(struct RaelNumberValue n) {
     return n.is_float ? n.as_float : (double)n.as_int;
 }
 
+/* create a new int number value with the value i */
+struct RaelNumberValue number_newi(int i) {
+    return (struct RaelNumberValue) {
+        .is_float = false,
+        .as_int = i
+    };
+}
+
+/* create a new float number value with the value f */
+struct RaelNumberValue number_newf(double f) {
+    return (struct RaelNumberValue) {
+        .is_float = true,
+        .as_float = f
+    };
+}
+
 struct RaelNumberValue number_add(struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
-    if (a.is_float || b.is_float) {
-        res.is_float = true;
-        res.as_float = number_as_float(a) + number_as_float(b);
-    } else {
-        res.is_float = false;
-        res.as_int = a.as_int + b.as_int;
-    }
-    return res;
+    if (a.is_float || b.is_float)
+        return number_newf(number_to_float(a) + number_to_float(b));
+    else
+        return number_newi(a.as_int + b.as_int);
 }
 
 struct RaelNumberValue number_sub(struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
-    if (a.is_float || b.is_float) {
-        res.is_float = true;
-        res.as_float = number_as_float(a) - number_as_float(b);
-    } else {
-        res.is_float = false;
-        res.as_int = a.as_int - b.as_int;
-    }
-    return res;
+    if (a.is_float || b.is_float)
+        return number_newf(number_to_float(a) - number_to_float(b));
+    else
+        return number_newi(a.as_int - b.as_int);
 }
 
 struct RaelNumberValue number_mul(struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
-    if (a.is_float || b.is_float) {
-        res.is_float = true;
-        res.as_float = number_as_float(a) * number_as_float(b);
-    } else {
-        res.is_float = false;
-        res.as_int = a.as_int * b.as_int;
-    }
-    return res;
+    if (a.is_float || b.is_float)
+        return number_newf(number_to_float(a) * number_to_float(b));
+    else
+        return number_newi(a.as_int * b.as_int);
 }
 
 bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out) {
     if (a.is_float || b.is_float) {
-        if (number_as_float(b) == 0.f)
+        if (number_to_float(b) == 0.f)
             return false;
-        out->is_float = true;
-        out->as_float = number_as_float(a) / number_as_float(b);
+        *out = number_newf(number_to_float(a) / number_to_float(b));
     } else {
         div_t division;
 
@@ -57,11 +58,9 @@ bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelN
             return false;
         division = div(a.as_int, b.as_int);
         if (division.rem == 0) {
-            out->is_float = false;
-            out->as_int = division.quot;
+            *out = number_newi(division.quot);
         } else {
-            out->is_float = true;
-            out->as_float = (double)a.as_int / (double)b.as_int;
+            *out = number_newf(number_to_float(a) / number_to_float(b));
         }
     }
     return true;
@@ -69,81 +68,64 @@ bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelN
 
 bool number_mod(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out) {
     if (a.is_float || b.is_float) {
-        if (number_as_float(b) == 0.f)
+        if (number_to_float(b) == 0.f)
             return false;
-        out->is_float = true;
-        out->as_float = fmod(number_as_float(a), number_as_float(b));
+        *out = number_newf(fmod(number_to_float(a), number_to_float(b)));
     } else {
         if (b.as_int == 0)
             return false;
-        out->is_float = false;
-        out->as_int = a.as_int % b.as_int;
+        *out = number_newi(a.as_int % b.as_int);
     }
     return true;
 }
 
 struct RaelNumberValue number_neg(struct RaelNumberValue n) {
-    if (n.is_float) {
-        n.as_float = -n.as_float;
-    } else {
-        n.as_int = -n.as_int;
-    }
-    return n;
+    if (n.is_float)
+        return number_newf(-n.as_float);
+    else
+        return number_newi(-n.as_int);
 }
 
 struct RaelNumberValue number_eq(struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
-    res.is_float = false;
-    if (a.is_float || b.is_float) {
-        res.as_int = number_as_float(a) == number_as_float(b);
-    } else {
-        res.as_int = a.as_int == b.as_int;
-    }
-    return res;
+    if (a.is_float || b.is_float)
+        return number_newi(number_to_float(a) == number_to_float(b));
+    else
+        return number_newi(a.as_int == b.as_int);
 }
 
 struct RaelNumberValue number_smaller(struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
-    res.is_float = false;
-    if (a.is_float || b.is_float) {
-        res.as_int = number_as_float(a) < number_as_float(b);
-    } else {
-        res.as_int = a.as_int < b.as_int;
-    }
-    return res;
+    if (a.is_float || b.is_float)
+        return number_newi(number_to_float(a) < number_to_float(b));
+    else
+        return number_newi(a.as_int < b.as_int);
 }
 
 struct RaelNumberValue number_bigger(struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
-    res.is_float = false;
-    if (a.is_float || b.is_float) {
-        res.as_int = number_as_float(a) > number_as_float(b);
-    } else {
-        res.as_int = a.as_int > b.as_int;
-    }
-    return res;
+    if (a.is_float || b.is_float)
+        return number_newi(number_to_float(a) > number_to_float(b));
+    else
+        return number_newi(a.as_int > b.as_int);
 }
 
 struct RaelNumberValue number_smaller_eq(struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
-    res.is_float = false;
-    if (a.is_float || b.is_float) {
-        res.as_int = number_as_float(a) <= number_as_float(b);
-    } else {
-        res.as_int = a.as_int <= b.as_int;
-    }
-    return res;
+    if (a.is_float || b.is_float)
+        return number_newi(number_to_float(a) <= number_to_float(b));
+    else
+        return number_newi(a.as_int <= b.as_int);
 }
 
 struct RaelNumberValue number_bigger_eq(struct RaelNumberValue a, struct RaelNumberValue b) {
-    struct RaelNumberValue res;
-    res.is_float = false;
-    if (a.is_float || b.is_float) {
-        res.as_int = number_as_float(a) >= number_as_float(b);
-    } else {
-        res.as_int = a.as_int >= b.as_int;
-    }
-    return res;
+    if (a.is_float || b.is_float)
+        return number_newi(number_to_float(a) >= number_to_float(b));
+    else
+        return number_newi(a.as_int >= b.as_int);
+}
+
+bool number_as_bool(struct RaelNumberValue n) {
+    if (n.is_float)
+        return n.as_float != 0.f;
+    else
+        return n.as_int != 0;
 }
 
 bool number_from_string(char *string, size_t length, struct RaelNumberValue *out_number) {
@@ -183,15 +165,9 @@ bool number_from_string(char *string, size_t length, struct RaelNumberValue *out
     }
 
     if (is_float) {
-        *out_number = (struct RaelNumberValue) {
-            .is_float = true,
-            .as_float = (double)decimal + fractional
-        };
+        *out_number = number_newf((double)decimal + fractional);
     } else {
-        *out_number = (struct RaelNumberValue) {
-            .is_float = false,
-            .as_int = decimal
-        };
+        *out_number = number_newi(decimal);
     }
 
     return true;
