@@ -59,7 +59,7 @@ static bool lexer_clean(struct Lexer* const lexer) {
 }
 
 static bool lexer_match_keyword(struct Lexer* const lexer, const char* const keyword,
-                                const size_t length, const enum TokenName name) {
+                                 const size_t length, const enum TokenName name) {
     if (strncmp(lexer->stream, keyword, length) == 0 && !is_identifier_char(lexer->stream[length])) {
         lexer->token.name = name;
         lexer->token.string = lexer->stream;
@@ -286,78 +286,40 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         ++lexer->column;
         return true;
     }
-    // try to tokenize `log`
-    if (lexer_match_keyword(lexer, "log", 3, TokenNameLog))
-        return true;
-    // try to tokenize `routine`
-    if (lexer_match_keyword(lexer, "routine", 7, TokenNameRoutine))
-        return true;
-    // try to tokenize `if`
-    if (lexer_match_keyword(lexer, "if", 2, TokenNameIf))
-        return true;
-    // try to tokenize `else`
-    if (lexer_match_keyword(lexer, "else", 4, TokenNameElse))
-        return true;
-    // try to tokenize `loop`
-    if (lexer_match_keyword(lexer, "loop", 4, TokenNameLoop))
-        return true;
-    // try to tokenize `token`
-    if (lexer_match_keyword(lexer, "Void", 4, TokenNameVoid))
-        return true;
-    // try to tokenize `at`
-    if (lexer_match_keyword(lexer, "at", 2, TokenNameAt))
-        return true;
-    // try to tokenize `sizeof`
-    if (lexer_match_keyword(lexer, "sizeof", 6, TokenNameSizeof))
-        return true;
-    // try to tokenize `typeof`
-    if (lexer_match_keyword(lexer, "typeof", 6, TokenNameTypeof))
-        return true;
-    // try to tokenize `through`
-    if (lexer_match_keyword(lexer, "through", 7, TokenNameThrough))
-        return true;
-    // try to tokenize `to`
-    if (lexer_match_keyword(lexer, "to", 2, TokenNameTo))
-        return true;
-    // try to tokenize `blame`
-    if (lexer_match_keyword(lexer, "blame", 5, TokenNameBlame))
-        return true;
-    // try to tokenize `catch`
-    if (lexer_match_keyword(lexer, "catch", 5, TokenNameCatch))
-        return true;
-    // try to tokenize `with`
-    if (lexer_match_keyword(lexer, "with", 4, TokenNameWith))
-        return true;
-    // try to tokenize `show`
-    if (lexer_match_keyword(lexer, "show", 4, TokenNameShow))
-        return true;
-    // try to tokenize `Number`
-    if (lexer_match_keyword(lexer, "Number", 6, TokenNameTypeNumber))
-        return true;
-    // try to tokenize `String`
-    if (lexer_match_keyword(lexer, "String", 6, TokenNameTypeString))
-        return true;
-    // try to tokenize `Routine`
-    if (lexer_match_keyword(lexer, "Routine", 7, TokenNameTypeRoutine))
-        return true;
-    // try to tokenize `Stack`
-    if (lexer_match_keyword(lexer, "Stack", 5, TokenNameTypeStack))
-        return true;
-    // try to tokenize `Range`
-    if (lexer_match_keyword(lexer, "Range", 5, TokenNameTypeRange))
-        return true;
-    // try to tokenize `getstring`
-    if (lexer_match_keyword(lexer, "getstring", 9, TokenNameGetString))
-        return true;
-    // try to tokenize `match`
-    if (lexer_match_keyword(lexer, "match", 5, TokenNameMatch))
-        return true;
-    // try to tokenize `skip`
-    if (lexer_match_keyword(lexer, "skip", 4, TokenNameSkip))
-        return true;
-    // try to tokenize `break`
-    if (lexer_match_keyword(lexer, "break", 5, TokenNameBreak))
-        return true;
+
+#define ADD_KEYWORD(keyword, token_name)                                                         \
+        do {                                                                                     \
+            if (lexer_match_keyword(lexer, keyword, sizeof(keyword)/sizeof(char)-1, token_name)) \
+                return true;                                                                     \
+        } while (0)
+    // try to lex keywords
+    ADD_KEYWORD("log", TokenNameLog);
+    ADD_KEYWORD("routine", TokenNameRoutine);
+    ADD_KEYWORD("if", TokenNameIf);
+    ADD_KEYWORD("else", TokenNameElse);
+    ADD_KEYWORD("loop", TokenNameLoop);
+    ADD_KEYWORD("Void", TokenNameVoid);
+    ADD_KEYWORD("at", TokenNameAt);
+    ADD_KEYWORD("sizeof", TokenNameSizeof);
+    ADD_KEYWORD("typeof", TokenNameTypeof);
+    ADD_KEYWORD("through", TokenNameThrough);
+    ADD_KEYWORD("to", TokenNameTo);
+    ADD_KEYWORD("blame", TokenNameBlame);
+    ADD_KEYWORD("catch", TokenNameCatch);
+    ADD_KEYWORD("with", TokenNameWith);
+    ADD_KEYWORD("show", TokenNameShow);
+    ADD_KEYWORD("Number", TokenNameTypeNumber);
+    ADD_KEYWORD("String", TokenNameTypeString);
+    ADD_KEYWORD("Routine", TokenNameTypeRoutine);
+    ADD_KEYWORD("Stack", TokenNameTypeStack);
+    ADD_KEYWORD("Range", TokenNameTypeRange);
+    ADD_KEYWORD("getstring", TokenNameGetString);
+    ADD_KEYWORD("match", TokenNameMatch);
+    ADD_KEYWORD("skip", TokenNameSkip);
+    ADD_KEYWORD("break", TokenNameBreak);
+#undef ADD_KEYWORD
+
+    // if you couldn't match any token, error
     lexer_error(lexer, "Unrecognized token");
     return false;
 }
