@@ -1,1 +1,4 @@
 log "thing" at 3
+log { "thing" at 5 }
+log { "thing" at sizeof("thing") }
+log sizeof("thing" at 5)

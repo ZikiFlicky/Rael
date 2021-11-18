@@ -273,13 +273,12 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
         break;
     case ValueTypeNumber:
         value_verify_uint(interpreter, at_expr->rhs->state, at_value);
-        if ((size_t)at_value->as_number.as_int >= string->as_string.length) {
+        out_value = value_get(string, (size_t)at_value->as_number.as_int);
+        if (!out_value) {
             value_deref(string);
             value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
         }
-
-        out_value = value_get(string, (size_t)at_value->as_number.as_int);
         break;
     default:
         interpreter_error(interpreter, at_expr->rhs->state, "Expected range or number");
