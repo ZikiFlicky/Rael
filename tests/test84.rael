@@ -1,1 +1,2 @@
 log sizeof("string")
+log sizeof Void

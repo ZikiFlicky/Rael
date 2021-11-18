@@ -882,13 +882,16 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
     case ExprTypeSizeof:
         single = expr_eval(interpreter, expr->as_single, true);
 
-        if (!value_is_iterable(single)) {
+        if (value_is_iterable(single)) {
+            value = value_create(ValueTypeNumber);
+            value->as_number = number_newi((int)value_get_length(single));
+        } else if (single->type == ValueTypeVoid) {
+            value = value_create(ValueTypeNumber);
+            value->as_number = number_newi(0);
+        } else {
             value_deref(single);
             interpreter_error(interpreter, expr->as_single->state, "Unsupported type for 'sizeof' operation");
         }
-
-        value = value_create(ValueTypeNumber);
-        value->as_number = number_newi((int)value_get_length(single));
 
         value_deref(single);
         break;
