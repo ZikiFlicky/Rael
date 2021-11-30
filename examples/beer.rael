@@ -1,9 +1,9 @@
-:99bottles routine() {
-    :bottle 99
+:99bottles ?= routine() {
+    :bottle ?= 99
     loop :bottle > 1 {
         log :bottle, " bottles of beer on the wall,", :bottle, "bottles of beer"
         log "Take one down and pass it around,", :bottle - 1, "bottles of beer on the wall"
-        :bottle :bottle - 1
+        :bottle ?= :bottle - 1
     }
     log "1 bottle of beer on the wall, 1 bottle of beer"
     log "Take one down and pass it around, no bottles of beer on the wall"

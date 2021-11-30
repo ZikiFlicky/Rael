@@ -1,11 +1,11 @@
-:fizbuzz routine(:times) {
+:fizbuzz ?= routine(:times) {
     loop :1 through 1 to (:times + 1) {
-        :to_print ""
+        :to_print ?= ""
         if :1 % 3 = 0 {
-            :to_print :to_print + "fizz"
+            :to_print ?= :to_print + "fizz"
         }
         if :1 % 5 = 0 {
-            :to_print :to_print + "buzz"
+            :to_print ?= :to_print + "buzz"
         }
         if :to_print {
             log :to_print

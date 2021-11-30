@@ -1,27 +1,24 @@
 %% Brainfuck, implemented in Rael
-:input getstring("Enter brainfuck code: ")
-:tape_size 128
+:input ?= getstring("Enter brainfuck code: ")
+:tape_size ?= 128
 
-:i 0
-:tape { }
-:tape_idx 0
+:i ?= 0
+:tape ?= { }
+:tape_idx ?= 0
 
-:input_stream ""
+:input_stream ?= ""
 
-routine() {
-    :n :tape_size
-    loop :n {
-        :tape << 0
-        :n :n - 1
-    }
-}()
+%% Generate the tape
+loop :0 through 0 to :tape_size {
+    :tape << 0
+}
 
-:parse routine() {
+:parse ?= routine() {
     if :i > sizeof(:input) - 1
         ^ blame "Parse out of range"
-    :c :input at :i
+    :c ?= :input at :i
 
-    :out match :c {
+    :out ?= match :c {
     with ">" {
         ^{"TapeRight"}
     }
@@ -35,8 +32,8 @@ routine() {
         ^{"Sub"}
     }
     with "[" {
-        :i :i + 1
-        :instructions {}
+        :i ?= :i + 1
+        :instructions ?= {}
 
         loop {
             if :i > sizeof(:input) - 1 {
@@ -45,7 +42,7 @@ routine() {
                 ^{"Loop", :instructions}
             } else {
                 %% try to parse
-                :instruction :parse()
+                :instruction ?= :parse()
                 if :instruction {
                     :instructions << :instruction
                 }
@@ -62,36 +59,33 @@ routine() {
         ^{"Get"}
     }
     }
-    :i :i + 1
+    :i ?= :i + 1
     ^:out
 }
 
-:run_instruction routine(:instruction) {
+:run_instruction ?= routine(:instruction) {
     ^match :instruction at 0 {
     with "TapeRight" {
         if :tape_idx = :tape_size - 1
             ^blame "Can't move right when on the rightmost tape block"
-        :tape_idx :tape_idx + 1
+        :tape_idx ?= :tape_idx + 1
     }
     with "TapeLeft" {
         if :tape_idx = 0
             ^blame "Can't move left when on the leftmost tape block"
-        :tape_idx :tape_idx - 1
+        :tape_idx ?= :tape_idx - 1
     }
     with "Add" {
         if :tape at :tape_idx = 127
-            :tape at :tape_idx 0-128
+            :tape at :tape_idx ?= -128
         else
-            :tape at :tape_idx 1 + (:tape at :tape_idx)
+            :tape at :tape_idx ?= (:tape at :tape_idx) + 1
     }
     with "Sub" {
-        if :tape at :tape_idx = -128 {
-            :tape at :tape_idx 127
-        } else {
-            :new_tape_value :tape at :tape_idx
-            :new_tape_value :new_tape_value - 1
-            :tape at :tape_idx :new_tape_value
-        }
+        if :tape at :tape_idx = -128
+            :tape at :tape_idx ?= 127
+        else
+            :tape at :tape_idx ?= (:tape at :tape_idx) - 1
     }
     with "Loop" {
         loop :tape at :tape_idx {
@@ -105,10 +99,10 @@ routine() {
     }
     with "Get" {
         if sizeof(:input_stream) = 0
-            :input_stream :input_stream + getstring("") + "\n"
+            :input_stream ?= :input_stream + getstring("") + "\n"
 
-        :tape at :tape_idx :input_stream to Stack at 0
-        :input_stream :input_stream at (1 to sizeof(:input_stream))
+        :tape at :tape_idx ?= ((:input_stream at 0) to Stack) at 0
+        :input_stream ?= :input_stream at (1 to sizeof(:input_stream))
     }
     else {
         ^blame "Unexpected instruction"
@@ -116,14 +110,14 @@ routine() {
     }
 }
 
-:parse_all routine() {
-    :instructions {}
+:parse_all ?= routine() {
+    :instructions ?= {}
 
     loop {
         if :i > sizeof(:input) - 1 {
             break
         } else {
-            :instruction :parse()
+            :instruction ?= :parse()
             if :instruction
                 :instructions << :instruction
         }
@@ -132,8 +126,8 @@ routine() {
     ^:instructions
 }
 
-:run_all routine() {
-    :all_instructions :parse_all()
+:run_all ?= routine() {
+    :all_instructions ?= :parse_all()
 
     loop :instruction through :all_instructions {
         :run_instruction(:instruction)
