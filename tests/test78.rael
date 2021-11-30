@@ -1,2 +1,2 @@
-:array { "I'll", "see", "you", "on", "the", "dark", "side" }
+:array ?= { "I'll", "see", "you", "on", "the", "dark", "side" }
 log (:array at 1) + (:array at (9 - 7))

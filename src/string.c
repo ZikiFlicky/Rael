@@ -8,11 +8,17 @@ static RaelValue string_new_pure(char *strptr, size_t length) {
     RaelValue string = value_create(ValueTypeString);
     string->as_string = (struct RaelStringValue) {
         .type = StringTypePure,
-        .does_reference_ast = false,
+        .can_be_freed = false,
         .value = strptr,
         .length = length
     };
     return string;
+}
+
+RaelValue string_new_pure_alloc(char *strptr, size_t length) {
+    char *allocated = malloc(length * sizeof(char));
+    memcpy(allocated, strptr, length * sizeof(char));
+    return string_new_pure(allocated, length);
 }
 
 /* get length of a string */
@@ -91,4 +97,44 @@ RaelValue string_plus_string(RaelValue string, RaelValue string2) {
     // create the new string object
     new_string = string_new_pure(strptr, length);
     return new_string;
+}
+
+void stringvalue_delete(struct RaelStringValue *string) {
+    switch (string->type) {
+    case StringTypePure:
+        if (!string->can_be_freed && string->length)
+            free(string->value);
+        break;
+    case StringTypeSub:
+        value_deref(string->reference_string);
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+}
+
+void stringvalue_repr(struct RaelStringValue *string) {
+    putchar('"');
+    for (size_t i = 0; i < string->length; ++i) {
+        switch (string->value[i]) {
+        case '\n':
+            printf("\\n");
+            break;
+        case '\r':
+            printf("\\r");
+            break;
+        case '\t':
+            printf("\\t");
+            break;
+        case '"':
+            printf("\\\"");
+            break;
+        case '\\':
+            printf("\\\\");
+            break;
+        default:
+            putchar(string->value[i]);
+        }
+    }
+    putchar('"');
 }

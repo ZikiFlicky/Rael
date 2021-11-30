@@ -5,6 +5,7 @@
 #include "number.h"
 #include "string.h"
 #include "stack.h"
+#include "module.h"
 
 #include <stddef.h>
 
@@ -20,7 +21,9 @@ enum ValueType {
     ValueTypeStack,
     ValueTypeRange,
     ValueTypeBlame,
-    ValueTypeType
+    ValueTypeType,
+    ValueTypeCFunc,
+    ValueTypeModule
 };
 
 struct RaelRangeValue {
@@ -51,6 +54,8 @@ struct RaelValue {
         struct RaelRangeValue as_range;
         struct RaelBlameValue as_blame;
         enum ValueType as_type;
+        struct RaelExternalCFuncValue as_cfunc;
+        struct RaelModuleValue as_module;
     };
 };
 
@@ -75,6 +80,12 @@ size_t value_get_length(RaelValue value);
 RaelValue value_get(RaelValue value, size_t idx);
 
 RaelValue range_get(RaelValue range, size_t idx);
+
+size_t range_get_length(RaelValue range);
+
+RaelValue blame_no_state_new(RaelValue value);
+
+void blamevalue_delete(struct RaelBlameValue *blame);
 
 char *value_type_to_string(enum ValueType type);
 

@@ -1,5 +1,5 @@
-:a routine() {
+:a ?= routine() {
     log 2
 }
 
-:b :a()
+:b ?= :a()

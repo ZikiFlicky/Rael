@@ -36,10 +36,14 @@ static inline bool is_identifier_char(const char c) {
     return isalnum(c) || c == '_';
 }
 
+static inline bool is_whitespace(char c) {
+    return c == ' ' || c == '\t';
+}
+
 static bool lexer_clean(struct Lexer* const lexer) {
     bool cleaned = false;
-    while (true) {
-        if (lexer->stream[0] == ' ' || lexer->stream[0] == '\t') {
+    for (;;) {
+        if (is_whitespace(lexer->stream[0])) {
             cleaned = true;
             ++lexer->stream;
             ++lexer->column;
@@ -150,6 +154,14 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         }
         ++lexer->stream;
         ++lexer->column;
+        return true;
+    }
+    if (lexer->stream[0] == '?' && lexer->stream[1] == '=') {
+        lexer->token.name = TokenNameQuestionEquals;
+        lexer->token.length = 2;
+        lexer->token.string = lexer->stream;
+        lexer->stream += 2;
+        lexer->column += 2;
         return true;
     }
     if (lexer->stream[0] == '+') {
@@ -317,6 +329,7 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     ADD_KEYWORD("match", TokenNameMatch);
     ADD_KEYWORD("skip", TokenNameSkip);
     ADD_KEYWORD("break", TokenNameBreak);
+    ADD_KEYWORD("load", TokenNameLoad);
 #undef ADD_KEYWORD
 
     // if you couldn't match any token, error

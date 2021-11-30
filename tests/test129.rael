@@ -1,4 +1,4 @@
-:0do_blame routine() {
+:0do_blame ?= routine() {
     blame "haha"
 }
 

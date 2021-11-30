@@ -1,9 +1,9 @@
-:epic routine(:123321) {
+:epic ?= routine(:123321) {
     loop :123321 {
-        :the_dark "side"
+        :the_dark ?= "side"
         log { {}, { :the_dark, { "of the moon?", 23 * 8 } } }
-        :123321 :123321 - 1
+        :123321 ?= :123321 - 1
     }
 }
 
-:tmp :epic(5)
+:tmp ?= :epic(5)

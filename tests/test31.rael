@@ -1,4 +1,4 @@
-:a routine(:b, :c) {
+:a ?= routine(:b, :c) {
 }
 
 log :a

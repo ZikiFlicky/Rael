@@ -1,4 +1,4 @@
-:abc routine() {
+:abc ?= routine() {
     ^ 1 + 23 * 6 + 2 * 7 + 8
 }
 

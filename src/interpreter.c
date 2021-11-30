@@ -109,7 +109,7 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ValueE
         out_value->as_string = value.as_string;
         out_value->as_string.type = StringTypePure;
         // flags not to deallocate string, there is still a reference in the ast
-        out_value->as_string.does_reference_ast = true;
+        out_value->as_string.can_be_freed = true;
         break;
     case ValueTypeRoutine:
         out_value->as_routine = value.as_routine;
@@ -340,41 +340,46 @@ static RaelValue value_at(struct Interpreter* const interpreter, struct Expr *ex
     return value;
 }
 
-static RaelValue routine_call_eval(struct Interpreter* const interpreter,
-                                   struct RoutineCallExpr call, struct State state) {
-    struct Scope routine_scope;
-    RaelValue maybe_routine = expr_eval(interpreter, call.routine_value, true);
-    struct Scope *prev_scope;
+/*
+    return value:
+    0 -> okay
+    1 -> too few arguments
+    2 -> too many arguments
+*/
+static int routine_call_expr_eval(struct Interpreter *interpreter, RaelValue routine, struct CallExpr *call) {
+    size_t amount_args, amount_params;
+    struct Scope routine_scope, *prev_scope;
+    assert(routine->type == ValueTypeRoutine);
+    amount_params = routine->as_routine.amount_parameters;
+    amount_args = call->arguments.amount_exprs;
 
-    if (maybe_routine->type != ValueTypeRoutine) {
-        value_deref(maybe_routine);
-        interpreter_error(interpreter, state, "Call not possible on non-routine");
-    }
-
-    if (maybe_routine->as_routine.amount_parameters != call.arguments.amount_exprs) {
-        value_deref(maybe_routine);
-        interpreter_error(interpreter, state, "Arguments don't match parameters");
+    // set flags if the amount of arguments isn't equal to the amount of parameters
+    if (amount_args < amount_params) {
+        return 1;
+    } else if (amount_args > amount_params) {
+        return 2;
     }
 
     // create the routine scope
-    scope_construct(&routine_scope, maybe_routine->as_routine.scope);
+    scope_construct(&routine_scope, routine->as_routine.scope);
 
     // set parameters as variables
-    for (size_t i = 0; i < maybe_routine->as_routine.amount_parameters; ++i) {
+    for (size_t i = 0; i < amount_params; ++i) {
         scope_set_local(&routine_scope,
-                        maybe_routine->as_routine.parameters[i],
-                        expr_eval(interpreter, call.arguments.exprs[i], true));
+                        routine->as_routine.parameters[i],
+                        expr_eval(interpreter, call->arguments.exprs[i], true));
     }
 
     // store current scope and set it to the routine scope
     prev_scope = interpreter->scope;
     interpreter->scope = &routine_scope;
     // run the routine
-    block_run(interpreter, maybe_routine->as_routine.block);
+    block_run(interpreter, routine->as_routine.block);
     if (interpreter->interrupt == ProgramInterruptReturn) {
+        // had a return statement
         ;
     } else {
-        // just got to the end of the function
+        // just got to the end of the function (which means no return value)
         interpreter->returned_value = value_create(ValueTypeVoid);
     }
 
@@ -382,7 +387,70 @@ static RaelValue routine_call_eval(struct Interpreter* const interpreter,
     // deallocate routine scope and switch scope to previous scope
     scope_dealloc(&routine_scope);
     interpreter->scope = prev_scope;
+    return 0;
+}
 
+static int cfunc_call_expr_eval(struct Interpreter *interpreter, RaelValue cfunc, struct CallExpr *call, struct State state) {
+    RaelArguments arguments;
+    size_t amount_args, amount_params;
+    assert(cfunc->type == ValueTypeCFunc);
+    amount_params = cfunc->as_cfunc.amount_params;
+    amount_args = call->arguments.amount_exprs;
+
+    // set flags if the amount of arguments isn't equal to the amount of parameters
+    if (amount_args < amount_params) {
+        return 1;
+    } else if (amount_args > amount_params) {
+        return 2;
+    }
+
+    // initialize argument list and add arguments
+    arguments_new(&arguments);
+    for (size_t i = 0; i < amount_args; ++i) {
+        arguments_add(&arguments, expr_eval(interpreter, call->arguments.exprs[i], true));
+    }
+    // minimize size of argument list (realloc to minimum size)
+    arguments_finalize(&arguments);
+    // set the interpreter return value to the return value of the function after execution
+    interpreter->returned_value = cfunc_call(&cfunc->as_cfunc, &arguments, state);
+    // verify the return value is not invalid
+    assert(interpreter->returned_value != NULL);
+    // delete argument list
+    arguments_delete(&arguments);
+    return 0;
+}
+
+static RaelValue call_expr_eval(struct Interpreter* const interpreter,
+                                struct CallExpr call, struct State state) {
+    RaelValue callable = expr_eval(interpreter, call.callable_expr, true);
+    int err_state = 0;
+
+    switch (callable->type) {
+    case ValueTypeRoutine:
+        err_state = routine_call_expr_eval(interpreter, callable, &call);
+        break;
+    case ValueTypeCFunc:
+        err_state = cfunc_call_expr_eval(interpreter, callable, &call, state);
+        break;
+    default:
+        value_deref(callable);
+        interpreter_error(interpreter, state, "Call not possible on a non-callable");
+    }
+    // dereference the temporary callable
+    value_deref(callable);
+    // handle posible errors when calling the callable
+    switch (err_state) {
+    case 0:
+        break;
+    case 1:
+        interpreter_error(interpreter, state, "Too few arguments");
+        break;
+    case 2:
+        interpreter_error(interpreter, state, "Too many arguments");
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
     return interpreter->returned_value;
 }
 
@@ -403,7 +471,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
         case ValueTypeVoid:
             casted->as_string = (struct RaelStringValue) {
                 .type = StringTypePure,
-                .does_reference_ast = false,
+                .can_be_freed = false,
                 .length = 4,
                 .value = malloc(4 * sizeof(char))
             };
@@ -472,7 +540,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
             casted = value_create(ValueTypeString);
             casted->as_string = (struct RaelStringValue) {
                 .type = StringTypePure,
-                .does_reference_ast = false,
+                .can_be_freed = false,
                 .length = allocated,
                 .value = string
             };
@@ -485,8 +553,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
     case ValueTypeNumber: // convert to number
         switch (value->type) {
         case ValueTypeVoid: // from void
-            casted = value_create(ValueTypeNumber);
-            casted->as_number = number_newi(0);
+            casted = number_newi(0);
             break;
         case ValueTypeString: { // from string
             bool is_negative = false;
@@ -502,7 +569,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
                                   (int)value->as_string.length, value->as_string.value);
             }
             if (is_negative)
-                casted->as_number = number_mul(casted->as_number, number_newi(-1));
+                casted->as_number = number_mul(casted->as_number, numbervalue_newi(-1));
             break;
         }
         default:
@@ -516,7 +583,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
             casted->as_stack = (struct RaelStackValue) {};
             for (size_t i = 0; i < value->as_string.length; ++i) {
                 RaelValue char_value = value_create(ValueTypeNumber);
-                char_value->as_number = number_newi((int)value->as_string.value[i]);
+                char_value->as_number = numbervalue_newi((int)value->as_string.value[i]);
                 stack_push(casted, char_value);
             }
             break;
@@ -819,8 +886,8 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value_deref(lhs);
         value_deref(rhs);
         break;
-    case ExprTypeRoutineCall:
-        value = routine_call_eval(interpreter, expr->as_call, expr->state);
+    case ExprTypeCall:
+        value = call_expr_eval(interpreter, expr->as_call, expr->state);
         break;
     case ExprTypeAt:
         value = value_at(interpreter, expr);
@@ -883,10 +950,10 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
 
         if (value_is_iterable(single)) {
             value = value_create(ValueTypeNumber);
-            value->as_number = number_newi((int)value_get_length(single));
+            value->as_number = numbervalue_newi((int)value_get_length(single));
         } else if (single->type == ValueTypeVoid) {
             value = value_create(ValueTypeNumber);
-            value->as_number = number_newi(0);
+            value->as_number = numbervalue_newi(0);
         } else {
             value_deref(single);
             interpreter_error(interpreter, expr->as_single->state, "Unsupported type for 'sizeof' operation");
@@ -1024,6 +1091,16 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value_deref(match_against);
         break;
     }
+    case ExprTypeGetKey:
+        lhs = expr_eval(interpreter, expr->as_getkey.lhs, true);
+        if (lhs->type != ValueTypeModule) {
+            value_deref(lhs);
+            interpreter_error(interpreter, expr->state, "Expected lhs of key indexing expression to be a module");
+        }
+        value = module_get_key(&lhs->as_module, expr->as_getkey.at_key);
+        assert(value);
+        value_deref(lhs);
+        break;
     default:
         RAEL_UNREACHABLE();
     }
@@ -1228,7 +1305,16 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         }
 
         value_deref(caught_value);
-
+        break;
+    }
+    case InstructionTypeLoad: {
+        // try to load module
+        RaelValue module = rael_get_module_by_name(instruction->load.module_name);
+        // if you couldn't load the module, error
+        if (!module)
+            interpreter_error(interpreter, instruction->state, "Unknown module name");
+        // set the module
+        scope_set(interpreter->scope, instruction->load.module_name, module);
         break;
     }
     default:

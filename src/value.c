@@ -13,6 +13,11 @@ RaelValue value_create(enum ValueType type) {
     return value;
 }
 
+void blamevalue_delete(struct RaelBlameValue *blame) {
+    if (blame->value)
+        value_deref(blame->value);
+}
+
 void value_deref(RaelValue value) {
     --value->reference_count;
     if (value->reference_count == 0) {
@@ -20,27 +25,19 @@ void value_deref(RaelValue value) {
         case ValueTypeRoutine:
             break;
         case ValueTypeStack:
-            for (size_t i = 0; i < value->as_stack.length; ++i) {
-                value_deref(value->as_stack.values[i]);
-            }
-            free(value->as_stack.values);
+            stackvalue_delete(&value->as_stack);
             break;
         case ValueTypeString:
-            switch (value->as_string.type) {
-            case StringTypePure:
-                if (!value->as_string.does_reference_ast && value->as_string.length)
-                    free(value->as_string.value);
-                break;
-            case StringTypeSub:
-                value_deref(value->as_string.reference_string);
-                break;
-            default:
-                RAEL_UNREACHABLE();
-            }
+            stringvalue_delete(&value->as_string);
             break;
         case ValueTypeBlame:
-            if (value->as_blame.value)
-                value_deref(value->as_blame.value);
+            blamevalue_delete(&value->as_blame);
+            break;
+        case ValueTypeCFunc:
+            cfunc_delete(&value->as_cfunc);
+            break;
+        case ValueTypeModule:
+            module_delete(&value->as_module);
             break;
         default:
             break;
@@ -67,65 +64,44 @@ char *value_type_to_string(enum ValueType type) {
     }
 }
 
+void routine_repr(struct RaelRoutineValue *routine) {
+    printf("routine(");
+    if (routine->amount_parameters > 0) {
+        printf(":%s", routine->parameters[0]);
+        for (size_t i = 1; i < routine->amount_parameters; ++i)
+            printf(", :%s", routine->parameters[i]);
+    }
+    printf(")");
+}
+
 void value_repr(RaelValue value) {
     switch (value->type) {
     case ValueTypeNumber:
-        if (value->as_number.is_float)
-            printf("%.17g", value->as_number.as_float);
-        else
-            printf("%d", value->as_number.as_int);
+        number_repr(value->as_number);
         break;
     case ValueTypeString:
-        putchar('"');
-        for (size_t i = 0; i < value->as_string.length; ++i) {
-            switch (value->as_string.value[i]) {
-            case '\n':
-                printf("\\n");
-                break;
-            case '\r':
-                printf("\\r");
-                break;
-            case '\t':
-                printf("\\t");
-                break;
-            case '"':
-                printf("\\\"");
-                break;
-            case '\\':
-                printf("\\\\");
-                break;
-            default:
-                putchar(value->as_string.value[i]);
-            }
-        }
-        putchar('"');
+        stringvalue_repr(&value->as_string);
         break;
     case ValueTypeVoid:
         printf("Void");
         break;
     case ValueTypeRoutine:
-        printf("routine(");
-        if (value->as_routine.amount_parameters > 0) {
-            printf(":%s", value->as_routine.parameters[0]);
-            for (size_t i = 1; i < value->as_routine.amount_parameters; ++i)
-                printf(", :%s", value->as_routine.parameters[i]);
-        }
-        printf(")");
+        routine_repr(&value->as_routine);
         break;
     case ValueTypeStack:
-        printf("{ ");
-        for (size_t i = 0; i < value->as_stack.length; ++i) {
-            if (i > 0)
-                printf(", ");
-            value_repr(value->as_stack.values[i]);
-        }
-        printf(" }");
+        stackvalue_repr(&value->as_stack);
         break;
     case ValueTypeRange:
         printf("%d to %d", value->as_range.start, value->as_range.end);
         break;
     case ValueTypeType:
         printf("%s", value_type_to_string(value->as_type));
+        break;
+    case ValueTypeCFunc:
+        cfunc_repr(&value->as_cfunc);
+        break;
+    case ValueTypeModule:
+        module_repr(&value->as_module);
         break;
     default:
         RAEL_UNREACHABLE();
@@ -152,7 +128,7 @@ bool value_as_bool(const RaelValue value) {
     case ValueTypeString:
         return value->as_string.length != 0;
     case ValueTypeNumber:
-        return !number_as_bool(number_eq(value->as_number, number_newi(0)));
+        return !number_as_bool(number_eq(value->as_number, numbervalue_newi(0)));
     case ValueTypeStack:
         return value->as_stack.length != 0;
     default:
@@ -245,8 +221,14 @@ RaelValue range_get(RaelValue range, size_t idx) {
     else
         number = range->as_range.start - idx;
 
-    value->as_number = number_newi(number);
+    value->as_number = numbervalue_newi(number);
     return value;
+}
+
+RaelValue blame_no_state_new(RaelValue value) {
+    RaelValue blame = value_create(ValueTypeBlame);
+    blame->as_blame.value = value;
+    return blame;
 }
 
 size_t value_get_length(RaelValue value) {

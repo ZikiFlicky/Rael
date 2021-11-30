@@ -1,3 +1,3 @@
-:array { 1, 2, 3, 4 }
+:array ?= { 1, 2, 3, 4 }
 log :array at 0
 log :array at 2

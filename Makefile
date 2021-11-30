@@ -9,7 +9,7 @@ NAME=rael
 RM=rm -f
 RMDIR=rm -rf
 
-OBJECTS=lexer.o parser.o value.o scope.o number.o interpreter.o main.o common.o string.o stack.o
+OBJECTS=lexer.o parser.o value.o scope.o number.o interpreter.o main.o common.o string.o stack.o varmap.o module.o math.o
 
 .PHONY: clean all
 
@@ -22,6 +22,9 @@ $(BUILDDIR)/$(NAME): $(OBJECTS)
 	$(CC) $(CFLAGS) $(BUILDDIR)/* -o $@ $(LINK)
 
 %.o: src/%.c $(BUILDDIR)
+	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
+
+%.o: src/modules/%.c $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
 
 clean:

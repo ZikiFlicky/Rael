@@ -80,3 +80,20 @@ void stack_push(RaelValue stack, RaelValue value) {
         .length = length
     };
 }
+
+void stackvalue_delete(struct RaelStackValue *stack) {
+    for (size_t i = 0; i < stack->length; ++i) {
+        value_deref(stack->values[i]);
+    }
+    free(stack->values);
+}
+
+void stackvalue_repr(struct RaelStackValue *stack) {
+    printf("{ ");
+    for (size_t i = 0; i < stack->length; ++i) {
+        if (i > 0)
+            printf(", ");
+        value_repr(stack->values[i]);
+    }
+    printf(" }");
+}

@@ -1,4 +1,4 @@
-:a routine() {
+:a ?= routine() {
     ^
     ^ 23
     log "Hello World!"

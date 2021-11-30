@@ -1,1 +1,1 @@
-:a 6 %% define :a to 6
+:a ?= 6 %% define :a to 6

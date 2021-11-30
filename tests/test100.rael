@@ -1,4 +1,4 @@
-:a { 1, 2, 3 }
+:a ?= { 1, 2, 3 }
 
 loop :a through :a {
     log :a

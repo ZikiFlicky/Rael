@@ -1,5 +1,6 @@
 #include "common.h"
 
+#include <string.h>
 #include <stdarg.h>
 
 void rael_show_error_tag(char* const filename, struct State state) {
@@ -36,4 +37,11 @@ void rael_show_error_message(char* const filename, struct State state, const cha
     vprintf(error_message, va);
     printf("\n");
     rael_show_line_state(state);
+}
+
+char *rael_allocate_cstr(char *string, size_t length) {
+    char *new_string = malloc((length + 1) * sizeof(char));
+    strncpy(new_string, string, length);
+    new_string[length] = '\0';
+    return new_string;
 }

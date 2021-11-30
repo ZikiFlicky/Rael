@@ -1,4 +1,4 @@
-:array { 1, 2, 3 }
+:array ?= { 1, 2, 3 }
 log :array
-:array at 2 1
+:array at 2 ?= 1
 log :array

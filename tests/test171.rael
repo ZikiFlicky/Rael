@@ -1,0 +1,8 @@
+load :Math
+
+log :Math
+log :Math:PI
+log :Math:Floor
+log :Math:Floor(2.3)
+log :Math:UndefinedCFunc
+log :Math:Floor("string")

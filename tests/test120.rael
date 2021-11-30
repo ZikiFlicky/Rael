@@ -1,4 +1,4 @@
-:Factorial routine(:0) {
+:Factorial ?= routine(:0) {
     if :0 < 0 {
         blame "factorial expects positive numbers"
     } else if :0 = 0 {

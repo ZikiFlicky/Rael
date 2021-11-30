@@ -28,7 +28,7 @@ struct ValueExpr {
 
 enum ExprType {
     ExprTypeValue = 1,
-    ExprTypeRoutineCall,
+    ExprTypeCall,
     ExprTypeKey,
     ExprTypeAdd,
     ExprTypeSub,
@@ -51,11 +51,12 @@ enum ExprType {
     ExprTypeSet,
     ExprTypeAnd,
     ExprTypeOr,
-    ExprTypeMatch
+    ExprTypeMatch,
+    ExprTypeGetKey
 };
 
-struct RoutineCallExpr {
-    struct Expr *routine_value;
+struct CallExpr {
+    struct Expr *callable_expr;
     struct RaelExprList arguments;
 };
 
@@ -81,6 +82,12 @@ struct MatchExpr {
     struct Instruction **else_block;
 };
 
+struct GetKeyExpr {
+    struct Expr *lhs;
+    struct State key_state;
+    char *at_key;
+};
+
 struct Expr {
     enum ExprType type;
     struct State state;
@@ -91,9 +98,10 @@ struct Expr {
         struct Expr *as_single;
         struct ValueExpr *as_value;
         char *as_key;
-        struct RoutineCallExpr as_call;
+        struct CallExpr as_call;
         struct SetExpr as_set;
         struct MatchExpr as_match;
+        struct GetKeyExpr as_getkey;
     };
 };
 
@@ -106,7 +114,8 @@ enum InstructionType {
     InstructionTypeBreak,
     InstructionTypeSkip,
     InstructionTypeCatch,
-    InstructionTypeShow
+    InstructionTypeShow,
+    InstructionTypeLoad
 };
 
 struct IfInstruction {
@@ -151,6 +160,10 @@ struct CatchInstruction {
     struct Instruction **handle_block;
 };
 
+struct LoadInstruction {
+    char *module_name;
+};
+
 struct Instruction {
     enum InstructionType type;
     struct State state;
@@ -161,6 +174,7 @@ struct Instruction {
         struct Expr *pure;
         struct Expr *return_value;
         struct CatchInstruction catch;
+        struct LoadInstruction load;
     };
 };
 

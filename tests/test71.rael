@@ -1,9 +1,9 @@
-:1 routine() {
+:1 ?= routine() {
     log :thing
 }
 
-:2 routine() {
-    :thing 2626
+:2 ?= routine() {
+    :thing ?= 2626
     :1()
 }
 

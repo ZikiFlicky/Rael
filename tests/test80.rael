@@ -1,4 +1,4 @@
-:stack { 1, 2, 3, 4 }
+:stack ?= { 1, 2, 3, 4 }
 log :stack
 :stack << "thing" + " other thing"
 log :stack

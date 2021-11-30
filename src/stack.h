@@ -21,4 +21,8 @@ void stack_push(RaelValue stack, RaelValue value);
 
 RaelValue stack_slice(RaelValue stack, size_t start, size_t end);
 
+void stackvalue_repr(struct RaelStackValue *stack);
+
+void stackvalue_delete(struct RaelStackValue *stack);
+
 #endif /* RAEL_STACK_H */

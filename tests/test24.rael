@@ -1,2 +1,2 @@
-:a "hey"
+:a ?= "hey"
 log :a = :a

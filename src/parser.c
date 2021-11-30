@@ -296,7 +296,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
                 case '\\':
                     c = '\\';
                     break;
-                default:
+                default: // this works with \" too
                     c = parser->lexer.token.string[i];
                 }
             } else {
@@ -473,7 +473,12 @@ static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
     struct State backtrack = parser_dump_state(parser);
 
     if ((at_set = parser_parse_expr_at(parser)) && at_set->type == ExprTypeAt) {
-        // parse rhs
+        if (!parser_match(parser, TokenNameQuestionEquals)) {
+            expr_delete(at_set);
+            parser_load_state(parser, backtrack);
+            return NULL;
+        }
+        // parse rhs of set expression
         if (!(expr = parser_parse_expr(parser))) {
             expr_delete(at_set);
             parser_load_state(parser, backtrack);
@@ -495,8 +500,15 @@ static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
 
         if (!parser_match(parser, TokenNameKey))
             return NULL;
+
         key_token = parser->lexer.token;
-        // expect an expression after key
+
+        if (!parser_match(parser, TokenNameQuestionEquals)) {
+            parser_load_state(parser, backtrack);
+            return NULL;
+        }
+
+        // expect an expression after :key ?=
         if (!(expr = parser_parse_expr(parser))) {
             parser_load_state(parser, backtrack);
             return NULL;
@@ -513,32 +525,44 @@ static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
     return full_expression;
 }
 
-/* infix parsing */
-static struct Expr *parser_parse_routine_call(struct Parser* const parser) {
+/* suffix parsing */
+static struct Expr *parser_parse_suffix(struct Parser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_literal_expr(parser)))
         return NULL;
 
     for (;;) {
-        struct RoutineCallExpr call;
         struct State backtrack, start_backtrack;
 
         start_backtrack = backtrack = parser_dump_state(parser);
 
-        // verify there is '(' after the key?
-        if (!parser_match(parser, TokenNameLeftParen))
-            break;
+        if (parser_match(parser, TokenNameKey)) {
+            struct Expr *new_expr;
+            char *key = token_allocate_key(&parser->lexer.token);
 
-        call.routine_value = expr;
-        call.arguments = parser_parse_csv(parser, true);
+            new_expr = expr_create(ExprTypeGetKey);
+            new_expr->as_getkey.lhs = expr;
+            new_expr->as_getkey.at_key = key;
+            new_expr->as_getkey.key_state = start_backtrack;
+            expr = new_expr;
+        } else {
+            // parse call
+            struct CallExpr call;
+            // verify there is '(' after the key?
+            if (!parser_match(parser, TokenNameLeftParen))
+                break;
 
-        backtrack = parser_dump_state(parser);
-        if (!parser_match(parser, TokenNameRightParen))
-            parser_state_error(parser, backtrack, "Expected a ')'");
+            call.callable_expr = expr;
+            call.arguments = parser_parse_csv(parser, true);
 
-        expr = expr_create(ExprTypeRoutineCall);
-        expr->as_call = call;
+            backtrack = parser_dump_state(parser);
+            if (!parser_match(parser, TokenNameRightParen))
+                parser_state_error(parser, backtrack, "Expected a ')'");
+
+            expr = expr_create(ExprTypeCall);
+            expr->as_call = call;
+        }
         expr->state = start_backtrack;
     }
 
@@ -549,7 +573,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     struct Expr *expr;
     struct State backtrack = parser_dump_state(parser);;
 
-    if (!(expr = parser_parse_routine_call(parser)) &&
+    if (!(expr = parser_parse_suffix(parser)) &&
         !(expr = parser_parse_match(parser))) {
         if (!lexer_tokenize(&parser->lexer))
             return NULL;
@@ -1158,6 +1182,27 @@ static struct Instruction **parser_parse_block(struct Parser* const parser) {
     return block;
 }
 
+static struct Instruction *parser_parse_instr_load(struct Parser* const parser) {
+    struct Instruction *instruction;
+    char *key;
+    struct Token key_token;
+
+    if (!parser_match(parser, TokenNameLoad))
+        return NULL;
+
+    if (!parser_match(parser, TokenNameKey))
+        parser_error(parser, "Expected a key");
+
+    // store token, make sure there is a newline, and allocate the key
+    key_token = parser->lexer.token;
+    parser_expect_newline(parser);
+    key = token_allocate_key(&key_token);
+
+    instruction = instruction_create(InstructionTypeLoad);
+    instruction->load.module_name = key;
+    return instruction;
+}
+
 static struct Instruction *parser_parse_if_statement(struct Parser* const parser) {
     struct Instruction *inst;
     struct IfInstruction if_stat = {
@@ -1276,7 +1321,8 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
         (inst = parser_parse_instr_return(parser))   ||
         (inst = parser_parse_instr_single(parser))   ||
         (inst = parser_parse_instr_catch(parser))    ||
-        (inst = parser_parse_instr_show(parser))) {
+        (inst = parser_parse_instr_show(parser))     ||
+        (inst = parser_parse_instr_load(parser))) {
         inst->state = prev_state;
         return inst;
     }
@@ -1361,8 +1407,8 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeValue:
         value_expr_delete(expr->as_value);
         break;
-    case ExprTypeRoutineCall:
-        expr_delete(expr->as_call.routine_value);
+    case ExprTypeCall:
+        expr_delete(expr->as_call.callable_expr);
         for (size_t i = 0; i < expr->as_call.arguments.amount_exprs; ++i) {
             expr_delete(expr->as_call.arguments.exprs[i]);
         }
@@ -1422,6 +1468,10 @@ static void expr_delete(struct Expr* const expr) {
         free(expr->as_match.match_cases);
         if (expr->as_match.else_block)
             block_delete(expr->as_match.else_block);
+        break;
+    case ExprTypeGetKey:
+        expr_delete(expr->as_getkey.lhs);
+        free(expr->as_getkey.at_key);
         break;
     default:
         RAEL_UNREACHABLE();
@@ -1497,9 +1547,11 @@ void instruction_delete(struct Instruction* const inst) {
     case InstructionTypeCatch:
         expr_delete(inst->catch.catch_expr);
         if (inst->catch.handle_block) {
-            for (size_t i = 0; inst->catch.handle_block[i]; ++i)
-                instruction_delete(inst->catch.handle_block[i]);
+            block_delete(inst->catch.handle_block);
         }
+        break;
+    case InstructionTypeLoad:
+        free(inst->load.module_name);
         break;
     default:
         RAEL_UNREACHABLE();

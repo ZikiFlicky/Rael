@@ -1,4 +1,4 @@
-:0123 routine(:string) {
+:0123 ?= routine(:string) {
     if :string = "thing" {
         ^ "thing I guess"
     } else if :string = "not thing" {

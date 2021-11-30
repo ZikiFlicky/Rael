@@ -1,4 +1,4 @@
-:__fib routine(:n, :1, :2) {
+:__fib ?= routine(:n, :1, :2) {
     if :n = 0 {
         ^:1
     } else {
@@ -6,9 +6,9 @@
     }
 }
 
-:fib routine(:n) {
+:fib ?= routine(:n) {
     ^:__fib(:n, 1, 1)
 }
 
-:res :fib(10)
+:res ?= :fib(10)
 log :res

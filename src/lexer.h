@@ -51,7 +51,9 @@ enum TokenName {
     TokenNameTypeRange,
     TokenNameTypeof,
     TokenNameGetString,
-    TokenNameMatch
+    TokenNameMatch,
+    TokenNameLoad,
+    TokenNameQuestionEquals
 };
 
 struct Token {

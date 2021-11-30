@@ -94,7 +94,7 @@ log match 1 {
 
 }
 
-:routine routine(:1) {
+:routine ?= routine(:1) {
     match :1 {
         with -2 {
             log -2
