@@ -109,7 +109,7 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ValueE
         out_value->as_string = value.as_string;
         out_value->as_string.type = StringTypePure;
         // flags not to deallocate string, there is still a reference in the ast
-        out_value->as_string.can_be_freed = true;
+        out_value->as_string.can_be_freed = false;
         break;
     case ValueTypeRoutine:
         out_value->as_routine = value.as_routine;
@@ -471,7 +471,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
         case ValueTypeVoid:
             casted->as_string = (struct RaelStringValue) {
                 .type = StringTypePure,
-                .can_be_freed = false,
+                .can_be_freed = true,
                 .length = 4,
                 .value = malloc(4 * sizeof(char))
             };
@@ -540,7 +540,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
             casted = value_create(ValueTypeString);
             casted->as_string = (struct RaelStringValue) {
                 .type = StringTypePure,
-                .can_be_freed = false,
+                .can_be_freed = true,
                 .length = allocated,
                 .value = string
             };

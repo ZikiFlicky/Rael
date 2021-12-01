@@ -8,7 +8,7 @@ static RaelValue string_new_pure(char *strptr, size_t length) {
     RaelValue string = value_create(ValueTypeString);
     string->as_string = (struct RaelStringValue) {
         .type = StringTypePure,
-        .can_be_freed = false,
+        .can_be_freed = true,
         .value = strptr,
         .length = length
     };
@@ -102,7 +102,7 @@ RaelValue string_plus_string(RaelValue string, RaelValue string2) {
 void stringvalue_delete(struct RaelStringValue *string) {
     switch (string->type) {
     case StringTypePure:
-        if (!string->can_be_freed && string->length)
+        if (string->can_be_freed && string->length)
             free(string->value);
         break;
     case StringTypeSub:
