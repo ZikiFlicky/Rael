@@ -47,6 +47,9 @@ bool varmap_set(struct VariableMap *varmap, char *key, RaelValue value, bool set
             if (strcmp(node->key, key) == 0) {
                 // dereference current value at that position
                 value_deref(node->value);
+                // if there is no ast reference to the key, deallocate its value
+                if (node->dealloc_key_on_free)
+                    free(node->key);
                 node->key = key;
                 node->value = value;
                 node->dealloc_key_on_free = dealloc_key_on_free;

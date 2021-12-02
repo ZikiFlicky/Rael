@@ -19,6 +19,8 @@ struct RaelStringValue {
     };
 };
 
+char string_get_char(RaelValue string, size_t idx);
+
 RaelValue string_get(RaelValue string, size_t idx);
 
 RaelValue string_slice(RaelValue string, size_t start, size_t end);
@@ -30,6 +32,8 @@ size_t string_get_length(RaelValue string);
 void stringvalue_delete(struct RaelStringValue *string);
 
 void stringvalue_repr(struct RaelStringValue *string);
+
+RaelValue string_new_pure(char *strptr, size_t length, bool can_free);
 
 RaelValue string_new_pure_alloc(char *strptr, size_t length);
 

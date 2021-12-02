@@ -4,11 +4,11 @@
 #include <assert.h>
 #include <string.h>
 
-static RaelValue string_new_pure(char *strptr, size_t length) {
+RaelValue string_new_pure(char *strptr, size_t length, bool can_free) {
     RaelValue string = value_create(ValueTypeString);
     string->as_string = (struct RaelStringValue) {
         .type = StringTypePure,
-        .can_be_freed = true,
+        .can_be_freed = can_free,
         .value = strptr,
         .length = length
     };
@@ -18,7 +18,7 @@ static RaelValue string_new_pure(char *strptr, size_t length) {
 RaelValue string_new_pure_alloc(char *strptr, size_t length) {
     char *allocated = malloc(length * sizeof(char));
     memcpy(allocated, strptr, length * sizeof(char));
-    return string_new_pure(allocated, length);
+    return string_new_pure(allocated, length, true);
 }
 
 /* get length of a string */
@@ -27,7 +27,18 @@ size_t string_get_length(RaelValue string) {
     return string->as_string.length;
 }
 
-/* get char of a string at idx */
+/* get the char at idx */
+char string_get_char(RaelValue string, size_t idx) {
+    size_t string_length;
+    assert(string->type == ValueTypeString);
+    string_length = string_get_length(string);
+    if (idx >= string_length)
+        return '\0';
+    else
+        return string->as_string.value[idx];
+}
+
+/* get a string at idx */
 RaelValue string_get(RaelValue string, size_t idx) {
     RaelValue new_string;
     size_t string_length;
@@ -37,12 +48,12 @@ RaelValue string_get(RaelValue string, size_t idx) {
         return NULL;
 
     if (idx == string_length) {
-        new_string = string_new_pure(NULL, 0);
+        new_string = string_new_pure(NULL, 0, true);
     } else {
         // allocate a 1-lengthed string and put the character into it
         char *ptr = malloc(1 * sizeof(char));
         ptr[0] = string->as_string.value[idx];
-        new_string = string_new_pure(ptr, 1);
+        new_string = string_new_pure(ptr, 1, true);
     }
     
     return new_string;
@@ -95,7 +106,7 @@ RaelValue string_plus_string(RaelValue string, RaelValue string2) {
     strncpy(strptr + str1len, string2->as_string.value, str2len);
 
     // create the new string object
-    new_string = string_new_pure(strptr, length);
+    new_string = string_new_pure(strptr, length, true);
     return new_string;
 }
 

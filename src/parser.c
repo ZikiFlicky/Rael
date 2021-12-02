@@ -1393,7 +1393,6 @@ static void value_expr_delete(struct ValueExpr* value) {
         for (size_t i = 0; i < value->as_stack.amount_exprs; ++i) {
             expr_delete(value->as_stack.exprs[i]);
         }
-
         free(value->as_stack.exprs);
         break;
     default:

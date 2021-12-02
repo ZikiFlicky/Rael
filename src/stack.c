@@ -4,6 +4,14 @@
 #include <assert.h>
 #include <stdbool.h>
 
+RaelValue stack_new(size_t overhead) {
+    RaelValue stack = value_create(ValueTypeStack);
+    stack->as_stack.allocated = overhead;
+    stack->as_stack.length = 0;
+    stack->as_stack.values = overhead == 0 ? NULL : malloc(overhead * sizeof(RaelValue));
+    return stack;
+}
+
 size_t stack_get_length(RaelValue stack) {
     assert(stack->type == ValueTypeStack);
     return stack->as_stack.length;
@@ -65,7 +73,7 @@ void stack_push(RaelValue stack, RaelValue value) {
 
     values = stack->as_stack.values;
     allocated = stack->as_stack.allocated;
-    length = stack->as_stack.length;
+    length = stack_get_length(stack);
 
     // allocate additional space for stack if there isn't enough
     if (allocated == 0)
@@ -96,4 +104,21 @@ void stackvalue_repr(struct RaelStackValue *stack) {
         value_repr(stack->values[i]);
     }
     printf(" }");
+}
+
+bool stack_equals_stack(RaelValue stack, RaelValue stack2) {
+    size_t len1 = stack_get_length(stack),
+           len2 = stack_get_length(stack2);
+    bool are_equal;
+    if (len1 == len2) {
+        are_equal = true;
+        for (size_t i = 0; are_equal && i < len1; ++i) {
+            if (!values_equal(stack->as_stack.values[i], stack2->as_stack.values[i])) {
+                are_equal = false;
+            }
+        }
+    } else {
+        are_equal = false;
+    }
+    return are_equal;
 }

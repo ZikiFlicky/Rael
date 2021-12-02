@@ -111,10 +111,12 @@ void value_repr(RaelValue value) {
 void value_log(RaelValue value) {
     // only strings are printed differently when `log`ed than inside a stack
     switch (value->type) {
-    case ValueTypeString:
-        for (size_t i = 0; i < value->as_string.length; ++i)
-            putchar(value->as_string.value[i]);
+    case ValueTypeString: {
+        size_t string_length = string_get_length(value);
+        for (size_t i = 0; i < string_length; ++i)
+            putchar(string_get_char(value, i));
         break;
+    }
     default:
         value_repr(value);
     }
@@ -130,7 +132,7 @@ bool value_as_bool(const RaelValue value) {
     case ValueTypeNumber:
         return !number_as_bool(number_eq(value->as_number, numbervalue_newi(0)));
     case ValueTypeStack:
-        return value->as_stack.length != 0;
+        return stack_get_length(value) != 0;
     default:
         return true;
     }
@@ -168,19 +170,10 @@ bool values_equal(const RaelValue value, const RaelValue value2) {
         case ValueTypeVoid:
             res = true;
             break;
-        case ValueTypeStack:
-            if (value->as_stack.length == value2->as_stack.length) {
-                res = true;
-                for (size_t i = 0; i < value->as_stack.length; ++i) {
-                    if (!values_equal(value->as_stack.values[i], value2->as_stack.values[i])) {
-                        res = false;
-                        break;
-                    }
-                }
-            } else {
-                res = false;
-            }
+        case ValueTypeStack: {
+            res = stack_equals_stack(value, value2);
             break;
+        }
         case ValueTypeRange:
             res = value->as_range.start == value2->as_range.start && value->as_range.end == value2->as_range.end;
             break;

@@ -2,9 +2,14 @@
 
 #include <string.h>
 #include <stdarg.h>
+#include <limits.h>
+#include <stdbool.h>
 
 void rael_show_error_tag(char* const filename, struct State state) {
-    printf("Error [%s:%zu:%zu]: ", filename, state.line, state.column);
+    if (filename)
+        printf("Error [%s:%zu:%zu]: ", filename, state.line, state.column);
+    else
+        printf("Error [%zu:%zu]: ", state.line, state.column);
 }
 
 void rael_show_line_state(struct State state) {

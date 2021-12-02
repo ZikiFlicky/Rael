@@ -98,36 +98,38 @@ static struct RaelStringValue rael_readline(struct Interpreter* const interprete
 }
 
 static RaelValue value_eval(struct Interpreter* const interpreter, struct ValueExpr value) {
-    RaelValue out_value = value_create(value.type);
+    RaelValue out_value;
 
     switch (value.type) {
     case ValueTypeNumber:
-        out_value->as_number = value.as_number;
+        out_value = number_new(value.as_number);
         break;
     case ValueTypeString:
+        out_value = value_create(ValueTypeString);
         // it's okay because strings are immutable
         out_value->as_string = value.as_string;
         out_value->as_string.type = StringTypePure;
-        // flags not to deallocate string, there is still a reference in the ast
+        // flags not to deallocate string, because there is still a reference in the ast
         out_value->as_string.can_be_freed = false;
         break;
     case ValueTypeRoutine:
+        out_value = value_create(ValueTypeRoutine);
         out_value->as_routine = value.as_routine;
         out_value->as_routine.scope = interpreter->scope;
         break;
-    case ValueTypeStack:
-        out_value->as_stack = (struct RaelStackValue) {
-            .length = value.as_stack.amount_exprs,
-            .allocated = value.as_stack.amount_exprs,
-            .values = malloc(value.as_stack.amount_exprs * sizeof(RaelValue))
-        };
-        for (size_t i = 0; i < value.as_stack.amount_exprs; ++i) {
-            out_value->as_stack.values[i] = expr_eval(interpreter, value.as_stack.exprs[i], true);
+    case ValueTypeStack: {
+        size_t length = value.as_stack.amount_exprs;
+        out_value = stack_new(length);
+        for (size_t i = 0; i < length; ++i) {
+            stack_push(out_value, expr_eval(interpreter, value.as_stack.exprs[i], true));
         }
         break;
+    }
     case ValueTypeVoid:
+        out_value = value_create(ValueTypeVoid);
         break;
     case ValueTypeType:
+        out_value = value_create(ValueTypeType);
         out_value->as_type = value.as_type;
         break;
     default:
@@ -203,7 +205,7 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
     case ValueTypeRange: {
         int start = at_value->as_range.start,
             end = at_value->as_range.end;
-        size_t length = stack->as_stack.length;
+        size_t length = stack_get_length(stack);
 
         // make sure range numbers are positive, e.g -2 to 3 is not allowed
         if (start < 0 || end < 0) {
@@ -248,7 +250,8 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
     at_value = expr_eval(interpreter, at_expr->rhs, true);
 
     switch (at_value->type) {
-    case ValueTypeRange:
+    case ValueTypeRange: {
+        size_t string_length = string_get_length(string);
         // make sure range numbers are positive, -2 to -3 is not allowed
         if (at_value->as_range.start < 0 || at_value->as_range.end < 0) {
             value_deref(string);
@@ -262,8 +265,8 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
             interpreter_error(interpreter, at_expr->rhs->state, "Negative range direction for substrings is not allowed");
         }
         // make sure you are inside of the string's boundaries
-        if ((size_t)at_value->as_range.start > string->as_string.length ||
-            (size_t)at_value->as_range.end > string->as_string.length) {
+        if ((size_t)at_value->as_range.start > string_length ||
+            (size_t)at_value->as_range.end > string_length) {
             value_deref(string);
             value_deref(at_value);
             interpreter_error(interpreter, at_expr->rhs->state, "Substring out of range");
@@ -271,6 +274,7 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
 
         out_value = string_slice(string, (size_t)at_value->as_range.start, (size_t)at_value->as_range.end);
         break;
+    }
     case ValueTypeNumber:
         value_verify_uint(interpreter, at_expr->rhs->state, at_value);
         out_value = value_get(string, (size_t)at_value->as_number.as_int);
@@ -367,7 +371,8 @@ static int routine_call_expr_eval(struct Interpreter *interpreter, RaelValue rou
     for (size_t i = 0; i < amount_params; ++i) {
         scope_set_local(&routine_scope,
                         routine->as_routine.parameters[i],
-                        expr_eval(interpreter, call->arguments.exprs[i], true));
+                        expr_eval(interpreter, call->arguments.exprs[i], true),
+                        false);
     }
 
     // store current scope and set it to the routine scope
@@ -557,16 +562,17 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
             break;
         case ValueTypeString: { // from string
             bool is_negative = false;
+            size_t string_length = string_get_length(value);
             casted = value_create(ValueTypeNumber);
-            if (value->as_string.length > 0)
+            if (string_length > 0)
                 is_negative = value->as_string.value[0] == '-';
 
             // try to convert to an int
-            if (value->as_string.length == (is_negative?1:0) ||
-                !number_from_string(value->as_string.value + is_negative, value->as_string.length - is_negative, &casted->as_number)) {
+            if (string_length == (is_negative?1:0) ||
+                !number_from_string(value->as_string.value + is_negative, string_length - is_negative, &casted->as_number)) {
                 value_deref(casted);
                 interpreter_error(interpreter, value_state, "The string '%.*s' can't be parsed as a number",
-                                  (int)value->as_string.length, value->as_string.value);
+                                  (int)string_length, value->as_string.value);
             }
             if (is_negative)
                 casted->as_number = number_mul(casted->as_number, numbervalue_newi(-1));
@@ -578,15 +584,15 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
         break;
     case ValueTypeStack:
         switch (value->type) {
-        case ValueTypeString:
-            casted = value_create(ValueTypeStack);
-            casted->as_stack = (struct RaelStackValue) {};
-            for (size_t i = 0; i < value->as_string.length; ++i) {
-                RaelValue char_value = value_create(ValueTypeNumber);
-                char_value->as_number = numbervalue_newi((int)value->as_string.value[i]);
+        case ValueTypeString: {
+            size_t string_length = string_get_length(value);
+            casted = stack_new(string_length);
+            for (size_t i = 0; i < string_length; ++i) {
+                RaelValue char_value = number_newi((int)string_get_char(value, i));
                 stack_push(casted, char_value);
             }
             break;
+        }
         default:
             goto invalid_cast;
         }
@@ -641,7 +647,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
                 string = rhs->as_string;
                 new_string = (struct RaelStringValue) {
                     .length = 1,
-                    .value = malloc((rhs->as_string.length + 1) * sizeof(char))
+                    .value = malloc((string_get_length(rhs) + 1) * sizeof(char))
                 };
                 new_string.value[0] = (char)number;
                 strncpy(new_string.value + 1, string.value, string.length);
@@ -993,7 +999,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         }
         case SetTypeKey:
             value = expr_eval(interpreter, expr->as_set.expr, true);
-            scope_set(interpreter->scope, expr->as_set.as_key, value);
+            scope_set(interpreter->scope, expr->as_set.as_key, value, false);
             break;
         default:
             RAEL_UNREACHABLE();
@@ -1237,7 +1243,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
 
             // calculate length every time because stacks can always grow
             for (size_t i = 0; i < value_get_length(iterator); ++i) {
-                scope_set(interpreter->scope, instruction->loop.iterate.key, value_get(iterator, i));
+                scope_set(interpreter->scope, instruction->loop.iterate.key, value_get(iterator, i), false);
                 block_run(interpreter, instruction->loop.block);
 
                 if (interpreter->interrupt == ProgramInterruptBreak) {
@@ -1314,7 +1320,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         if (!module)
             interpreter_error(interpreter, instruction->state, "Unknown module name");
         // set the module
-        scope_set(interpreter->scope, instruction->load.module_name, module);
+        scope_set(interpreter->scope, instruction->load.module_name, module, false);
         break;
     }
     default:
@@ -1322,7 +1328,26 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     }
 }
 
-void rael_interpret(struct Instruction **instructions, char *stream_base, char* const filename,
+static void interpreter_set_argv(struct Interpreter *interpreter, char **argv, size_t argc) {
+    RaelValue argv_stack = stack_new(argc);
+    for (size_t i = 0; i < argc; ++i) {
+        RaelValue arg = string_new_pure(argv[i], strlen(argv[i]), false);
+        stack_push(argv_stack, arg);
+    }
+    scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Argv"), argv_stack, true);
+}
+
+static void interpreter_set_filename(struct Interpreter *interpreter, char *filename) {
+    RaelValue value;
+    if (filename) {
+        value = string_new_pure(filename, strlen(filename), false);
+    } else {
+        value = value_create(ValueTypeVoid);
+    }
+    scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Filename"), value, true);
+}
+
+void rael_interpret(struct Instruction **instructions, char *stream_base, char *filename, char **argv, size_t argc,
                     const bool stream_on_heap, const bool warn_undefined) {
     struct Instruction *instruction;
     struct Scope bottom_scope;
@@ -1338,6 +1363,10 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, char* 
 
     scope_construct(&bottom_scope, NULL);
     interp.scope = &bottom_scope;
+    // set _Argv
+    interpreter_set_argv(&interp, argv, argc);
+    // set _Filename
+    interpreter_set_filename(&interp, filename);
     for (interp.idx = 0; (instruction = interp.instructions[interp.idx]); ++interp.idx) {
         interpreter_interpret_inst(&interp, instruction);
     }

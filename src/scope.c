@@ -14,16 +14,16 @@ void scope_dealloc(struct Scope* const scope) {
     varmap_delete(&scope->variables);
 }
 
-void scope_set(struct Scope* const scope, char *key, RaelValue value) {
+void scope_set(struct Scope* const scope, char *key, RaelValue value, bool dealloc_key_on_free) {
     for (struct Scope *sc = scope; sc; sc = sc->parent) {
-        if (varmap_set(&sc->variables, key, value, false, false))
+        if (varmap_set(&sc->variables, key, value, false, dealloc_key_on_free))
             return;
     }
-    varmap_set(&scope->variables, key, value, true, false);
+    varmap_set(&scope->variables, key, value, true, dealloc_key_on_free);
 }
 
-void scope_set_local(struct Scope *scope, char* const key, RaelValue value) {
-    varmap_set(&scope->variables, key, value, true, false);
+void scope_set_local(struct Scope *scope, char* const key, RaelValue value, bool dealloc_key_on_free) {
+    varmap_set(&scope->variables, key, value, true, dealloc_key_on_free);
 }
 
 RaelValue scope_get(struct Scope *scope, char* const key, const bool warn_undefined) {

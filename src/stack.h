@@ -11,6 +11,10 @@ struct RaelStackValue {
     size_t length, allocated;
 };
 
+RaelValue stack_new(size_t overhead);
+
+void stackvalue_delete(struct RaelStackValue *stack);
+
 size_t stack_get_length(RaelValue stack);
 
 RaelValue stack_get(RaelValue stack, size_t idx);
@@ -23,6 +27,6 @@ RaelValue stack_slice(RaelValue stack, size_t start, size_t end);
 
 void stackvalue_repr(struct RaelStackValue *stack);
 
-void stackvalue_delete(struct RaelStackValue *stack);
+bool stack_equals_stack(RaelValue stack, RaelValue stack2);
 
 #endif /* RAEL_STACK_H */
