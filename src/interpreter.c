@@ -1123,7 +1123,6 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         rael_show_error_tag(interpreter->filename, state);
         if (value->as_blame.value) {
             value_log(value->as_blame.value);
-            value_deref(value->as_blame.value); // dereference
         }
         printf("\n");
         rael_show_line_state(state);
