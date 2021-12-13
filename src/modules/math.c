@@ -1,6 +1,7 @@
 #include "../module.h"
 #include "../value.h"
 #include "../common.h"
+#include "../string.h"
 
 #include <math.h>
 #include <assert.h>
@@ -19,7 +20,7 @@ RaelValue module_math_sin(RaelArguments *args) {
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
-        return blame_no_state_new(RAEL_STRING_FROM_RAW("Expected a number"));
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
     }
     return_value = number_newf(sin(number_to_float(number->as_number)));
     return return_value;
@@ -30,7 +31,7 @@ RaelValue module_math_tan(RaelArguments *args) {
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
-        return blame_no_state_new(RAEL_STRING_FROM_RAW("Expected a number"));
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
     }
     return_value = number_newf(tan(number_to_float(number->as_number)));
     return return_value;
@@ -41,7 +42,7 @@ RaelValue module_math_ceil(RaelArguments *args) {
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
-        return blame_no_state_new(RAEL_STRING_FROM_RAW("Expected a number"));
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
     }
     return_value = number_new(number_ceil(number->as_number));
     return return_value;
@@ -52,7 +53,7 @@ RaelValue module_math_floor(RaelArguments *args) {
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
-        return blame_no_state_new(RAEL_STRING_FROM_RAW("Expected a number"));
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
     }
     return_value = number_new(number_floor(number->as_number));
     return return_value;
@@ -63,7 +64,7 @@ RaelValue module_math_abs(RaelArguments *args) {
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
-        return blame_no_state_new(RAEL_STRING_FROM_RAW("Expected a number"));
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
     }
     return_value = number_new(number_abs(number->as_number));
     return return_value;
@@ -77,11 +78,11 @@ RaelValue module_math_sqrt(RaelArguments *args) {
     number = arguments_get(args, 0);
 
     if (number->type != ValueTypeNumber)
-        return blame_no_state_new(RAEL_STRING_FROM_RAW("Expected a number"));    
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
 
     n = number_to_float(number->as_number);
     if (n < 0)
-        return blame_no_state_new(RAEL_STRING_FROM_RAW("sqrt of a negative number"));
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("sqrt of a negative number");
 
     return_value = number_newf(sqrt(n));
     return return_value;
@@ -94,9 +95,9 @@ RaelValue module_math_pow(RaelArguments *args) {
     base = arguments_get(args, 0);
     power = arguments_get(args, 1);
     if (base->type != ValueTypeNumber) {
-        return_value = blame_no_state_new(RAEL_STRING_FROM_RAW("Expected the base to be a number"));
+        return_value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the base to be a number");
     } else if (power->type != ValueTypeNumber) {
-        return_value = blame_no_state_new(RAEL_STRING_FROM_RAW("Expected the power to be a number"));
+        return_value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the power to be a number");
     } else {
         double n_base = number_to_float(base->as_number);
         double n_power = number_to_float(power->as_number);

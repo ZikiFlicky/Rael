@@ -50,3 +50,11 @@ char *rael_allocate_cstr(char *string, size_t length) {
     new_string[length] = '\0';
     return new_string;
 }
+
+bool rael_int_in_range_of_char(int number) {
+    if (number >= CHAR_MIN && number <= CHAR_MAX) {
+        return true;
+    } else {
+        return false;
+    }
+}

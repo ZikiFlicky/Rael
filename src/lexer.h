@@ -53,7 +53,12 @@ enum TokenName {
     TokenNameGetString,
     TokenNameMatch,
     TokenNameLoad,
-    TokenNameQuestionEquals
+    TokenNameQuestionEquals,
+    TokenNamePlusEquals,
+    TokenNameMinusEquals,
+    TokenNameStarEquals,
+    TokenNameSlashEquals,
+    TokenNamePercentEquals
 };
 
 struct Token {

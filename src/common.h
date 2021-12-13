@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #define RAEL_CONSTANT_PI 3.141592653589793
 #define RAEL_CONSTANT_2PI 6.283185307179586
@@ -27,6 +28,8 @@ void rael_show_line_state(struct State state);
 void rael_show_error_message(char* const filename, struct State state, const char* const error_message, va_list va);
 
 char *rael_allocate_cstr(char *string, size_t length);
+
+bool rael_int_in_range_of_char(int number);
 
 /*
     takes a raw string (not from a variable) and allocates it on the stack with a NUL.

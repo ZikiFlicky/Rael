@@ -155,14 +155,7 @@ bool values_equal(const RaelValue value, const RaelValue value2) {
             res = number_eq(value->as_number, value2->as_number).as_int;
             break;
         case ValueTypeString:
-            if (value->as_string.length == value2->as_string.length) {
-                if (value->as_string.value == value2->as_string.value)
-                    res = true;
-                else
-                    res = strncmp(value->as_string.value, value2->as_string.value, value->as_string.length) == 0;
-            } else {
-                res = false;
-            }
+            res = string_eq(value, value2);
             break;
         case ValueTypeType:
             res = value->as_type == value2->as_type;
@@ -224,6 +217,22 @@ RaelValue blame_no_state_new(RaelValue value) {
     return blame;
 }
 
+bool value_is_blame(RaelValue value) {
+    return value->type == ValueTypeBlame;
+}
+
+void blame_add_state(RaelValue value, struct State state) {
+    assert(value_is_blame(value));
+    value->as_blame.original_place = state;
+}
+
+RaelValue blame_new(RaelValue message, struct State state) {
+    RaelValue blame = value_create(ValueTypeBlame);
+    blame->as_blame.value = message;
+    blame->as_blame.original_place = state;
+    return blame;
+}
+
 size_t value_get_length(RaelValue value) {
     size_t length;
     assert(value_is_iterable(value));
@@ -263,4 +272,97 @@ RaelValue value_get(RaelValue value, size_t idx) {
     }
 
     return out;
+}
+
+/* lhs + rhs */
+RaelValue values_add(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) { // number + number
+        return number_new(number_add(value->as_number, value2->as_number));
+    } else if (value->type == ValueTypeString && value2->type == ValueTypeString) { // string + string
+        return strings_add(value, value2);
+    } else if (value->type == ValueTypeNumber && value2->type == ValueTypeString) { // number + string
+        return string_precede_with_number(value, value2);
+    } else if (value->type == ValueTypeString && value2->type == ValueTypeNumber) { // string + number
+        return string_add_number(value, value2);
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs - rhs */
+RaelValue values_sub(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
+        return number_new(number_sub(value->as_number, value2->as_number));
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs * rhs */
+RaelValue values_mul(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
+        return number_new(number_mul(value->as_number, value2->as_number));
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs / rhs */
+RaelValue values_div(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
+        struct RaelNumberValue out;
+        if (!number_div(value->as_number, value2->as_number, &out))
+            return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Division by zero");
+        return number_new(out);
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs % rhs */
+RaelValue values_mod(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
+        struct RaelNumberValue out;
+        if (!number_mod(value->as_number, value2->as_number, &out))
+            return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Division by zero");
+        return number_new(out);
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs < rhs */
+RaelValue values_smaller(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
+        return number_new(number_smaller(value->as_number, value2->as_number));
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs > rhs */
+RaelValue values_bigger(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
+        return number_new(number_bigger(value->as_number, value2->as_number));
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs <= rhs */
+RaelValue values_smaller_eq(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
+        return number_new(number_smaller_eq(value->as_number, value2->as_number));
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs >= rhs */
+RaelValue values_bigger_eq(RaelValue value, RaelValue value2) {
+    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
+        return number_new(number_bigger_eq(value->as_number, value2->as_number));
+    } else {
+        return NULL;
+    }
 }

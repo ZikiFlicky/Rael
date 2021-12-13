@@ -17,12 +17,19 @@ size_t stack_get_length(RaelValue stack) {
     return stack->as_stack.length;
 }
 
+RaelValue *stack_get_ptr(RaelValue stack, size_t idx) {
+    assert(stack->type == ValueTypeStack);
+    if (idx >= stack_get_length(stack))
+        return NULL;
+    return &stack->as_stack.values[idx];
+}
+
 RaelValue stack_get(RaelValue stack, size_t idx) {
     RaelValue value;
     assert(stack->type == ValueTypeStack);
     if (idx >= stack_get_length(stack))
         return NULL;
-    value = stack->as_stack.values[idx];
+    value = *stack_get_ptr(stack, idx);
     value_ref(value);
     return value;
 }
@@ -60,7 +67,7 @@ bool stack_set(RaelValue stack, size_t idx, RaelValue value) {
     if (idx >= stack_get_length(stack))
         return false;
 
-    value_address = &stack->as_stack.values[idx];
+    value_address = stack_get_ptr(stack, idx);
     value_deref(*value_address);
     *value_address = value;
     return true;

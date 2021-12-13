@@ -17,6 +17,8 @@ void stackvalue_delete(struct RaelStackValue *stack);
 
 size_t stack_get_length(RaelValue stack);
 
+RaelValue *stack_get_ptr(RaelValue stack, size_t idx);
+
 RaelValue stack_get(RaelValue stack, size_t idx);
 
 bool stack_set(RaelValue stack, size_t idx, RaelValue value);

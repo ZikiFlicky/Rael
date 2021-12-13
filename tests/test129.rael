@@ -2,4 +2,4 @@
     blame "haha"
 }
 
-log {} + :do_blame()
+log {} + :0do_blame()

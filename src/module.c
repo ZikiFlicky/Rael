@@ -25,7 +25,7 @@ RaelValue cfunc_call(struct RaelExternalCFuncValue *cfunc, RaelArguments *args, 
         return NULL;
     return_value = cfunc->func(args);
     // if you received an error, add a state to it because it wasn't set beforehand
-    if (return_value->type == ValueTypeBlame) {
+    if (value_is_blame(return_value)) {
         return_value->as_blame.original_place = error_place;
     }
     return return_value;

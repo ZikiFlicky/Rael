@@ -165,38 +165,78 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         return true;
     }
     if (lexer->stream[0] == '+') {
-        lexer->token.name = TokenNameAdd;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream;
+        ++lexer->stream;
         ++lexer->column;
+        if (lexer->stream[0] == '=') {
+            lexer->token.name = TokenNamePlusEquals;
+            ++lexer->token.length;
+            ++lexer->stream;
+            ++lexer->column;
+        } else {
+            lexer->token.name = TokenNameAdd;
+        }
         return true;
     }
     if (lexer->stream[0] == '-') {
-        lexer->token.name = TokenNameSub;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream;
+        ++lexer->stream;
         ++lexer->column;
+        if (lexer->stream[0] == '=') {
+            lexer->token.name = TokenNameMinusEquals;
+            ++lexer->token.length;
+            ++lexer->stream;
+            ++lexer->column;
+        } else {
+            lexer->token.name = TokenNameSub;
+        }
         return true;
     }
     if (lexer->stream[0] == '*') {
-        lexer->token.name = TokenNameMul;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream;
+        ++lexer->stream;
         ++lexer->column;
+        if (lexer->stream[0] == '=') {
+            lexer->token.name = TokenNameStarEquals;
+            ++lexer->token.length;
+            ++lexer->stream;
+            ++lexer->column;
+        } else {
+            lexer->token.name = TokenNameMul;
+        }
         return true;
     }
     if (lexer->stream[0] == '/') {
-        lexer->token.name = TokenNameDiv;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream;
+        ++lexer->stream;
         ++lexer->column;
+        if (lexer->stream[0] == '=') {
+            lexer->token.name = TokenNameSlashEquals;
+            ++lexer->token.length;
+            ++lexer->stream;
+            ++lexer->column;
+        } else {
+            lexer->token.name = TokenNameDiv;
+        }
         return true;
     }
     if (lexer->stream[0] == '%') {
-        lexer->token.name = TokenNameMod;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream;
+        ++lexer->stream;
         ++lexer->column;
+        if (lexer->stream[0] == '=') {
+            lexer->token.name = TokenNamePercentEquals;
+            ++lexer->token.length;
+            ++lexer->stream;
+            ++lexer->column;
+        } else {
+            lexer->token.name = TokenNameMod;
+        }
         return true;
     }
     if (lexer->stream[0] == '(') {

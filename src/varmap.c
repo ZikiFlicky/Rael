@@ -83,17 +83,25 @@ bool varmap_set(struct VariableMap *varmap, char *key, RaelValue value, bool set
     return true;
 }
 
-RaelValue varmap_get(struct VariableMap *varmap, char *key) {
+RaelValue *varmap_get_ptr(struct VariableMap *varmap, char *key) {
+    // if there is nothing allocated, of course you can't find a key
     if (varmap->allocated == 0)
         return NULL;
     // iterate bucket nodes and try to find a match
     for (struct BucketNode *node = varmap->buckets[varmap_hash(varmap, key)]; node; node = node->next) {
         if (strcmp(key, node->key) == 0) {
-            value_ref(node->value);
-            return node->value;
+            return &node->value;
         }
     }
     return NULL;
+}
+
+RaelValue varmap_get(struct VariableMap *varmap, char *key) {
+    RaelValue *ptr = varmap_get_ptr(varmap, key);
+    if (!ptr)
+        return NULL;
+    value_ref(*ptr);
+    return *ptr;
 }
 
 void varmap_delete(struct VariableMap *varmap) {

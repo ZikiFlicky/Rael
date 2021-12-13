@@ -21,6 +21,8 @@ void scope_set(struct Scope *scope, char *key, RaelValue value, bool dealloc_key
 
 void scope_dealloc(struct Scope* const scope);
 
+RaelValue *scope_get_ptr(struct Scope* const scope, char *key);
+
 RaelValue scope_get(struct Scope* const scope, char *key, const bool warn_undefined);
 
 #endif /* RAEL_SCOPE_H */

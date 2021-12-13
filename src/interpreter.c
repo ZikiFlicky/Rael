@@ -11,6 +11,8 @@
 #include <math.h>
 #include <limits.h>
 
+typedef RaelValue (*RaelBinaryOperationFunction)(RaelValue, RaelValue);
+
 enum ProgramInterrupt {
     ProgramInterruptNone,
     ProgramInterruptBreak,
@@ -139,92 +141,158 @@ static RaelValue value_eval(struct Interpreter* const interpreter, struct ValueE
     return out_value;
 }
 
-static void value_verify_uint(struct Interpreter* const interpreter,
-                              struct State number_state, RaelValue number) {
+/* return a specific error if the RaelValue is not an int, and a NULL if it is an int */
+static RaelValue value_verify_int(RaelValue number, struct State number_state) {
+    RaelValue blame;
     if (number->type != ValueTypeNumber) {
-        value_deref(number);
-        interpreter_error(interpreter, number_state, "Expected number");
+        blame = RAEL_BLAME_FROM_RAWSTR_STATE("Expected a number", number_state);
+    } else if (!number_is_whole(number->as_number)) {
+        blame = RAEL_BLAME_FROM_RAWSTR_STATE("Float index is not allowed", number_state);
+    } else {
+        blame = NULL;
     }
-    if (number->as_number.is_float) {
-        value_deref(number);
-        interpreter_error(interpreter, number_state, "Float index is not allowed");
-    }
-    if (number->as_number.as_int < 0) {
-        value_deref(number);
-        interpreter_error(interpreter, number_state, "A negative index is not allowed");
-    }
+    return blame;
 }
 
-static void run_stack_set(struct Interpreter* const interpreter, struct Expr *expr, RaelValue value) {
-    RaelValue stack, idx;
+/* return a specific error if the RaelValue is not an uint, and a NULL if it is a uint */
+static RaelValue value_verify_uint(RaelValue number, struct State number_state) {
+    // the checks for uint follow the same checks as an int does
+    RaelValue blame = value_verify_int(number, number_state);
+    // if there was an error, leave it as it is
+    if (blame) {
+        ;
+    } else if (number_to_int(number->as_number) < 0) {
+        blame = RAEL_BLAME_FROM_RAWSTR_STATE("A negative index is not allowed", number_state);
+    } else {
+        blame = NULL;
+    }
+    return blame;
+}
 
-    assert(expr->type == ExprTypeAt);
-    stack = expr_eval(interpreter, expr->lhs, true);
+static RaelValue eval_stack_set(struct Interpreter* const interpreter, struct Expr *at_expr, struct Expr *value_expr) {
+    RaelValue stack, idx, value;
+
+    assert(at_expr->type == ExprTypeAt);
+    stack = expr_eval(interpreter, at_expr->lhs, true);
     if (stack->type != ValueTypeStack) {
         value_deref(stack);
-        interpreter_error(interpreter, expr->lhs->state, "Expected stack on the left of 'at' when setting value");
+        return RAEL_BLAME_FROM_RAWSTR_STATE("Expected stack on the left of 'at' when setting value", at_expr->lhs->state);
     }
 
-    idx = expr_eval(interpreter, expr->rhs, true);
-    value_verify_uint(interpreter, expr->rhs->state, idx);
-
-    if (!stack_set(stack, (size_t)idx->as_number.as_int, value)) {
+    idx = expr_eval(interpreter, at_expr->rhs, true);
+    // if the value was not a uint, return an error
+    if ((value = value_verify_uint(idx, at_expr->rhs->state))) {
         value_deref(stack);
         value_deref(idx);
-        interpreter_error(interpreter, expr->rhs->state, "Index too big");
+        return value;
+    }
+    // evaluate the rhs of the setting expression
+    value = expr_eval(interpreter, value_expr, true);
+
+    // if you were out of range
+    if (!stack_set(stack, (size_t)number_to_int(idx->as_number), value)) {
+        value_deref(stack);
+        value_deref(idx);
+        return RAEL_BLAME_FROM_RAWSTR_STATE("Index too big", at_expr->rhs->state);
     }
     value_deref(stack);
     value_deref(idx);
+    value_ref(value);
+    return value;
 }
+
+static RaelValue eval_at_operation_set(struct Interpreter* const interpreter, struct Expr *at_expr, struct Expr *value_expr,
+                                    RaelBinaryOperationFunction operation, struct State operator_state) {
+    RaelValue stack, idx, *value_ptr, result, value;
+
+    assert(at_expr->type == ExprTypeAt);
+    stack = expr_eval(interpreter, at_expr->lhs, true);
+    if (stack->type != ValueTypeStack) {
+        value_deref(stack);
+        return RAEL_BLAME_FROM_RAWSTR_STATE("Expected a stack", at_expr->lhs->state);
+    }
+
+    idx = expr_eval(interpreter, at_expr->rhs, true);
+    if ((result = value_verify_uint(idx, at_expr->rhs->state))) {
+        value_deref(stack);
+        value_deref(idx);
+        return result;
+    }
+    value_ptr = stack_get_ptr(stack, (size_t)number_to_int(idx->as_number));
+
+    value = expr_eval(interpreter, value_expr, true);
+    // if the value exists
+    if (value_ptr) {
+        result = operation(*value_ptr, value);
+        // if the operation failed, set the return value to be an error
+        if (!result) {
+            result = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation between values (types don't match)");
+        }
+    } else {
+        result = RAEL_BLAME_FROM_RAWSTR_STATE("Index too big", at_expr->rhs->state);
+    }
+    if (value_is_blame(result)) {
+        blame_add_state(result, operator_state);
+    } else {
+        // besides the calculated value being returned from the expression, it is also set in the stack,
+        // so its refcount should be incremented
+        value_ref(result);
+        // dereference the old value in the stack
+        value_deref(*value_ptr);
+        // set the new value
+        *value_ptr = result;
+    }
+    value_deref(stack);
+    value_deref(idx);
+    value_deref(value);
+    return result;
+}
+
 static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack, struct Expr *at_expr) {
-    RaelValue at_value, out_value;
+    RaelValue idx, out_value;
 
     assert(stack->type == ValueTypeStack);
-    at_value = expr_eval(interpreter, at_expr->rhs, true);
+    idx = expr_eval(interpreter, at_expr->rhs, true);
 
-    switch (at_value->type) {
+    switch (idx->type) {
     case ValueTypeNumber:
-        if (at_value->as_number.is_float) {
+        // if idx is not a uint, return the error
+        if ((out_value = value_verify_uint(idx, at_expr->rhs->state))) {
             value_deref(stack);
-            value_deref(at_value);
-            interpreter_error(interpreter, at_expr->rhs->state, "Float index is not allowed");
+            value_deref(idx);
+            return out_value;
         }
-        if (at_value->as_number.as_int < 0) {
-            value_deref(stack);
-            value_deref(at_value);
-            interpreter_error(interpreter, at_expr->rhs->state, "A negative index is not allowed");
-        }
-        out_value = stack_get(stack, (size_t)at_value->as_number.as_int);
+        out_value = stack_get(stack, (size_t)idx->as_number.as_int);
         // if is out of range
         if (!out_value) {
             value_deref(stack);
-            value_deref(at_value);
+            value_deref(idx);
             interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
         }
         break;
     case ValueTypeRange: {
-        int start = at_value->as_range.start,
-            end = at_value->as_range.end;
+        int start = idx->as_range.start,
+            end = idx->as_range.end;
         size_t length = stack_get_length(stack);
 
         // make sure range numbers are positive, e.g -2 to 3 is not allowed
         if (start < 0 || end < 0) {
             value_deref(stack);
-            value_deref(at_value);
+            value_deref(idx);
             interpreter_error(interpreter, at_expr->rhs->state, "Negative range numbers for stack slicing are not allowed");
         }
 
         // make sure range direction is not negative
         if (end < start) {
             value_deref(stack);
-            value_deref(at_value);
+            value_deref(idx);
             interpreter_error(interpreter, at_expr->rhs->state, "Range end is smaller than its start when slicing a stack");
         }
 
         // make sure you are inside of the stack's boundaries
         if ((size_t)start > length || (size_t)end > length) {
             value_deref(stack);
-            value_deref(at_value);
+            value_deref(idx);
             interpreter_error(interpreter, at_expr->rhs->state, "Stack slicing out of range");
         }
 
@@ -234,12 +302,12 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
     }
     default:
         value_deref(stack);
-        value_deref(at_value);
+        value_deref(idx);
         interpreter_error(interpreter, at_expr->rhs->state, "Expected number or range");
     }
 
     value_deref(stack); // lhs
-    value_deref(at_value); // rhs
+    value_deref(idx); // rhs
     return out_value;
 }
 
@@ -276,12 +344,14 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
         break;
     }
     case ValueTypeNumber:
-        value_verify_uint(interpreter, at_expr->rhs->state, at_value);
-        out_value = value_get(string, (size_t)at_value->as_number.as_int);
-        if (!out_value) {
-            value_deref(string);
-            value_deref(at_value);
-            interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
+        // verify the value is a uint
+        if (!(out_value = value_verify_uint(at_value, at_expr->rhs->state))) {
+            out_value = value_get(string, (size_t)at_value->as_number.as_int);
+            if (!out_value) {
+                value_deref(string);
+                value_deref(at_value);
+                interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
+            }
         }
         break;
     default:
@@ -294,25 +364,27 @@ static RaelValue string_at(struct Interpreter* const interpreter, RaelValue stri
 }
 
 static RaelValue range_at(struct Interpreter* const interpreter, RaelValue range, struct Expr *at_expr) {
-    RaelValue at_value, out_value;
+    RaelValue idx, out_value;
 
     assert(range->type == ValueTypeRange);
-    at_value = expr_eval(interpreter, at_expr->rhs, true);
-
     // evaluate index
-    at_value = expr_eval(interpreter, at_expr->rhs, true);
-    value_verify_uint(interpreter, at_expr->rhs->state, at_value);
+    idx = expr_eval(interpreter, at_expr->rhs, true);
+    // if the value was not a uint, return an error
+    if ((out_value = value_verify_uint(idx, at_expr->rhs->state))) {
+        value_deref(idx);
+        return out_value;
+    }
 
-    if ((size_t)at_value->as_number.as_int >= abs(range->as_range.end - range->as_range.start)) {
+    if ((size_t)idx->as_number.as_int >= abs(range->as_range.end - range->as_range.start)) {
         value_deref(range);
-        value_deref(at_value);
+        value_deref(idx);
         interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
     }
 
-    out_value = value_get(range, at_value->as_number.as_int);
+    out_value = value_get(range, idx->as_number.as_int);
 
-    value_deref(range);    // lhs
-    value_deref(at_value); // rhs
+    value_deref(range); // dereference lhs
+    value_deref(idx);   // dereference rhs
     return out_value;
 }
 
@@ -608,6 +680,55 @@ invalid_cast:
     RAEL_UNREACHABLE();
 }
 
+static RaelValue eval_key_operation_set(struct Interpreter *interpreter, char *key, struct Expr *value_expr,
+                                        RaelBinaryOperationFunction operation, struct State expr_state) {
+    RaelValue value, *lhs_ptr;
+    // try to get the pointer to the value you modify
+    lhs_ptr = scope_get_ptr(interpreter->scope, key);
+    // if there is a value at that key, get its value and do addition
+    if (lhs_ptr) {
+        RaelValue rhs = expr_eval(interpreter, value_expr, true);
+        // do the operation on the two values
+        value = operation(*lhs_ptr, rhs);
+        // dereference the temporary rhs
+        value_deref(rhs);
+        // if it couldn't add the values
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation between values");
+        }
+    } else {
+        value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Key has not been assigned yet");
+    }
+    // if a blame was created (the blame was returned from the function or the operation was unsuccessful),
+    // add a state to the blame value
+    if (value_is_blame(value)) {
+        blame_add_state(value, expr_state);
+    } else {
+        // dereference the old value
+        value_deref(*lhs_ptr);
+        // set the new value
+        *lhs_ptr = value;
+        // reference the value again because it is returned from the set expression
+        value_ref(value);
+    }
+    return value;
+}
+
+static RaelValue eval_set_operation_expr(struct Interpreter *interpreter, struct Expr *set_expr,
+                                         RaelBinaryOperationFunction operation) {
+    switch (set_expr->as_set.set_type) {
+    case SetTypeAtExpr: {
+        return eval_at_operation_set(interpreter, set_expr->as_set.as_at_stat,
+                                     set_expr->as_set.expr, operation, set_expr->state);
+    }
+    case SetTypeKey:
+        return eval_key_operation_set(interpreter, set_expr->as_set.as_key, set_expr->as_set.expr,
+                                      operation, set_expr->state);
+    default:
+        RAEL_UNREACHABLE();
+    }
+}
+
 static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* const expr, const bool can_explode) {
     RaelValue lhs, rhs, single, value;
 
@@ -619,276 +740,147 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value = scope_get(interpreter->scope, expr->as_key, interpreter->warn_undefined);
         break;
     case ExprTypeAdd:
+        // eval lhs and rhs in lhs + rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                value->as_number = number_add(lhs->as_number, rhs->as_number);
-            } else if (rhs->type == ValueTypeString) {
-                int number;
-                struct RaelStringValue string, new_string;
-
-                if (lhs->as_number.is_float) {
-                    value_deref(lhs);
-                    value_deref(rhs);
-                    interpreter_error(interpreter, expr->lhs->state, "Expected a whole number");
-                }
-
-                number = lhs->as_number.as_int;
-                if (number < CHAR_MIN || number > CHAR_MAX) {
-                    value_deref(lhs);
-                    value_deref(rhs);
-                    interpreter_error(interpreter, expr->lhs->state, "Number %d is not in ascii", number);
-                }
-
-                string = rhs->as_string;
-                new_string = (struct RaelStringValue) {
-                    .length = 1,
-                    .value = malloc((string_get_length(rhs) + 1) * sizeof(char))
-                };
-                new_string.value[0] = (char)number;
-                strncpy(new_string.value + 1, string.value, string.length);
-                new_string.length += string.length;
-
-                value = value_create(ValueTypeString);
-                value->as_string = new_string;
-            } else {
-                value_deref(rhs);
-                goto invalid_types_add;
-            }
-        } else if (lhs->type == ValueTypeString) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeString) {
-                value = string_plus_string(lhs, rhs);
-            } else if (rhs->type == ValueTypeNumber) {
-                int number;
-                struct RaelStringValue string, new_string;
-
-                if (rhs->as_number.is_float) {
-                    value_deref(lhs);
-                    value_deref(rhs);
-                    interpreter_error(interpreter, expr->rhs->state, "Expected a whole number");
-                }
-
-                number = rhs->as_number.as_int;
-                if (number < CHAR_MIN || number > CHAR_MAX) {
-                    value_deref(lhs);
-                    value_deref(rhs);
-                    interpreter_error(interpreter, expr->rhs->state, "Number %d is not in ascii", number);
-                }
-
-                string = lhs->as_string;
-                new_string = (struct RaelStringValue) {
-                    .length = string.length,
-                    .value = malloc((string.length + 1) * sizeof(char))
-                };
-
-                strncpy(new_string.value, string.value, string.length);
-                new_string.value[new_string.length++] = (char)number;
-
-                value = value_create(ValueTypeString);
-                value->as_string = new_string;
-            } else {
-                value_deref(rhs);
-                goto invalid_types_add;
-            }
-        } else {
-        invalid_types_add:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (+) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_add(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (+) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
-
         break;
     case ExprTypeSub:
+        // eval lhs and rhs in lhs - rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                value->as_number = number_sub(lhs->as_number, rhs->as_number);
-            } else {
-                value_deref(rhs);
-                goto invalid_types_sub;
-            }
-        } else {
-        invalid_types_sub:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (-) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_sub(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (-) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
-
         break;
     case ExprTypeMul:
+        // eval lhs and rhs in lhs * rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                value->as_number = number_mul(lhs->as_number, rhs->as_number);
-            } else {
-                value_deref(rhs);
-                goto invalid_types_mul;
-            }
-        } else {
-        invalid_types_mul:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (*) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_mul(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (*) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
-
         break;
     case ExprTypeDiv:
+        // eval lhs and rhs in lhs / rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                if (!number_div(lhs->as_number, rhs->as_number, &value->as_number)) {
-                    interpreter_error(interpreter, expr->state, "Division by zero");
-                }
-            } else {
-                value_deref(rhs);
-                goto invalid_types_div;
-            }
-        } else {
-        invalid_types_div:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (/) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_div(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (/) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
-
         break;
     case ExprTypeMod:
+        // eval lhs and rhs in lhs % rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                if (!number_mod(lhs->as_number, rhs->as_number, &value->as_number)) {
-                    interpreter_error(interpreter, expr->state, "Division by zero");
-                }
-            } else {
-                value_deref(rhs);
-                goto invalid_types_mod;
-            }
-        } else {
-        invalid_types_mod:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (%) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_mod(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (%) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
-
         break;
     case ExprTypeEquals:
         lhs = expr_eval(interpreter, expr->lhs, true);
         rhs = expr_eval(interpreter, expr->rhs, true);
 
-        value = value_create(ValueTypeNumber);
-        value->as_number.is_float = false;
-        value->as_number.as_int = values_equal(lhs, rhs) ? 1 : 0;
+        // create an integer from the boolean result of the comparison
+        value = number_newi(values_equal(lhs, rhs) ? 1 : 0);
 
         value_deref(lhs);
         value_deref(rhs);
         break;
     case ExprTypeSmallerThan:
+        // eval lhs and rhs in lhs < rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                value->as_number = number_smaller(lhs->as_number, rhs->as_number);
-            } else {
-                value_deref(rhs);
-                goto invalid_types_smaller;
-            }
-        } else {
-        invalid_types_smaller:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (<) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_smaller(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (<) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
         break;
     case ExprTypeBiggerThan:
+        // eval lhs and rhs in lhs > rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                value->as_number = number_bigger(lhs->as_number, rhs->as_number);
-            } else {
-                value_deref(rhs);
-                goto invalid_types_bigger;
-            }
-        } else {
-        invalid_types_bigger:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (>) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_bigger(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (>) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
         break;
     case ExprTypeSmallerOrEqual:
+        // eval lhs and rhs in lhs <= rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                value->as_number = number_smaller_eq(lhs->as_number, rhs->as_number);
-            } else {
-                value_deref(rhs);
-                goto invalid_types_smaller_eq;
-            }
-        } else {
-        invalid_types_smaller_eq:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (<=) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_smaller_eq(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (<=) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
         break;
     case ExprTypeBiggerOrEqual:
+        // eval lhs and rhs in lhs >= rhs
         lhs = expr_eval(interpreter, expr->lhs, true);
-
-        if (lhs->type == ValueTypeNumber) {
-            rhs = expr_eval(interpreter, expr->rhs, true);
-            if (rhs->type == ValueTypeNumber) {
-                value = value_create(ValueTypeNumber);
-                value->as_number = number_bigger_eq(lhs->as_number, rhs->as_number);
-            } else {
-                value_deref(rhs);
-                goto invalid_types_bigger_eq;
-            }
-        } else {
-        invalid_types_bigger_eq:
-            value_deref(lhs);
-            interpreter_error(interpreter, expr->state, "Invalid operation (>=) on types");
+        rhs = expr_eval(interpreter, expr->rhs, true);
+        // try to add the values
+        value = values_bigger_eq(lhs, rhs);
+        if (!value) {
+            value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Invalid operation (>=) on types");
         }
-
+        if (value_is_blame(value)) {
+            blame_add_state(value, expr->state);
+        }
         value_deref(lhs);
         value_deref(rhs);
         break;
@@ -903,27 +895,17 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         rhs = expr_eval(interpreter, expr->rhs, true);
 
         switch (rhs->type) {
-        // range
-        case ValueTypeNumber:
-            if (rhs->as_number.is_float) {
+        case ValueTypeNumber: // range: 'number to number'
+            // if there was an error in verifying the values are whole numbers, return the errors
+            if ((value = value_verify_int(lhs, expr->lhs->state)) ||
+                (value = value_verify_int(rhs, expr->rhs->state))) {
                 value_deref(lhs);
                 value_deref(rhs);
-                interpreter_error(interpreter, expr->rhs->state, "Float not allowed in range");
+                return value;
             }
-
-            // validate that lhs is an int
-            if (lhs->type != ValueTypeNumber) {
-                value_deref(lhs);
-                interpreter_error(interpreter, expr->lhs->state, "Expected number");
-            }
-            if (lhs->as_number.is_float){
-                value_deref(lhs);
-                interpreter_error(interpreter, expr->lhs->state, "Float not allowed in range");
-            }
-
             value = value_create(ValueTypeRange);
-            value->as_range.start = lhs->as_number.as_int;
-            value->as_range.end = rhs->as_number.as_int;
+            value->as_range.start = number_to_int(lhs->as_number);
+            value->as_range.end = number_to_int(rhs->as_number);
             break;
         // cast
         case ValueTypeType:
@@ -981,30 +963,48 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value_deref(maybe_number);
         break;
     }
-    case ExprTypeBlame:
-        value = value_create(ValueTypeBlame);
+    case ExprTypeBlame: {
+        RaelValue message;
         // if there is something after `blame`
-        if (expr->as_single)
-            value->as_blame.value = expr_eval(interpreter, expr->as_single, true);
-        else
-            value->as_blame.value = NULL;
-        value->as_blame.original_place = expr->state;
+        if (expr->as_single) {
+            message = expr_eval(interpreter, expr->as_single, true);
+        } else {
+            message = NULL;
+        }
+        value = blame_new(message, expr->state);
         break;
+    }
     case ExprTypeSet:
         switch (expr->as_set.set_type) {
         case SetTypeAtExpr: {
-            value = expr_eval(interpreter, expr->as_set.expr, true);
-            run_stack_set(interpreter, expr->as_set.as_at_stat, value);
+            value = eval_stack_set(interpreter, expr->as_set.as_at_stat, expr->as_set.expr);
             break;
         }
-        case SetTypeKey:
+        case SetTypeKey: {
             value = expr_eval(interpreter, expr->as_set.expr, true);
             scope_set(interpreter->scope, expr->as_set.as_key, value, false);
+            // reference again because the value is returned
+            value_ref(value);
             break;
+        }
         default:
             RAEL_UNREACHABLE();
         }
-        value_ref(value);
+        break;
+    case ExprTypeAddEqual:
+        value = eval_set_operation_expr(interpreter, expr, values_add);
+        break;
+    case ExprTypeSubEqual:
+        value = eval_set_operation_expr(interpreter, expr, values_sub);
+        break;
+    case ExprTypeMulEqual:
+        value = eval_set_operation_expr(interpreter, expr, values_mul);
+        break;
+    case ExprTypeDivEqual:
+        value = eval_set_operation_expr(interpreter, expr, values_div);
+        break;
+    case ExprTypeModEqual:
+        value = eval_set_operation_expr(interpreter, expr, values_mod);
         break;
     case ExprTypeAnd: {
         int result = 0;
@@ -1017,9 +1017,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         }
         value_deref(lhs);
 
-        value = value_create(ValueTypeNumber);
-        value->as_number.is_float = false;
-        value->as_number.as_int = result;
+        value = number_newi(result);
         break;
     }
     case ExprTypeOr: {
@@ -1035,9 +1033,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         }
         value_deref(lhs);
 
-        value = value_create(ValueTypeNumber);
-        value->as_number.is_float = false;
-        value->as_number.as_int = result;
+        value = number_newi(result);
         break;
     }
     case ExprTypeTypeof:
@@ -1111,7 +1107,8 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         RAEL_UNREACHABLE();
     }
 
-    if (can_explode && value->type == ValueTypeBlame) {
+    if (can_explode && value_is_blame(value)) {
+        // explode (error)
         struct State state = value->as_blame.original_place;
 
         // advance all whitespace
@@ -1302,7 +1299,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         RaelValue caught_value = expr_eval(interpreter, instruction->catch.catch_expr, false);
 
         // handle blame
-        if (caught_value->type == ValueTypeBlame) {
+        if (value_is_blame(caught_value)) {
             struct Scope catch_scope;
             interpreter_push_scope(interpreter, &catch_scope);
             block_run(interpreter, instruction->catch.handle_block);

@@ -27,6 +27,10 @@ RaelValue number_newf(double f);
 
 double number_to_float(struct RaelNumberValue n);
 
+int number_to_int(struct RaelNumberValue number);
+
+bool number_is_whole(struct RaelNumberValue number);
+
 struct RaelNumberValue number_add(struct RaelNumberValue a, struct RaelNumberValue b);
 
 struct RaelNumberValue number_sub(struct RaelNumberValue a, struct RaelNumberValue b);

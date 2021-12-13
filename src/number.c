@@ -10,6 +10,25 @@ double number_to_float(struct RaelNumberValue n) {
     return n.is_float ? n.as_float : (double)n.as_int;
 }
 
+int number_to_int(struct RaelNumberValue number) {
+    if (number.is_float)
+        return (int)number.as_float;
+    else
+        return number.as_int;
+}
+
+bool number_is_whole(struct RaelNumberValue number) {
+    if (number.is_float) {
+        if (fmod(number.as_float, 1)) {
+            return false;
+        } else {
+            return true;
+        }
+    } else {
+        return true;
+    }
+}
+
 /* create a RaelNumberValue from an int */
 struct RaelNumberValue numbervalue_newi(int i) {
     return (struct RaelNumberValue) {
@@ -64,6 +83,7 @@ struct RaelNumberValue number_mul(struct RaelNumberValue a, struct RaelNumberVal
         return numbervalue_newi(a.as_int * b.as_int);
 }
 
+/* returns false on division by zero */
 bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out) {
     if (a.is_float || b.is_float) {
         if (number_to_float(b) == 0.f)
@@ -84,6 +104,7 @@ bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelN
     return true;
 }
 
+/* returns false on mod of zero */
 bool number_mod(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out) {
     if (a.is_float || b.is_float) {
         if (number_to_float(b) == 0.f)
@@ -199,24 +220,15 @@ struct RaelNumberValue number_abs(struct RaelNumberValue number) {
 }
 
 struct RaelNumberValue number_floor(struct RaelNumberValue number) {
-    int n;
-    if (number.is_float)
-        n = (int)number.as_float;
-    else
-        n = number.as_int;
-    return numbervalue_newi(n);
+    return numbervalue_newi(number_to_int(number));
 }
 
 struct RaelNumberValue number_ceil(struct RaelNumberValue number) {
-    if (number.is_float) {
-        int n = (int)number.as_float;
-        // if the number is bigger than a whole number
-        if (fmod(number.as_float, 1))
-            ++n;
-        return numbervalue_newi(n);
-    } else {
-        return number;
-    }
+    int n = number_to_int(number);
+    // if the number is not an integer, round up (add 1)
+    if (!number_is_whole(number))
+        ++n;
+    return numbervalue_newi(n);
 }
 
 void number_repr(struct RaelNumberValue number) {

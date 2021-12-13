@@ -85,7 +85,7 @@ RaelValue string_slice(RaelValue string, size_t start, size_t end) {
     return new_string;
 }
 
-RaelValue string_plus_string(RaelValue string, RaelValue string2) {
+RaelValue strings_add(RaelValue string, RaelValue string2) {
     RaelValue new_string;
     char *strptr;
     size_t length, str1len, str2len;
@@ -148,4 +148,80 @@ void stringvalue_repr(struct RaelStringValue *string) {
         }
     }
     putchar('"');
+}
+
+/* number + string */
+RaelValue string_precede_with_number(RaelValue number, RaelValue string) {
+    int n;
+    char *strptr;
+    size_t string_length;
+
+    assert(number->type == ValueTypeNumber);
+    assert(string->type == ValueTypeString);
+
+    if (!number_is_whole(number->as_number)) {
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the number to be a whole number");
+    }
+    n = number_to_int(number->as_number);
+    if (!rael_int_in_range_of_char(n)) {
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the number to be in ascii");
+    }
+
+    // get length of rhs
+    string_length = string_get_length(string);
+    strptr = malloc((string_length + 1) * sizeof(char));
+
+    strptr[0] = (char)n;
+    strncpy(strptr+1, string->as_string.value, string_length);
+    return string_new_pure(strptr, string_length + 1, true);
+}
+
+/* string + number */
+RaelValue string_add_number(RaelValue string, RaelValue number) {
+    int n;
+    char *strptr;
+    size_t string_length;
+
+    assert(string->type == ValueTypeString);
+    assert(number->type == ValueTypeNumber);
+
+    if (!number_is_whole(number->as_number)) {
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the number to be a whole number");
+    }
+
+    n = number_to_int(number->as_number);
+    if (!rael_int_in_range_of_char(n)) {
+        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the number to be in ascii");
+    }
+
+    // get length of rhs
+    string_length = string_get_length(string);
+    strptr = malloc((string_length + 1) * sizeof(char));
+
+    strncpy(strptr, string->as_string.value, string_length);
+    strptr[string_length] = (char)n;
+    return string_new_pure(strptr, string_length + 1, true);
+}
+
+/* is a string equal to another string? */
+bool string_eq(RaelValue string, RaelValue string2) {
+    size_t string_length, string2_length;
+    assert(string->type == ValueTypeString);
+    assert(string2->type == ValueTypeString);
+
+    // get lengths
+    string_length = string_get_length(string);
+    string2_length = string_get_length(string2);
+    // if the strings have to have the same length
+    if (string_length == string2_length) {
+        // if the base value is the same (e.g they inherit from the same constant value or are equal substrings)
+        if (string->as_string.value == string2->as_string.value) {
+            return true;
+        } else {
+            return strncmp(string->as_string.value, string2->as_string.value, string_length) == 0;
+        }
+    } else {
+        // if the strings differ in length, they are not equal
+        return false;
+    }
 }

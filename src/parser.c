@@ -469,60 +469,65 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
 }
 
 static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
-    struct Expr *expr, *at_set, *full_expression;
+    struct SetExpr set_expr;
+    enum ExprType type;
+    struct Expr *at_set, *full_expr;
     struct State backtrack = parser_dump_state(parser);
+    struct State operator_state;
 
     if ((at_set = parser_parse_expr_at(parser)) && at_set->type == ExprTypeAt) {
-        if (!parser_match(parser, TokenNameQuestionEquals)) {
-            expr_delete(at_set);
-            parser_load_state(parser, backtrack);
-            return NULL;
-        }
-        // parse rhs of set expression
-        if (!(expr = parser_parse_expr(parser))) {
-            expr_delete(at_set);
-            parser_load_state(parser, backtrack);
-            return NULL;
-        }
-
-        full_expression = expr_create(ExprTypeSet);
-        full_expression->as_set = (struct SetExpr) {
-            .set_type = SetTypeAtExpr,
-            .as_at_stat = at_set,
-            .expr = expr
-        };
+        set_expr.set_type = SetTypeAtExpr;
+        set_expr.as_at_stat = at_set;
     } else {
-        struct Token key_token;
+        // load state to the previous state, in case parser_parse_expr_at worked
         parser_load_state(parser, backtrack);
-
         if (at_set)
             expr_delete(at_set);
-
         if (!parser_match(parser, TokenNameKey))
             return NULL;
-
-        key_token = parser->lexer.token;
-
-        if (!parser_match(parser, TokenNameQuestionEquals)) {
-            parser_load_state(parser, backtrack);
-            return NULL;
-        }
-
-        // expect an expression after :key ?=
-        if (!(expr = parser_parse_expr(parser))) {
-            parser_load_state(parser, backtrack);
-            return NULL;
-        }
-
-        full_expression = expr_create(ExprTypeSet);
-        full_expression->as_set = (struct SetExpr) {
-            .set_type = SetTypeKey,
-            .as_key = token_allocate_key(&key_token),
-            .expr = expr
-        };
+        set_expr.set_type = SetTypeKey;
+        set_expr.as_key = token_allocate_key(&parser->lexer.token);
+    }
+    // store the state in which the operator is found
+    operator_state = parser_dump_state(parser);
+    // try to parse ?=
+    if (!lexer_tokenize(&parser->lexer)) {
+        goto error;
+    }
+    // decide, according to the token type, the expression type
+    switch (parser->lexer.token.name) {
+    case TokenNameQuestionEquals: type = ExprTypeSet; break;
+    case TokenNamePlusEquals: type = ExprTypeAddEqual; break;
+    case TokenNameMinusEquals: type = ExprTypeSubEqual; break;
+    case TokenNameStarEquals: type = ExprTypeMulEqual; break;
+    case TokenNameSlashEquals: type = ExprTypeDivEqual; break;
+    case TokenNamePercentEquals: type = ExprTypeModEqual; break;
+    default: goto error;
+    }
+    // FIXME: should this error instead?
+    // parse rhs of set expression
+    if (!(set_expr.expr = parser_parse_expr(parser))) {
+        goto error;
     }
 
-    return full_expression;
+    full_expr = expr_create(type);
+    full_expr->as_set = set_expr;
+    full_expr->state = operator_state;
+    return full_expr;
+error:
+    // if you couldn't parse the expression proparly, free used stuff and return a NULL
+    switch (set_expr.set_type) {
+    case SetTypeAtExpr:
+        expr_delete(set_expr.as_at_stat);
+        break;
+    case SetTypeKey:
+        free(set_expr.as_key);
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+    parser_load_state(parser, backtrack);
+    return NULL;
 }
 
 /* suffix parsing */
@@ -579,7 +584,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             return NULL;
 
         switch (parser->lexer.token.name) {
-        case TokenNameSub: { // -
+        case TokenNameSub: { // -value
             struct Expr *to_negative;
 
             if (!(to_negative = parser_parse_expr_single(parser)))
@@ -1445,6 +1450,11 @@ static void expr_delete(struct Expr* const expr) {
             expr_delete(expr->as_single);
         break;
     case ExprTypeSet:
+    case ExprTypeAddEqual:
+    case ExprTypeSubEqual:
+    case ExprTypeMulEqual:
+    case ExprTypeDivEqual:
+    case ExprTypeModEqual:
         switch (expr->as_set.set_type) {
         case SetTypeKey:
             free(expr->as_set.as_key);
