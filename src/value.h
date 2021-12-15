@@ -33,7 +33,7 @@ enum ValueType {
 };
 
 struct RaelRangeValue {
-    int start, end;
+    RaelInt start, end;
 };
 
 struct RaelBlameValue {

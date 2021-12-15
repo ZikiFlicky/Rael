@@ -16,10 +16,17 @@
         abort();                                                                         \
     } while(0)
 
+typedef long RaelInt;
+typedef double RaelFloat;
+
 struct State {
     char *stream_pos;
     size_t line, column;
 };
+
+RaelInt rael_int_abs(RaelInt i);
+
+RaelFloat rael_float_abs(RaelFloat f);
 
 void rael_show_error_tag(char* const filename, struct State state);
 
@@ -29,7 +36,7 @@ void rael_show_error_message(char* const filename, struct State state, const cha
 
 char *rael_allocate_cstr(char *string, size_t length);
 
-bool rael_int_in_range_of_char(int number);
+bool rael_int_in_range_of_char(RaelInt number);
 
 /*
     takes a raw string (not from a variable) and allocates it on the stack with a NUL.

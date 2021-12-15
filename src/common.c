@@ -5,6 +5,22 @@
 #include <limits.h>
 #include <stdbool.h>
 
+RaelInt rael_int_abs(RaelInt i) {
+    if (i < 0) {
+        return -i;
+    } else {
+        return i;
+    }
+}
+
+RaelFloat rael_float_abs(RaelFloat f) {
+    if (f < 0.0) {
+        return -f;
+    } else {
+        return f;
+    }
+}
+
 void rael_show_error_tag(char* const filename, struct State state) {
     if (filename)
         printf("Error [%s:%zu:%zu]: ", filename, state.line, state.column);
@@ -51,7 +67,7 @@ char *rael_allocate_cstr(char *string, size_t length) {
     return new_string;
 }
 
-bool rael_int_in_range_of_char(int number) {
+bool rael_int_in_range_of_char(RaelInt number) {
     if (number >= CHAR_MIN && number <= CHAR_MAX) {
         return true;
     } else {

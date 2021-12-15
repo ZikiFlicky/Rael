@@ -72,7 +72,7 @@ RaelValue module_math_abs(RaelArguments *args) {
 
 RaelValue module_math_sqrt(RaelArguments *args) {
     RaelValue number, return_value;
-    double n;
+    RaelFloat n;
 
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
@@ -99,9 +99,9 @@ RaelValue module_math_pow(RaelArguments *args) {
     } else if (power->type != ValueTypeNumber) {
         return_value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the power to be a number");
     } else {
-        double n_base = number_to_float(base->as_number);
-        double n_power = number_to_float(power->as_number);
-        double result = pow(n_base, n_power);    
+        RaelFloat n_base = number_to_float(base->as_number),
+                  n_power = number_to_float(power->as_number),
+                  result = pow(n_base, n_power);
 
         return_value = number_newf(result);
     }

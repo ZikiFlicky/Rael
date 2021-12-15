@@ -6,13 +6,13 @@
 #include <ctype.h>
 
 /* number to float */
-double number_to_float(struct RaelNumberValue n) {
-    return n.is_float ? n.as_float : (double)n.as_int;
+RaelFloat number_to_float(struct RaelNumberValue n) {
+    return n.is_float ? n.as_float : (RaelFloat)n.as_int;
 }
 
-int number_to_int(struct RaelNumberValue number) {
+RaelInt number_to_int(struct RaelNumberValue number) {
     if (number.is_float)
-        return (int)number.as_float;
+        return (RaelInt)number.as_float;
     else
         return number.as_int;
 }
@@ -30,7 +30,7 @@ bool number_is_whole(struct RaelNumberValue number) {
 }
 
 /* create a RaelNumberValue from an int */
-struct RaelNumberValue numbervalue_newi(int i) {
+struct RaelNumberValue numbervalue_newi(RaelInt i) {
     return (struct RaelNumberValue) {
         .is_float = false,
         .as_int = i
@@ -38,7 +38,7 @@ struct RaelNumberValue numbervalue_newi(int i) {
 }
 
 /* create a RaelNumberValue from a float */
-struct RaelNumberValue numbervalue_newf(double f) {
+struct RaelNumberValue numbervalue_newf(RaelFloat f) {
     return (struct RaelNumberValue) {
         .is_float = true,
         .as_float = f
@@ -53,12 +53,12 @@ RaelValue number_new(struct RaelNumberValue n) {
 }
 
 /* create a RaelValue from an int */
-RaelValue number_newi(int i) {
+RaelValue number_newi(RaelInt i) {
     return number_new(numbervalue_newi(i));
 }
 
 /* create a RaelValue from a float */
-RaelValue number_newf(double f) {
+RaelValue number_newf(RaelFloat f) {
     return number_new(numbervalue_newf(f));
 }
 
@@ -86,7 +86,7 @@ struct RaelNumberValue number_mul(struct RaelNumberValue a, struct RaelNumberVal
 /* returns false on division by zero */
 bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out) {
     if (a.is_float || b.is_float) {
-        if (number_to_float(b) == 0.f)
+        if (number_to_float(b) == 0.0)
             return false;
         *out = numbervalue_newf(number_to_float(a) / number_to_float(b));
     } else {
@@ -107,7 +107,7 @@ bool number_div(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelN
 /* returns false on mod of zero */
 bool number_mod(struct RaelNumberValue a, struct RaelNumberValue b, struct RaelNumberValue *out) {
     if (a.is_float || b.is_float) {
-        if (number_to_float(b) == 0.f)
+        if (number_to_float(b) == 0.0)
             return false;
         *out = numbervalue_newf(fmod(number_to_float(a), number_to_float(b)));
     } else {
@@ -162,15 +162,15 @@ struct RaelNumberValue number_bigger_eq(struct RaelNumberValue a, struct RaelNum
 
 bool number_as_bool(struct RaelNumberValue n) {
     if (n.is_float)
-        return n.as_float != 0.f;
+        return n.as_float != 0.0;
     else
         return n.as_int != 0;
 }
 
 bool number_from_string(char *string, size_t length, struct RaelNumberValue *out_number) {
     bool is_float = false;
-    int decimal = 0;
-    double fractional;
+    RaelInt decimal = 0;
+    RaelFloat fractional;
     size_t since_dot;
 
     if (length == 0)
@@ -186,7 +186,7 @@ bool number_from_string(char *string, size_t length, struct RaelNumberValue *out
             }
         }
         if (is_float) {
-            double digit;
+            RaelFloat digit;
 
             if (!isdigit(string[i]))
                 return false;
@@ -204,7 +204,7 @@ bool number_from_string(char *string, size_t length, struct RaelNumberValue *out
     }
 
     if (is_float) {
-        *out_number = numbervalue_newf((double)decimal + fractional);
+        *out_number = numbervalue_newf((RaelFloat)decimal + fractional);
     } else {
         *out_number = numbervalue_newi(decimal);
     }
@@ -224,7 +224,7 @@ struct RaelNumberValue number_floor(struct RaelNumberValue number) {
 }
 
 struct RaelNumberValue number_ceil(struct RaelNumberValue number) {
-    int n = number_to_int(number);
+    RaelInt n = number_to_int(number);
     // if the number is not an integer, round up (add 1)
     if (!number_is_whole(number))
         ++n;
@@ -235,5 +235,5 @@ void number_repr(struct RaelNumberValue number) {
     if (number.is_float)
         printf("%.17g", number.as_float);
     else
-        printf("%d", number.as_int);
+        printf("%ld", number.as_int);
 }

@@ -271,8 +271,8 @@ static RaelValue stack_at(struct Interpreter* const interpreter, RaelValue stack
         }
         break;
     case ValueTypeRange: {
-        int start = idx->as_range.start,
-            end = idx->as_range.end;
+        RaelInt start = idx->as_range.start,
+                end = idx->as_range.end;
         size_t length = stack_get_length(stack);
 
         // make sure range numbers are positive, e.g -2 to 3 is not allowed
@@ -375,7 +375,7 @@ static RaelValue range_at(struct Interpreter* const interpreter, RaelValue range
         return out_value;
     }
 
-    if ((size_t)idx->as_number.as_int >= abs(range->as_range.end - range->as_range.start)) {
+    if (idx->as_number.as_int >= rael_int_abs(range->as_range.end - range->as_range.start)) {
         value_deref(range);
         value_deref(idx);
         interpreter_error(interpreter, at_expr->rhs->state, "Index too big");
@@ -558,20 +558,20 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
         case ValueTypeNumber: {
             // FIXME: make float conversions more accurate
             bool is_negative;
-            int decimal;
-            double fractional;
+            RaelInt decimal;
+            RaelFloat fractional;
             size_t allocated, idx = 0;
             char *string = malloc((allocated = 10) * sizeof(char));
             size_t middle;
 
             if (value->as_number.is_float) {
                 is_negative = value->as_number.as_float < 0;
-                decimal = abs((int)value->as_number.as_float);
-                fractional = fmod(fabs(value->as_number.as_float), 1);
+                decimal = rael_int_abs(number_to_int(value->as_number));
+                fractional = fmod(rael_float_abs(value->as_number.as_float), 1);
             } else {
                 is_negative = value->as_number.as_int < 0;
-                decimal = abs(value->as_number.as_int);
-                fractional = 0.f;
+                decimal = rael_int_abs(value->as_number.as_int);
+                fractional = 0.0;
             }
 
             do {
@@ -604,12 +604,12 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
                 string[idx++] = '.';
                 fractional *= 10;
                 do {
-                    double new_fractional = fmod(fractional, 1);
+                    RaelFloat new_fractional = fmod(fractional, 1);
                     if (idx >= allocated)
                         string = realloc(string, (allocated += 4) * sizeof(char));
-                    string[idx++] = '0' + (int)(fractional - new_fractional);
+                    string[idx++] = '0' + (RaelInt)(fractional - new_fractional);
                     fractional = new_fractional;
-                } while (++characters_added < 14 && (int)(fractional *= 10));
+                } while (++characters_added < 14 && (RaelInt)(fractional *= 10));
 
                 string = realloc(string, (allocated = idx) * sizeof(char));
             }
@@ -644,7 +644,7 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
                 !number_from_string(value->as_string.value + is_negative, string_length - is_negative, &casted->as_number)) {
                 value_deref(casted);
                 interpreter_error(interpreter, value_state, "The string '%.*s' can't be parsed as a number",
-                                  (int)string_length, value->as_string.value);
+                                  (RaelInt)string_length, value->as_string.value);
             }
             if (is_negative)
                 casted->as_number = number_mul(casted->as_number, numbervalue_newi(-1));
@@ -660,7 +660,8 @@ static RaelValue value_cast(struct Interpreter* const interpreter, RaelValue val
             size_t string_length = string_get_length(value);
             casted = stack_new(string_length);
             for (size_t i = 0; i < string_length; ++i) {
-                RaelValue char_value = number_newi((int)string_get_char(value, i));
+                // create a new RaelNumberValue from the char
+                RaelValue char_value = number_newi((RaelInt)string_get_char(value, i));
                 stack_push(casted, char_value);
             }
             break;
@@ -938,7 +939,7 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
 
         if (value_is_iterable(single)) {
             value = value_create(ValueTypeNumber);
-            value->as_number = numbervalue_newi((int)value_get_length(single));
+            value->as_number = numbervalue_newi((RaelInt)value_get_length(single));
         } else if (single->type == ValueTypeVoid) {
             value = value_create(ValueTypeNumber);
             value->as_number = numbervalue_newi(0);

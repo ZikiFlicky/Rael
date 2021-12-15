@@ -1,6 +1,7 @@
 #ifndef RAEL_NUMBER_H
 #define RAEL_NUMBER_H
 
+#include "common.h"
 #include "lexer.h"
 
 #include <stdbool.h>
@@ -10,24 +11,24 @@ typedef struct RaelValue* RaelValue;
 struct RaelNumberValue {
     bool is_float;
     union {
-        int as_int;
-        double as_float;
+        RaelInt as_int;
+        RaelFloat as_float;
     };
 };
 
-struct RaelNumberValue numbervalue_newi(int i);
+struct RaelNumberValue numbervalue_newi(RaelInt i);
 
-struct RaelNumberValue numbervalue_newf(double f);
+struct RaelNumberValue numbervalue_newf(RaelFloat f);
 
 RaelValue number_new(struct RaelNumberValue n);
 
-RaelValue number_newi(int i);
+RaelValue number_newi(RaelInt i);
 
-RaelValue number_newf(double f);
+RaelValue number_newf(RaelFloat f);
 
-double number_to_float(struct RaelNumberValue n);
+RaelFloat number_to_float(struct RaelNumberValue n);
 
-int number_to_int(struct RaelNumberValue number);
+RaelInt number_to_int(struct RaelNumberValue number);
 
 bool number_is_whole(struct RaelNumberValue number);
 

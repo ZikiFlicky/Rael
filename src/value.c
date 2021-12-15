@@ -92,7 +92,7 @@ void value_repr(RaelValue value) {
         stackvalue_repr(&value->as_stack);
         break;
     case ValueTypeRange:
-        printf("%d to %d", value->as_range.start, value->as_range.end);
+        printf("%ld to %ld", value->as_range.start, value->as_range.end);
         break;
     case ValueTypeType:
         printf("%s", value_type_to_string(value->as_type));
@@ -191,12 +191,12 @@ bool value_is_iterable(RaelValue value) {
 
 size_t range_get_length(RaelValue range) {
     assert(range->type == ValueTypeRange);
-    return (size_t)abs(range->as_range.end - range->as_range.start);
+    return (size_t)rael_int_abs(range->as_range.end - range->as_range.start);
 }
 
 RaelValue range_get(RaelValue range, size_t idx) {
     RaelValue value;
-    int number;
+    RaelInt number;
     assert(range->type == ValueTypeRange);
     if (idx >= range_get_length(range))
         return NULL;

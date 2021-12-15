@@ -152,7 +152,7 @@ void stringvalue_repr(struct RaelStringValue *string) {
 
 /* number + string */
 RaelValue string_precede_with_number(RaelValue number, RaelValue string) {
-    int n;
+    RaelInt n;
     char *strptr;
     size_t string_length;
 
@@ -178,7 +178,7 @@ RaelValue string_precede_with_number(RaelValue number, RaelValue string) {
 
 /* string + number */
 RaelValue string_add_number(RaelValue string, RaelValue number) {
-    int n;
+    RaelInt n;
     char *strptr;
     size_t string_length;
 
