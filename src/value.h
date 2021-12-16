@@ -61,7 +61,7 @@ typedef struct RaelValue {
     };
 } RaelValue;
 
-RaelValue *value_create(enum ValueType type);
+RaelValue *value_new(enum ValueType type);
 
 void value_deref(RaelValue *value);
 

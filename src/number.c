@@ -47,7 +47,7 @@ RaelNumberValue numbervalue_newf(RaelFloat f) {
 
 /* create a RaelValue from a RaelNumberValue */
 RaelValue *number_new(RaelNumberValue n) {
-    RaelValue *number = value_create(ValueTypeNumber);
+    RaelValue *number = value_new(ValueTypeNumber);
     number->as_number = n;
     return number;
 }

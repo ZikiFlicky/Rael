@@ -10,7 +10,7 @@
 RaelValue *module_math_new(void);
 
 RaelValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amount_params) {
-    RaelValue *cfunc = value_create(ValueTypeCFunc);
+    RaelValue *cfunc = value_new(ValueTypeCFunc);
     cfunc->as_cfunc = (RaelExternalCFuncValue) {
         .name = name,
         .func = func,
@@ -60,7 +60,7 @@ void module_repr(RaelModuleValue *module) {
 RaelValue *module_get_key(RaelModuleValue *module, char *varname) {
     RaelValue *value = varmap_get(&module->vars, varname);
     if (!value)
-        value = value_create(ValueTypeVoid);
+        value = value_new(ValueTypeVoid);
     return value;
 }
 

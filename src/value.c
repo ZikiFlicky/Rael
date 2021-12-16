@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <string.h>
 
-RaelValue *value_create(enum ValueType type) {
+RaelValue *value_new(enum ValueType type) {
     RaelValue *value = malloc(sizeof(RaelValue));
     value->type = type;
     value->reference_count = 1;
@@ -200,7 +200,7 @@ RaelValue *range_get(RaelValue *range, size_t idx) {
     assert(range->type == ValueTypeRange);
     if (idx >= range_get_length(range))
         return NULL;
-    value = value_create(ValueTypeNumber);
+    value = value_new(ValueTypeNumber);
 
     if (range->as_range.end > range->as_range.start)
         number = range->as_range.start + idx;
@@ -212,7 +212,7 @@ RaelValue *range_get(RaelValue *range, size_t idx) {
 }
 
 RaelValue *blame_no_state_new(RaelValue *value) {
-    RaelValue *blame = value_create(ValueTypeBlame);
+    RaelValue *blame = value_new(ValueTypeBlame);
     blame->as_blame.value = value;
     return blame;
 }
@@ -227,7 +227,7 @@ void blame_add_state(RaelValue *value, struct State state) {
 }
 
 RaelValue *blame_new(RaelValue *message, struct State state) {
-    RaelValue *blame = value_create(ValueTypeBlame);
+    RaelValue *blame = value_new(ValueTypeBlame);
     blame->as_blame.value = message;
     blame->as_blame.original_place = state;
     return blame;

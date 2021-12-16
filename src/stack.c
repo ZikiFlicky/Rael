@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 RaelValue *stack_new(size_t overhead) {
-    RaelValue *stack = value_create(ValueTypeStack);
+    RaelValue *stack = value_new(ValueTypeStack);
     stack->as_stack.allocated = overhead;
     stack->as_stack.length = 0;
     stack->as_stack.values = overhead == 0 ? NULL : malloc(overhead * sizeof(RaelValue*));
@@ -52,7 +52,7 @@ RaelValue *stack_slice(RaelValue *stack, size_t start, size_t end) {
         new_dump[i] = value;
     }
 
-    new_stack = value_create(ValueTypeStack);
+    new_stack = value_new(ValueTypeStack);
     new_stack->as_stack.allocated = length;
     new_stack->as_stack.length = length;
     new_stack->as_stack.values = new_dump;

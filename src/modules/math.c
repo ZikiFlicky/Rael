@@ -135,7 +135,7 @@ RaelValue *module_math_new(void) {
     module_set_key(&m, RAEL_HEAPSTR("PI"), number_newf(RAEL_CONSTANT_PI));
     module_set_key(&m, RAEL_HEAPSTR("2PI"), number_newf(RAEL_CONSTANT_2PI));
     module_set_key(&m, RAEL_HEAPSTR("E"), number_newf(RAEL_CONSTANT_E));
-    module = value_create(ValueTypeModule);
+    module = value_new(ValueTypeModule);
     module->as_module = m;
 
     return module;

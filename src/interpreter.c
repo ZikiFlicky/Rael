@@ -107,7 +107,7 @@ static RaelValue *value_eval(struct Interpreter* const interpreter, struct Value
         out_value = number_new(value.as_number);
         break;
     case ValueTypeString:
-        out_value = value_create(ValueTypeString);
+        out_value = value_new(ValueTypeString);
         // it's okay because strings are immutable
         out_value->as_string = value.as_string;
         out_value->as_string.type = StringTypePure;
@@ -115,7 +115,7 @@ static RaelValue *value_eval(struct Interpreter* const interpreter, struct Value
         out_value->as_string.can_be_freed = false;
         break;
     case ValueTypeRoutine:
-        out_value = value_create(ValueTypeRoutine);
+        out_value = value_new(ValueTypeRoutine);
         out_value->as_routine = value.as_routine;
         out_value->as_routine.scope = interpreter->scope;
         break;
@@ -128,10 +128,10 @@ static RaelValue *value_eval(struct Interpreter* const interpreter, struct Value
         break;
     }
     case ValueTypeVoid:
-        out_value = value_create(ValueTypeVoid);
+        out_value = value_new(ValueTypeVoid);
         break;
     case ValueTypeType:
-        out_value = value_create(ValueTypeType);
+        out_value = value_new(ValueTypeType);
         out_value->as_type = value.as_type;
         break;
     default:
@@ -467,7 +467,7 @@ static int routine_call_expr_eval(struct Interpreter *interpreter, RaelValue *ro
         ;
     } else {
         // just got to the end of the function (which means no return value)
-        interpreter->returned_value = value_create(ValueTypeVoid);
+        interpreter->returned_value = value_new(ValueTypeVoid);
     }
 
     interpreter->interrupt = ProgramInterruptNone;
@@ -554,7 +554,7 @@ value_cast(struct Interpreter* const interpreter, RaelValue *value, enum ValueTy
 
     switch (cast_type) {
     case ValueTypeString:
-        casted = value_create(ValueTypeString);
+        casted = value_new(ValueTypeString);
         switch (value->type) {
         case ValueTypeVoid:
             casted->as_string = (RaelStringValue) {
@@ -625,7 +625,7 @@ value_cast(struct Interpreter* const interpreter, RaelValue *value, enum ValueTy
                 string = realloc(string, (allocated = idx) * sizeof(char));
             }
 
-            casted = value_create(ValueTypeString);
+            casted = value_new(ValueTypeString);
             casted->as_string = (RaelStringValue) {
                 .type = StringTypePure,
                 .can_be_freed = true,
@@ -646,7 +646,7 @@ value_cast(struct Interpreter* const interpreter, RaelValue *value, enum ValueTy
         case ValueTypeString: { // from string
             bool is_negative = false;
             size_t string_length = string_get_length(value);
-            casted = value_create(ValueTypeNumber);
+            casted = value_new(ValueTypeNumber);
             if (string_length > 0)
                 is_negative = value->as_string.value[0] == '-';
 
@@ -929,7 +929,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
                 value_deref(rhs);
                 return value;
             }
-            value = value_create(ValueTypeRange);
+            value = value_new(ValueTypeRange);
             value->as_range.start = number_to_int(lhs->as_number);
             value->as_range.end = number_to_int(rhs->as_number);
             break;
@@ -963,10 +963,10 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         single = expr_eval(interpreter, expr->as_single, true);
 
         if (value_is_iterable(single)) {
-            value = value_create(ValueTypeNumber);
+            value = value_new(ValueTypeNumber);
             value->as_number = numbervalue_newi((RaelInt)value_get_length(single));
         } else if (single->type == ValueTypeVoid) {
-            value = value_create(ValueTypeNumber);
+            value = value_new(ValueTypeNumber);
             value->as_number = numbervalue_newi(0);
         } else {
             value_deref(single);
@@ -983,7 +983,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
             interpreter_error(interpreter, expr->as_single->state, "Expected number");
         }
 
-        value = value_create(ValueTypeNumber);
+        value = value_new(ValueTypeNumber);
         value->as_number = number_neg(maybe_number->as_number);
 
         value_deref(maybe_number);
@@ -1077,7 +1077,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
     case ExprTypeTypeof:
         single = expr_eval(interpreter, expr->as_single, true);
 
-        value = value_create(ValueTypeType);
+        value = value_new(ValueTypeType);
         value->as_type = single->type;
         value_deref(single);
         break;
@@ -1089,7 +1089,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         // this is a possible exit point so don't allocate
         // the value on the heap yet because it could leak
         string = rael_readline(interpreter, expr->state);
-        value = value_create(ValueTypeString);
+        value = value_new(ValueTypeString);
         value->as_string = string;
         break;
     }
@@ -1124,7 +1124,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
             interpreter->interrupt = ProgramInterruptNone;
         } else {
             // if there was no interrupt, set the return value to Void
-            value = value_create(ValueTypeVoid);
+            value = value_new(ValueTypeVoid);
         }
 
         // deallocate the value it matched against because it has no use anymore
@@ -1322,7 +1322,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         if (instruction->return_value) {
             interpreter->returned_value = expr_eval(interpreter, instruction->return_value, false);
         } else {
-            interpreter->returned_value = value_create(ValueTypeVoid);
+            interpreter->returned_value = value_new(ValueTypeVoid);
         }
         interpreter->interrupt = ProgramInterruptReturn;
         break;
@@ -1376,7 +1376,7 @@ static void interpreter_set_filename(struct Interpreter *interpreter, char *file
     if (filename) {
         value = string_new_pure(filename, strlen(filename), false);
     } else {
-        value = value_create(ValueTypeVoid);
+        value = value_new(ValueTypeVoid);
     }
     scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Filename"), value, true);
 }

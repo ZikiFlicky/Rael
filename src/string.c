@@ -6,7 +6,7 @@
 #include <string.h>
 
 RaelValue *string_new_pure(char *strptr, size_t length, bool can_free) {
-    RaelValue *string = value_create(ValueTypeString);
+    RaelValue *string = value_new(ValueTypeString);
     string->as_string = (RaelStringValue) {
         .type = StringTypePure,
         .can_be_freed = can_free,
@@ -80,7 +80,7 @@ RaelValue *string_slice(RaelValue *string, size_t start, size_t end) {
 
     value_ref(substr.reference_string);
 
-    new_string = value_create(ValueTypeString);
+    new_string = value_new(ValueTypeString);
     new_string->as_string = substr;
 
     return new_string;
