@@ -56,6 +56,7 @@ enum ExprType {
     ExprTypeModEqual,
     ExprTypeAnd,
     ExprTypeOr,
+    ExprTypeNot,
     ExprTypeMatch,
     ExprTypeGetKey
 };

@@ -1,0 +1,16 @@
+if !0
+    log "Yay I'm here"
+else
+    log "Oopsy doopsy"
+
+if !"string"
+    log "That's wrong..."
+else
+    log "Nice"
+
+if !"asd" + 1
+    log "Yay!!!"
+
+if !(1 - 1) {
+    log "Hey"
+}

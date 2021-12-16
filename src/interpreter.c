@@ -1037,6 +1037,18 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value = number_newi(result);
         break;
     }
+    case ExprTypeNot: {
+        bool negative;
+        // eval the inside of the '!' expr
+        single = expr_eval(interpreter, expr->lhs, true);
+        // take the opposite of the value's boolean representation
+        negative = !value_as_bool(single);
+        // deallocate the now unused inside value
+        value_deref(single);
+        // create a new number value from the opposite of `single`
+        value = number_newi(negative ? 1 : 0);
+        break;
+    }
     case ExprTypeTypeof:
         single = expr_eval(interpreter, expr->as_single, true);
 

@@ -44,6 +44,7 @@ enum TokenName {
     TokenNameWith,
     TokenNameAmpersand,
     TokenNamePipe,
+    TokenNameExclamationMark,
     TokenNameTypeNumber,
     TokenNameTypeString,
     TokenNameTypeRoutine,

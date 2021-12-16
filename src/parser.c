@@ -594,6 +594,16 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             expr->as_single = to_negative;
             break;
         }
+        case TokenNameExclamationMark: {
+            struct Expr *to_opposite;
+
+            if (!(to_opposite = parser_parse_expr_single(parser)))
+                parser_error(parser, "Expected an expression after '!'");
+
+            expr = expr_create(ExprTypeNot);
+            expr->as_single = to_opposite;
+            break;
+        }
         case TokenNameSizeof: {
             struct Expr *sizeof_value;
 
@@ -1443,6 +1453,7 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeTypeof:
     case ExprTypeGetString:
     case ExprTypeNeg:
+    case ExprTypeNot:
         expr_delete(expr->as_single);
         break;
     case ExprTypeBlame:

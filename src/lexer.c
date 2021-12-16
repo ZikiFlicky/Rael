@@ -281,6 +281,13 @@ bool lexer_tokenize(struct Lexer* const lexer) {
         ++lexer->column;
         return true;
     }
+    if (lexer->stream[0] == '!') {
+        lexer->token.name = TokenNameExclamationMark;
+        lexer->token.length = 1;
+        lexer->token.string = lexer->stream++;
+        ++lexer->column;
+        return true;
+    }
     if (lexer->stream[0] == '<') {
         if (lexer->stream[1] == '<') {
             lexer->token.name = TokenNameRedirect;
