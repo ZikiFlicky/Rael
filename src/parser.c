@@ -832,33 +832,33 @@ static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
 
         if (lexer_tokenize(&parser->lexer)) {
             switch (parser->lexer.token.name) {
-            case TokenNameEquals:
+            case TokenNameEquals: // =
                 new_expr = expr_create(ExprTypeEquals);
-                new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '='");
                 break;
-            case TokenNameSmallerThan:
+            case TokenNameExclamationMarkEquals: // !=
+                new_expr = expr_create(ExprTypeNotEqual);
+                if (!(new_expr->rhs = parser_parse_expr_at(parser)))
+                    parser_state_error(parser, backtrack, "Expected a value after '='");
+                break;
+            case TokenNameSmallerThan: // <
                 new_expr = expr_create(ExprTypeSmallerThan);
-                new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '<'");
                 break;
-            case TokenNameBiggerThan:
+            case TokenNameBiggerThan: // >
                 new_expr = expr_create(ExprTypeBiggerThan);
-                new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '>'");
                 break;
-            case TokenNameSmallerOrEqual:
+            case TokenNameSmallerOrEqual: // <=
                 new_expr = expr_create(ExprTypeSmallerOrEqual);
-                new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '<='");
                 break;
-            case TokenNameBiggerOrEqual:
+            case TokenNameBiggerOrEqual: // >=
                 new_expr = expr_create(ExprTypeBiggerOrEqual);
-                new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '>='");
                 break;
@@ -866,6 +866,8 @@ static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
                 parser_load_state(parser, backtrack);
                 goto loop_end;
             }
+            // set the lhs of the new expression to the old lhs
+            new_expr->lhs = expr;
         } else {
             break;
         }
@@ -1437,6 +1439,7 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeDiv:
     case ExprTypeMod:
     case ExprTypeEquals:
+    case ExprTypeNotEqual:
     case ExprTypeSmallerThan:
     case ExprTypeBiggerThan:
     case ExprTypeSmallerOrEqual:

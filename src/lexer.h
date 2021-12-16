@@ -59,7 +59,8 @@ enum TokenName {
     TokenNameMinusEquals,
     TokenNameStarEquals,
     TokenNameSlashEquals,
-    TokenNamePercentEquals
+    TokenNamePercentEquals,
+    TokenNameExclamationMarkEquals
 };
 
 struct Token {

@@ -37,6 +37,7 @@ enum ExprType {
     ExprTypeMod,
     ExprTypeNeg,
     ExprTypeEquals,
+    ExprTypeNotEqual,
     ExprTypeSmallerThan,
     ExprTypeBiggerThan,
     ExprTypeSmallerOrEqual,

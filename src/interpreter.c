@@ -825,6 +825,16 @@ static RaelValue expr_eval(struct Interpreter* const interpreter, struct Expr* c
         value_deref(lhs);
         value_deref(rhs);
         break;
+    case ExprTypeNotEqual:
+        lhs = expr_eval(interpreter, expr->lhs, true);
+        rhs = expr_eval(interpreter, expr->rhs, true);
+
+        // create an integer from the boolean result of the comparison
+        value = number_newi(!values_equal(lhs, rhs) ? 1 : 0);
+
+        value_deref(lhs);
+        value_deref(rhs);
+        break;
     case ExprTypeSmallerThan:
         // eval lhs and rhs in lhs < rhs
         lhs = expr_eval(interpreter, expr->lhs, true);

@@ -1,0 +1,17 @@
+log 3 != 2
+
+if 3 != 2 {
+    log "3 != 2"
+} else {
+    log "3 = 2"
+}
+
+if 3 != 3 {
+    log "3 != 3"
+} else {
+    log "3 = 3"
+}
+
+if "string" != 3 {
+    log "\"string\" != 3"
+}
