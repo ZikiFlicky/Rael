@@ -554,17 +554,9 @@ value_cast(struct Interpreter* const interpreter, RaelValue *value, enum ValueTy
 
     switch (cast_type) {
     case ValueTypeString:
-        casted = value_new(ValueTypeString);
         switch (value->type) {
         case ValueTypeVoid:
-            casted->as_string = (RaelStringValue) {
-                .type = StringTypePure,
-                .can_be_freed = true,
-                .length = 4,
-                .value = malloc(4 * sizeof(char))
-            };
-            // to avoid the warnings when strncpying
-            memcpy(casted->as_string.value, "Void", 4 * sizeof(char));
+            casted = RAEL_STRING_FROM_RAWSTR("Void");
             break;
         case ValueTypeNumber: {
             // FIXME: make float conversions more accurate
