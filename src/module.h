@@ -9,45 +9,46 @@ typedef struct RaelArguments {
     RaelValue **arguments;
 } RaelArguments;
 
+/* define custom C function pointers as RaelRawCFunc */
 typedef RaelValue* (*RaelRawCFunc)(RaelArguments*);
 
-struct RaelExternalCFuncValue {
+typedef struct RaelExternalCFuncValue {
     char *name;
     RaelRawCFunc func;
     size_t amount_params;
-};
+} RaelExternalCFuncValue;
 
-struct RaelModuleValue {
+typedef struct RaelModuleValue {
     char *name;
     struct VariableMap vars;
-};
+} RaelModuleValue;
 
 /* create a RaelValue with the type of CFunc */
 RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params);
 
 /* call a cfunc value */
-RaelValue *cfunc_call(struct RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place);
+RaelValue *cfunc_call(RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place);
 
 /* dealloc a cfunc value */
-void cfunc_delete(struct RaelExternalCFuncValue *cfunc);
+void cfunc_delete(RaelExternalCFuncValue *cfunc);
 
 /* print a cfunc */
-void cfunc_repr(struct RaelExternalCFuncValue *cfunc);
+void cfunc_repr(RaelExternalCFuncValue *cfunc);
 
 /* return a new initialized RaelModuleValue */
-void module_new(struct RaelModuleValue *out, char *name);
+void module_new(RaelModuleValue *out, char *name);
 
 /* deallocate a module value */
-void module_delete(struct RaelModuleValue *module);
+void module_delete(RaelModuleValue *module);
 
 /* set a key inside of a module value */
-void module_set_key(struct RaelModuleValue *module, char *varname, RaelValue *value);
+void module_set_key(RaelModuleValue *module, char *varname, RaelValue *value);
 
 /* get a key from a module value */
-RaelValue *module_get_key(struct RaelModuleValue *module, char *varname);
+RaelValue *module_get_key(RaelModuleValue *module, char *varname);
 
 /* print a module */
-void module_repr(struct RaelModuleValue *module);
+void module_repr(RaelModuleValue *module);
 
 /* get module value by name */
 RaelValue *rael_get_module_by_name(char *module_name);

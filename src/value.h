@@ -15,8 +15,6 @@
 /* return a RaelValue of type blame, storing a RaelValue of type string with the value of `string` and the state `state` */
 #define RAEL_BLAME_FROM_RAWSTR_STATE(string, state) (blame_new(RAEL_STRING_FROM_RAWSTR((string)), (state)))
 
-typedef struct RaelValue RaelValue;
-
 enum ValueType {
     ValueTypeVoid,
     ValueTypeNumber,
@@ -30,38 +28,38 @@ enum ValueType {
     ValueTypeModule
 };
 
-struct RaelRangeValue {
+typedef struct RaelRangeValue {
     RaelInt start, end;
-};
+} RaelRangeValue;
 
-struct RaelBlameValue {
+typedef struct RaelBlameValue {
     RaelValue *value;
     struct State original_place;
-};
+} RaelBlameValue;
 
-struct RaelRoutineValue {
+typedef struct RaelRoutineValue {
     struct Scope *scope;
     char **parameters;
     size_t amount_parameters;
     struct Instruction **block;
-};
+} RaelRoutineValue;
 
 // the dynamic value abstraction layer
-struct RaelValue {
+typedef struct RaelValue {
     enum ValueType type;
     size_t reference_count;
     union {
-        struct RaelNumberValue as_number;
-        struct RaelStringValue as_string;
-        struct RaelRoutineValue as_routine;
-        struct RaelStackValue as_stack;
-        struct RaelRangeValue as_range;
-        struct RaelBlameValue as_blame;
+        RaelNumberValue as_number;
+        RaelStringValue as_string;
+        RaelRoutineValue as_routine;
+        RaelStackValue as_stack;
+        RaelRangeValue as_range;
+        RaelBlameValue as_blame;
         enum ValueType as_type;
-        struct RaelExternalCFuncValue as_cfunc;
-        struct RaelModuleValue as_module;
+        RaelExternalCFuncValue as_cfunc;
+        RaelModuleValue as_module;
     };
-};
+} RaelValue;
 
 RaelValue *value_create(enum ValueType type);
 
@@ -97,7 +95,7 @@ bool value_is_blame(RaelValue *value);
 
 void blame_add_state(RaelValue *value, struct State state);
 
-void blamevalue_delete(struct RaelBlameValue *blame);
+void blamevalue_delete(RaelBlameValue *blame);
 
 char *value_type_to_string(enum ValueType type);
 

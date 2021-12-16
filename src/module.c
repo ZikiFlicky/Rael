@@ -11,7 +11,7 @@ RaelValue *module_math_new(void);
 
 RaelValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amount_params) {
     RaelValue *cfunc = value_create(ValueTypeCFunc);
-    cfunc->as_cfunc = (struct RaelExternalCFuncValue) {
+    cfunc->as_cfunc = (RaelExternalCFuncValue) {
         .name = name,
         .func = func,
         .amount_params = amount_params
@@ -19,7 +19,7 @@ RaelValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amo
     return cfunc;
 }
 
-RaelValue *cfunc_call(struct RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place) {
+RaelValue *cfunc_call(RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place) {
     RaelValue *return_value;
     if (arguments_get_amount(args) != cfunc->amount_params)
         return NULL;
@@ -31,33 +31,33 @@ RaelValue *cfunc_call(struct RaelExternalCFuncValue *cfunc, RaelArguments *args,
     return return_value;
 }
 
-void cfunc_delete(struct RaelExternalCFuncValue *cfunc) {
+void cfunc_delete(RaelExternalCFuncValue *cfunc) {
     free(cfunc->name);
 }
 
-void cfunc_repr(struct RaelExternalCFuncValue *cfunc) {
+void cfunc_repr(RaelExternalCFuncValue *cfunc) {
     printf("cfunc(:%s, %zu)", cfunc->name, cfunc->amount_params);
 }
 
-void module_new(struct RaelModuleValue *out, char *name) {
+void module_new(RaelModuleValue *out, char *name) {
     varmap_new(&out->vars);
     out->name = name;
 }
 
-void module_set_key(struct RaelModuleValue *module, char *varname, RaelValue *value) {
+void module_set_key(RaelModuleValue *module, char *varname, RaelValue *value) {
     varmap_set(&module->vars, varname, value, true, true);
 }
 
-void module_delete(struct RaelModuleValue *module) {
+void module_delete(RaelModuleValue *module) {
     free(module->name);
     varmap_delete(&module->vars);
 }
 
-void module_repr(struct RaelModuleValue *module) {
+void module_repr(RaelModuleValue *module) {
     printf("module(:%s)", module->name);
 }
 
-RaelValue *module_get_key(struct RaelModuleValue *module, char *varname) {
+RaelValue *module_get_key(RaelModuleValue *module, char *varname) {
     RaelValue *value = varmap_get(&module->vars, varname);
     if (!value)
         value = value_create(ValueTypeVoid);

@@ -89,21 +89,21 @@ void stack_push(RaelValue *stack, RaelValue *value) {
         values = realloc(values, (allocated += 16) * sizeof(RaelValue*));
     values[length++] = value;
 
-    stack->as_stack = (struct RaelStackValue) {
+    stack->as_stack = (RaelStackValue) {
         .values = values,
         .allocated = allocated,
         .length = length
     };
 }
 
-void stackvalue_delete(struct RaelStackValue *stack) {
+void stackvalue_delete(RaelStackValue *stack) {
     for (size_t i = 0; i < stack->length; ++i) {
         value_deref(stack->values[i]);
     }
     free(stack->values);
 }
 
-void stackvalue_repr(struct RaelStackValue *stack) {
+void stackvalue_repr(RaelStackValue *stack) {
     printf("{ ");
     for (size_t i = 0; i < stack->length; ++i) {
         if (i > 0)

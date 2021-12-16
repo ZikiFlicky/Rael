@@ -75,7 +75,7 @@ void interpreter_error(struct Interpreter* const interpreter, struct State state
     exit(1);
 }
 
-static struct RaelStringValue rael_readline(struct Interpreter* const interpreter, struct State state) {
+static RaelStringValue rael_readline(struct Interpreter* const interpreter, struct State state) {
     size_t allocated, idx = 0;
     char *string = malloc((allocated = 32) * sizeof(char));
     char c;
@@ -93,7 +93,7 @@ static struct RaelStringValue rael_readline(struct Interpreter* const interprete
 
     string = realloc(string, (allocated = idx) * sizeof(char));
 
-    return (struct RaelStringValue) {
+    return (RaelStringValue) {
         .value = string,
         .length = allocated
     };
@@ -557,7 +557,7 @@ value_cast(struct Interpreter* const interpreter, RaelValue *value, enum ValueTy
         casted = value_create(ValueTypeString);
         switch (value->type) {
         case ValueTypeVoid:
-            casted->as_string = (struct RaelStringValue) {
+            casted->as_string = (RaelStringValue) {
                 .type = StringTypePure,
                 .can_be_freed = true,
                 .length = 4,
@@ -626,7 +626,7 @@ value_cast(struct Interpreter* const interpreter, RaelValue *value, enum ValueTy
             }
 
             casted = value_create(ValueTypeString);
-            casted->as_string = (struct RaelStringValue) {
+            casted->as_string = (RaelStringValue) {
                 .type = StringTypePure,
                 .can_be_freed = true,
                 .length = allocated,
@@ -1082,7 +1082,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         value_deref(single);
         break;
     case ExprTypeGetString: {
-        struct RaelStringValue string;
+        RaelStringValue string;
         single = expr_eval(interpreter, expr->as_single, true);
         value_log(single);
         value_deref(single);

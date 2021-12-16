@@ -119,7 +119,7 @@ RaelValue *module_math_pow(RaelArguments *args) {
 
 RaelValue *module_math_new(void) {
     RaelValue *module;
-    struct RaelModuleValue m;
+    RaelModuleValue m;
 
     // create module value
     module_new(&m, RAEL_HEAPSTR("Math"));

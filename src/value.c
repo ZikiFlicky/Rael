@@ -13,7 +13,7 @@ RaelValue *value_create(enum ValueType type) {
     return value;
 }
 
-void blamevalue_delete(struct RaelBlameValue *blame) {
+void blamevalue_delete(RaelBlameValue *blame) {
     if (blame->value)
         value_deref(blame->value);
 }
@@ -64,7 +64,7 @@ char *value_type_to_string(enum ValueType type) {
     }
 }
 
-void routine_repr(struct RaelRoutineValue *routine) {
+void routine_repr(RaelRoutineValue *routine) {
     printf("routine(");
     if (routine->amount_parameters > 0) {
         printf(":%s", routine->parameters[0]);
@@ -310,7 +310,7 @@ RaelValue *values_mul(RaelValue *value, RaelValue *value2) {
 /* lhs / rhs */
 RaelValue *values_div(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        struct RaelNumberValue out;
+        RaelNumberValue out;
         if (!number_div(value->as_number, value2->as_number, &out))
             return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Division by zero");
         return number_new(out);
@@ -322,7 +322,7 @@ RaelValue *values_div(RaelValue *value, RaelValue *value2) {
 /* lhs % rhs */
 RaelValue *values_mod(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        struct RaelNumberValue out;
+        RaelNumberValue out;
         if (!number_mod(value->as_number, value2->as_number, &out))
             return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Division by zero");
         return number_new(out);

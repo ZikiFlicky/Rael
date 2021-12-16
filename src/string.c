@@ -7,7 +7,7 @@
 
 RaelValue *string_new_pure(char *strptr, size_t length, bool can_free) {
     RaelValue *string = value_create(ValueTypeString);
-    string->as_string = (struct RaelStringValue) {
+    string->as_string = (RaelStringValue) {
         .type = StringTypePure,
         .can_be_freed = can_free,
         .value = strptr,
@@ -61,7 +61,7 @@ RaelValue *string_get(RaelValue *string, size_t idx) {
 }
 
 RaelValue *string_slice(RaelValue *string, size_t start, size_t end) {
-    struct RaelStringValue substr;
+    RaelStringValue substr;
     RaelValue *new_string;
 
     assert(string->type == ValueTypeString);
@@ -111,7 +111,7 @@ RaelValue *strings_add(RaelValue *string, RaelValue *string2) {
     return new_string;
 }
 
-void stringvalue_delete(struct RaelStringValue *string) {
+void stringvalue_delete(RaelStringValue *string) {
     switch (string->type) {
     case StringTypePure:
         if (string->can_be_freed && string->length)
@@ -125,7 +125,7 @@ void stringvalue_delete(struct RaelStringValue *string) {
     }
 }
 
-void stringvalue_repr(struct RaelStringValue *string) {
+void stringvalue_repr(RaelStringValue *string) {
     putchar('"');
     for (size_t i = 0; i < string->length; ++i) {
         switch (string->value[i]) {

@@ -182,7 +182,7 @@ static struct ValueExpr *parser_parse_type(struct Parser* const parser) {
 
 static struct ValueExpr *parser_parse_routine(struct Parser* const parser) {
     struct ValueExpr *value;
-    struct RaelRoutineValue decl;
+    RaelRoutineValue decl;
     struct State backtrack;
     bool old_can_return;
 
@@ -318,7 +318,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
         expr = expr_create(ExprTypeValue);
         expr->as_value = value_expr_create(ValueTypeString);
-        expr->as_value->as_string = (struct RaelStringValue) {
+        expr->as_value->as_string = (RaelStringValue) {
             .value = string,
             .length = length
         };

@@ -8,7 +8,7 @@
 
 #define RAEL_STRING_FROM_RAWSTR(string) (string_new_pure_alloc(string, sizeof(string) / sizeof(char) - 1))
 
-struct RaelStringValue {
+typedef struct RaelStringValue {
     enum {
         StringTypePure,
         StringTypeSub
@@ -19,13 +19,13 @@ struct RaelStringValue {
         bool can_be_freed;
         RaelValue *reference_string;
     };
-};
+} RaelStringValue;
 
 RaelValue *string_new_pure(char *strptr, size_t length, bool can_free);
 
 RaelValue *string_new_pure_alloc(char *strptr, size_t length);
 
-void stringvalue_delete(struct RaelStringValue *string);
+void stringvalue_delete(RaelStringValue *string);
 
 size_t string_get_length(RaelValue *string);
 
@@ -43,6 +43,6 @@ RaelValue *string_add_number(RaelValue *string, RaelValue *number);
 
 bool string_eq(RaelValue *string, RaelValue *string2);
 
-void stringvalue_repr(struct RaelStringValue *string);
+void stringvalue_repr(RaelStringValue *string);
 
 #endif /* RAEL_STRING_H */

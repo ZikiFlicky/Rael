@@ -6,14 +6,14 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-struct RaelStackValue {
+typedef struct RaelStackValue {
     RaelValue **values;
     size_t length, allocated;
-};
+} RaelStackValue;
 
 RaelValue *stack_new(size_t overhead);
 
-void stackvalue_delete(struct RaelStackValue *stack);
+void stackvalue_delete(RaelStackValue *stack);
 
 size_t stack_get_length(RaelValue *stack);
 
@@ -27,7 +27,7 @@ void stack_push(RaelValue *stack, RaelValue *value);
 
 RaelValue *stack_slice(RaelValue *stack, size_t start, size_t end);
 
-void stackvalue_repr(struct RaelStackValue *stack);
+void stackvalue_repr(RaelStackValue *stack);
 
 bool stack_equals_stack(RaelValue *stack, RaelValue *stack2);
 
