@@ -132,7 +132,7 @@ static RaelValue *value_eval(struct Interpreter* const interpreter, struct Value
         break;
     case ValueTypeType:
         out_value = value_new(ValueTypeType);
-        out_value->as_type = value.as_type;
+        out_value->as_type.type = value.as_type;
         break;
     default:
         RAEL_UNREACHABLE();
@@ -935,7 +935,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
             break;
         // cast
         case ValueTypeType:
-            value = value_cast(interpreter, lhs, rhs->as_type, expr->lhs->state);
+            value = value_cast(interpreter, lhs, rhs->as_type.type, expr->lhs->state);
             break;
         default:
             value_deref(lhs);
@@ -1078,7 +1078,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         single = expr_eval(interpreter, expr->as_single, true);
 
         value = value_new(ValueTypeType);
-        value->as_type = single->type;
+        value->as_type.type = single->type;
         value_deref(single);
         break;
     case ExprTypeGetString: {

@@ -44,6 +44,10 @@ typedef struct RaelRoutineValue {
     struct Instruction **block;
 } RaelRoutineValue;
 
+typedef struct RaelTypeValue {
+    enum ValueType type;
+} RaelTypeValue;
+
 // the dynamic value abstraction layer
 typedef struct RaelValue {
     enum ValueType type;
@@ -55,7 +59,7 @@ typedef struct RaelValue {
         RaelStackValue as_stack;
         RaelRangeValue as_range;
         RaelBlameValue as_blame;
-        enum ValueType as_type;
+        RaelTypeValue as_type;
         RaelExternalCFuncValue as_cfunc;
         RaelModuleValue as_module;
     };

@@ -95,7 +95,7 @@ void value_repr(RaelValue *value) {
         printf("%ld to %ld", value->as_range.start, value->as_range.end);
         break;
     case ValueTypeType:
-        printf("%s", value_type_to_string(value->as_type));
+        printf("%s", value_type_to_string(value->as_type.type));
         break;
     case ValueTypeCFunc:
         cfunc_repr(&value->as_cfunc);
@@ -158,7 +158,7 @@ bool values_equal(RaelValue *const value, RaelValue *const value2) {
             res = string_eq(value, value2);
             break;
         case ValueTypeType:
-            res = value->as_type == value2->as_type;
+            res = value->as_type.type == value2->as_type.type;
             break;
         case ValueTypeVoid:
             res = true;
