@@ -15,9 +15,7 @@
 /* return a RaelValue of type blame, storing a RaelValue of type string with the value of `string` and the state `state` */
 #define RAEL_BLAME_FROM_RAWSTR_STATE(string, state) (blame_new(RAEL_STRING_FROM_RAWSTR((string)), (state)))
 
-struct RaelValue;
-
-typedef struct RaelValue* RaelValue;
+typedef struct RaelValue RaelValue;
 
 enum ValueType {
     ValueTypeVoid,
@@ -37,7 +35,7 @@ struct RaelRangeValue {
 };
 
 struct RaelBlameValue {
-    RaelValue value;
+    RaelValue *value;
     struct State original_place;
 };
 
@@ -65,69 +63,69 @@ struct RaelValue {
     };
 };
 
-RaelValue value_create(enum ValueType type);
+RaelValue *value_create(enum ValueType type);
 
-void value_deref(RaelValue value);
+void value_deref(RaelValue *value);
 
-void value_ref(RaelValue value);
+void value_ref(RaelValue *value);
 
-void value_repr(RaelValue value);
+void value_repr(RaelValue *value);
 
-void value_log(RaelValue value);
+void value_log(RaelValue *value);
 
-bool value_as_bool(const RaelValue value);
+bool value_as_bool(RaelValue *value);
 
-bool values_equal(const RaelValue value, const RaelValue value2);
+bool values_equal(RaelValue *value, RaelValue *value2);
 
-bool value_is_iterable(RaelValue value);
+bool value_is_iterable(RaelValue *value);
 
-size_t value_get_length(RaelValue value);
+size_t value_get_length(RaelValue *value);
 
-RaelValue *value_get_ptr(RaelValue value, size_t idx);
+RaelValue **value_get_ptr(RaelValue *value, size_t idx);
 
-RaelValue value_get(RaelValue value, size_t idx);
+RaelValue *value_get(RaelValue *value, size_t idx);
 
-RaelValue range_get(RaelValue range, size_t idx);
+RaelValue *range_get(RaelValue *range, size_t idx);
 
-size_t range_get_length(RaelValue range);
+size_t range_get_length(RaelValue *range);
 
-RaelValue blame_new(RaelValue message, struct State state);
+RaelValue *blame_new(RaelValue *message, struct State state);
 
-RaelValue blame_no_state_new(RaelValue value);
+RaelValue *blame_no_state_new(RaelValue *value);
 
-bool value_is_blame(RaelValue value);
+bool value_is_blame(RaelValue *value);
 
-void blame_add_state(RaelValue value, struct State state);
+void blame_add_state(RaelValue *value, struct State state);
 
 void blamevalue_delete(struct RaelBlameValue *blame);
 
 char *value_type_to_string(enum ValueType type);
 
 /* lhs + rhs */
-RaelValue values_add(RaelValue value, RaelValue value2);
+RaelValue *values_add(RaelValue *value, RaelValue *value2);
 
 /* lhs - rhs */
-RaelValue values_sub(RaelValue value, RaelValue value2);
+RaelValue *values_sub(RaelValue *value, RaelValue *value2);
 
 /* lhs * rhs */
-RaelValue values_mul(RaelValue value, RaelValue value2);
+RaelValue *values_mul(RaelValue *value, RaelValue *value2);
 
 /* lhs / rhs */
-RaelValue values_div(RaelValue value, RaelValue value2);
+RaelValue *values_div(RaelValue *value, RaelValue *value2);
 
 /* lhs % rhs */
-RaelValue values_mod(RaelValue value, RaelValue value2);
+RaelValue *values_mod(RaelValue *value, RaelValue *value2);
 
 /* lhs < rhs */
-RaelValue values_smaller(RaelValue value, RaelValue value2);
+RaelValue *values_smaller(RaelValue *value, RaelValue *value2);
 
 /* lhs > rhs */
-RaelValue values_bigger(RaelValue value, RaelValue value2);
+RaelValue *values_bigger(RaelValue *value, RaelValue *value2);
 
 /* lhs <= rhs */
-RaelValue values_smaller_eq(RaelValue value, RaelValue value2);
+RaelValue *values_smaller_eq(RaelValue *value, RaelValue *value2);
 
 /* lhs >= rhs */
-RaelValue values_bigger_eq(RaelValue value, RaelValue value2);
+RaelValue *values_bigger_eq(RaelValue *value, RaelValue *value2);
 
 #endif /* RAEL_VALUE_H */

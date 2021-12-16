@@ -37,7 +37,7 @@ struct BucketNode *varmap_find_key_node(struct VariableMap *varmap, char *key) {
     return NULL;
 }
 
-bool varmap_set(struct VariableMap *varmap, char *key, RaelValue value, bool set_if_not_found, bool dealloc_key_on_free) {
+bool varmap_set(struct VariableMap *varmap, char *key, RaelValue *value, bool set_if_not_found, bool dealloc_key_on_free) {
     struct BucketNode *node, *last_node = NULL;
 
     if (varmap->allocated > 0) { // look for a matching bucket node
@@ -83,7 +83,7 @@ bool varmap_set(struct VariableMap *varmap, char *key, RaelValue value, bool set
     return true;
 }
 
-RaelValue *varmap_get_ptr(struct VariableMap *varmap, char *key) {
+RaelValue **varmap_get_ptr(struct VariableMap *varmap, char *key) {
     // if there is nothing allocated, of course you can't find a key
     if (varmap->allocated == 0)
         return NULL;
@@ -96,8 +96,8 @@ RaelValue *varmap_get_ptr(struct VariableMap *varmap, char *key) {
     return NULL;
 }
 
-RaelValue varmap_get(struct VariableMap *varmap, char *key) {
-    RaelValue *ptr = varmap_get_ptr(varmap, key);
+RaelValue *varmap_get(struct VariableMap *varmap, char *key) {
+    RaelValue **ptr = varmap_get_ptr(varmap, key);
     if (!ptr)
         return NULL;
     value_ref(*ptr);

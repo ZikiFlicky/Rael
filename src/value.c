@@ -6,8 +6,8 @@
 #include <assert.h>
 #include <string.h>
 
-RaelValue value_create(enum ValueType type) {
-    RaelValue value = malloc(sizeof(struct RaelValue));
+RaelValue *value_create(enum ValueType type) {
+    RaelValue *value = malloc(sizeof(RaelValue));
     value->type = type;
     value->reference_count = 1;
     return value;
@@ -18,7 +18,7 @@ void blamevalue_delete(struct RaelBlameValue *blame) {
         value_deref(blame->value);
 }
 
-void value_deref(RaelValue value) {
+void value_deref(RaelValue *value) {
     --value->reference_count;
     if (value->reference_count == 0) {
         switch (value->type) {
@@ -46,7 +46,7 @@ void value_deref(RaelValue value) {
     }
 }
 
-void value_ref(RaelValue value) {
+void value_ref(RaelValue *value) {
     ++value->reference_count;
 }
 
@@ -74,7 +74,7 @@ void routine_repr(struct RaelRoutineValue *routine) {
     printf(")");
 }
 
-void value_repr(RaelValue value) {
+void value_repr(RaelValue *value) {
     switch (value->type) {
     case ValueTypeNumber:
         number_repr(value->as_number);
@@ -108,7 +108,7 @@ void value_repr(RaelValue value) {
     }
 }
 
-void value_log(RaelValue value) {
+void value_log(RaelValue *value) {
     // only strings are printed differently when `log`ed than inside a stack
     switch (value->type) {
     case ValueTypeString: {
@@ -123,7 +123,7 @@ void value_log(RaelValue value) {
 }
 
 /* is the value booleanly true? like Python's bool() operator */
-bool value_as_bool(const RaelValue value) {
+bool value_as_bool(RaelValue *const value) {
     switch (value->type) {
     case ValueTypeVoid:
         return false;
@@ -139,7 +139,7 @@ bool value_as_bool(const RaelValue value) {
 }
 
 
-bool values_equal(const RaelValue value, const RaelValue value2) {
+bool values_equal(RaelValue *const value, RaelValue *const value2) {
     bool res;
     // if they have the same pointer they must be equal
     if (value == value2) {
@@ -178,7 +178,7 @@ bool values_equal(const RaelValue value, const RaelValue value2) {
     return res;
 }
 
-bool value_is_iterable(RaelValue value) {
+bool value_is_iterable(RaelValue *value) {
     switch (value->type) {
     case ValueTypeString:
     case ValueTypeStack:
@@ -189,13 +189,13 @@ bool value_is_iterable(RaelValue value) {
     }
 }
 
-size_t range_get_length(RaelValue range) {
+size_t range_get_length(RaelValue *range) {
     assert(range->type == ValueTypeRange);
     return (size_t)rael_int_abs(range->as_range.end - range->as_range.start);
 }
 
-RaelValue range_get(RaelValue range, size_t idx) {
-    RaelValue value;
+RaelValue *range_get(RaelValue *range, size_t idx) {
+    RaelValue *value;
     RaelInt number;
     assert(range->type == ValueTypeRange);
     if (idx >= range_get_length(range))
@@ -211,29 +211,29 @@ RaelValue range_get(RaelValue range, size_t idx) {
     return value;
 }
 
-RaelValue blame_no_state_new(RaelValue value) {
-    RaelValue blame = value_create(ValueTypeBlame);
+RaelValue *blame_no_state_new(RaelValue *value) {
+    RaelValue *blame = value_create(ValueTypeBlame);
     blame->as_blame.value = value;
     return blame;
 }
 
-bool value_is_blame(RaelValue value) {
+bool value_is_blame(RaelValue *value) {
     return value->type == ValueTypeBlame;
 }
 
-void blame_add_state(RaelValue value, struct State state) {
+void blame_add_state(RaelValue *value, struct State state) {
     assert(value_is_blame(value));
     value->as_blame.original_place = state;
 }
 
-RaelValue blame_new(RaelValue message, struct State state) {
-    RaelValue blame = value_create(ValueTypeBlame);
+RaelValue *blame_new(RaelValue *message, struct State state) {
+    RaelValue *blame = value_create(ValueTypeBlame);
     blame->as_blame.value = message;
     blame->as_blame.original_place = state;
     return blame;
 }
 
-size_t value_get_length(RaelValue value) {
+size_t value_get_length(RaelValue *value) {
     size_t length;
     assert(value_is_iterable(value));
 
@@ -253,8 +253,8 @@ size_t value_get_length(RaelValue value) {
     return length;
 }
 
-RaelValue value_get(RaelValue value, size_t idx) {
-    RaelValue out;
+RaelValue *value_get(RaelValue *value, size_t idx) {
+    RaelValue *out;
     assert(value_is_iterable(value));
 
     switch (value->type) {
@@ -275,7 +275,7 @@ RaelValue value_get(RaelValue value, size_t idx) {
 }
 
 /* lhs + rhs */
-RaelValue values_add(RaelValue value, RaelValue value2) {
+RaelValue *values_add(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) { // number + number
         return number_new(number_add(value->as_number, value2->as_number));
     } else if (value->type == ValueTypeString && value2->type == ValueTypeString) { // string + string
@@ -290,7 +290,7 @@ RaelValue values_add(RaelValue value, RaelValue value2) {
 }
 
 /* lhs - rhs */
-RaelValue values_sub(RaelValue value, RaelValue value2) {
+RaelValue *values_sub(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
         return number_new(number_sub(value->as_number, value2->as_number));
     } else {
@@ -299,7 +299,7 @@ RaelValue values_sub(RaelValue value, RaelValue value2) {
 }
 
 /* lhs * rhs */
-RaelValue values_mul(RaelValue value, RaelValue value2) {
+RaelValue *values_mul(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
         return number_new(number_mul(value->as_number, value2->as_number));
     } else {
@@ -308,7 +308,7 @@ RaelValue values_mul(RaelValue value, RaelValue value2) {
 }
 
 /* lhs / rhs */
-RaelValue values_div(RaelValue value, RaelValue value2) {
+RaelValue *values_div(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
         struct RaelNumberValue out;
         if (!number_div(value->as_number, value2->as_number, &out))
@@ -320,7 +320,7 @@ RaelValue values_div(RaelValue value, RaelValue value2) {
 }
 
 /* lhs % rhs */
-RaelValue values_mod(RaelValue value, RaelValue value2) {
+RaelValue *values_mod(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
         struct RaelNumberValue out;
         if (!number_mod(value->as_number, value2->as_number, &out))
@@ -332,7 +332,7 @@ RaelValue values_mod(RaelValue value, RaelValue value2) {
 }
 
 /* lhs < rhs */
-RaelValue values_smaller(RaelValue value, RaelValue value2) {
+RaelValue *values_smaller(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
         return number_new(number_smaller(value->as_number, value2->as_number));
     } else {
@@ -341,7 +341,7 @@ RaelValue values_smaller(RaelValue value, RaelValue value2) {
 }
 
 /* lhs > rhs */
-RaelValue values_bigger(RaelValue value, RaelValue value2) {
+RaelValue *values_bigger(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
         return number_new(number_bigger(value->as_number, value2->as_number));
     } else {
@@ -350,7 +350,7 @@ RaelValue values_bigger(RaelValue value, RaelValue value2) {
 }
 
 /* lhs <= rhs */
-RaelValue values_smaller_eq(RaelValue value, RaelValue value2) {
+RaelValue *values_smaller_eq(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
         return number_new(number_smaller_eq(value->as_number, value2->as_number));
     } else {
@@ -359,7 +359,7 @@ RaelValue values_smaller_eq(RaelValue value, RaelValue value2) {
 }
 
 /* lhs >= rhs */
-RaelValue values_bigger_eq(RaelValue value, RaelValue value2) {
+RaelValue *values_bigger_eq(RaelValue *value, RaelValue *value2) {
     if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
         return number_new(number_bigger_eq(value->as_number, value2->as_number));
     } else {

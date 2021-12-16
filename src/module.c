@@ -7,10 +7,10 @@
 #include <math.h>
 #include <assert.h>
 
-RaelValue module_math_new(void);
+RaelValue *module_math_new(void);
 
-RaelValue cfunc_new(char *name, RaelValue (*func)(RaelArguments*), size_t amount_params) {
-    RaelValue cfunc = value_create(ValueTypeCFunc);
+RaelValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amount_params) {
+    RaelValue *cfunc = value_create(ValueTypeCFunc);
     cfunc->as_cfunc = (struct RaelExternalCFuncValue) {
         .name = name,
         .func = func,
@@ -19,8 +19,8 @@ RaelValue cfunc_new(char *name, RaelValue (*func)(RaelArguments*), size_t amount
     return cfunc;
 }
 
-RaelValue cfunc_call(struct RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place) {
-    RaelValue return_value;
+RaelValue *cfunc_call(struct RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place) {
+    RaelValue *return_value;
     if (arguments_get_amount(args) != cfunc->amount_params)
         return NULL;
     return_value = cfunc->func(args);
@@ -44,7 +44,7 @@ void module_new(struct RaelModuleValue *out, char *name) {
     out->name = name;
 }
 
-void module_set_key(struct RaelModuleValue *module, char *varname, RaelValue value) {
+void module_set_key(struct RaelModuleValue *module, char *varname, RaelValue *value) {
     varmap_set(&module->vars, varname, value, true, true);
 }
 
@@ -57,14 +57,14 @@ void module_repr(struct RaelModuleValue *module) {
     printf("module(:%s)", module->name);
 }
 
-RaelValue module_get_key(struct RaelModuleValue *module, char *varname) {
-    RaelValue value = varmap_get(&module->vars, varname);
+RaelValue *module_get_key(struct RaelModuleValue *module, char *varname) {
+    RaelValue *value = varmap_get(&module->vars, varname);
     if (!value)
         value = value_create(ValueTypeVoid);
     return value;
 }
 
-RaelValue rael_get_module_by_name(char *module_name) {
+RaelValue *rael_get_module_by_name(char *module_name) {
     if (strcmp(module_name, "Math") == 0) {
         return module_math_new();
     } else {
@@ -78,15 +78,15 @@ void arguments_new(RaelArguments *out) {
     out->arguments = NULL;
 }
 
-void arguments_add(RaelArguments *args, RaelValue value) {
+void arguments_add(RaelArguments *args, RaelValue *value) {
     if (args->amount_allocated == 0)
-        args->arguments = malloc((args->amount_allocated = 4) * sizeof(RaelValue));
+        args->arguments = malloc((args->amount_allocated = 4) * sizeof(RaelValue*));
     else if (args->amount_arguments >= args->amount_allocated)
-        args->arguments = realloc(args->arguments, (args->amount_allocated += 4) * sizeof(RaelValue));
+        args->arguments = realloc(args->arguments, (args->amount_allocated += 4) * sizeof(RaelValue*));
     args->arguments[args->amount_arguments++] = value;
 }
 
-RaelValue arguments_get(RaelArguments *args, size_t idx) {
+RaelValue *arguments_get(RaelArguments *args, size_t idx) {
     if (idx >= args->amount_arguments)
         return NULL;
     return args->arguments[idx];
@@ -106,5 +106,5 @@ void arguments_delete(RaelArguments *args) {
 /* this function shrinks the size of the argument buffer */
 void arguments_finalize(RaelArguments *args) {
     args->arguments = realloc(args->arguments,
-                    (args->amount_allocated = args->amount_arguments) * sizeof(RaelValue));
+                    (args->amount_allocated = args->amount_arguments) * sizeof(RaelValue*));
 }

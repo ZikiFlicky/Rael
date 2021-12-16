@@ -4,22 +4,16 @@
 #include "common.h"
 #include "varmap.h"
 
-/*
-   module.{c, h}:
-   Defines the module value.
-   Also defines an interface for calling wrapped C functions
-*/
-
-typedef struct RaelValue* RaelValue;
-
 typedef struct RaelArguments {
     size_t amount_arguments, amount_allocated;
-    RaelValue *arguments;
+    RaelValue **arguments;
 } RaelArguments;
+
+typedef RaelValue* (*RaelRawCFunc)(RaelArguments*);
 
 struct RaelExternalCFuncValue {
     char *name;
-    RaelValue (*func)(RaelArguments*);
+    RaelRawCFunc func;
     size_t amount_params;
 };
 
@@ -29,10 +23,10 @@ struct RaelModuleValue {
 };
 
 /* create a RaelValue with the type of CFunc */
-RaelValue cfunc_new(char *name, RaelValue (*func)(RaelArguments*), size_t amount_params);
+RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params);
 
 /* call a cfunc value */
-RaelValue cfunc_call(struct RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place);
+RaelValue *cfunc_call(struct RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place);
 
 /* dealloc a cfunc value */
 void cfunc_delete(struct RaelExternalCFuncValue *cfunc);
@@ -47,28 +41,28 @@ void module_new(struct RaelModuleValue *out, char *name);
 void module_delete(struct RaelModuleValue *module);
 
 /* set a key inside of a module value */
-void module_set_key(struct RaelModuleValue *module, char *varname, RaelValue value);
+void module_set_key(struct RaelModuleValue *module, char *varname, RaelValue *value);
 
 /* get a key from a module value */
-RaelValue module_get_key(struct RaelModuleValue *module, char *varname);
+RaelValue *module_get_key(struct RaelModuleValue *module, char *varname);
 
 /* print a module */
 void module_repr(struct RaelModuleValue *module);
 
 /* get module value by name */
-RaelValue rael_get_module_by_name(char *module_name);
+RaelValue *rael_get_module_by_name(char *module_name);
 
 /* TODO: move this to a new file */
-RaelValue module_math_new(void);
+RaelValue *module_math_new(void);
 
 /* create a RaelArguments */
 void arguments_new(RaelArguments *out);
 
 /* add an argument */
-void arguments_add(RaelArguments *args, RaelValue value);
+void arguments_add(RaelArguments *args, RaelValue *value);
 
 /* returns the argument at the requested index, or NULL if the index is invalid */
-RaelValue arguments_get(RaelArguments *args, size_t idx);
+RaelValue *arguments_get(RaelArguments *args, size_t idx);
 
 /* this function returns the amount of arguments */
 size_t arguments_get_amount(RaelArguments *args);

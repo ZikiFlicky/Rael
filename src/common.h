@@ -18,6 +18,7 @@
 
 typedef long RaelInt;
 typedef double RaelFloat;
+typedef struct RaelValue RaelValue;
 
 struct State {
     char *stream_pos;

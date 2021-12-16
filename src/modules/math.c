@@ -6,8 +6,9 @@
 #include <math.h>
 #include <assert.h>
 
-RaelValue module_math_cos(RaelArguments *args) {
-    RaelValue number, return_value;
+RaelValue *module_math_cos(RaelArguments *args) {
+    RaelValue *number;
+    RaelValue *return_value;
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     assert(number->type == ValueTypeNumber);
@@ -15,8 +16,9 @@ RaelValue module_math_cos(RaelArguments *args) {
     return return_value;
 }
 
-RaelValue module_math_sin(RaelArguments *args) {
-    RaelValue number, return_value;
+RaelValue *module_math_sin(RaelArguments *args) {
+    RaelValue *number;
+    RaelValue *return_value;
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
@@ -26,8 +28,9 @@ RaelValue module_math_sin(RaelArguments *args) {
     return return_value;
 }
 
-RaelValue module_math_tan(RaelArguments *args) {
-    RaelValue number, return_value;
+RaelValue *module_math_tan(RaelArguments *args) {
+    RaelValue *number;
+    RaelValue *return_value;
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
@@ -37,8 +40,9 @@ RaelValue module_math_tan(RaelArguments *args) {
     return return_value;
 }
 
-RaelValue module_math_ceil(RaelArguments *args) {
-    RaelValue number, return_value;
+RaelValue *module_math_ceil(RaelArguments *args) {
+    RaelValue *number;
+    RaelValue *return_value;
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
@@ -48,8 +52,9 @@ RaelValue module_math_ceil(RaelArguments *args) {
     return return_value;
 }
 
-RaelValue module_math_floor(RaelArguments *args) {
-    RaelValue number, return_value;
+RaelValue *module_math_floor(RaelArguments *args) {
+    RaelValue *number;
+    RaelValue *return_value;
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
@@ -59,8 +64,9 @@ RaelValue module_math_floor(RaelArguments *args) {
     return return_value;
 }
 
-RaelValue module_math_abs(RaelArguments *args) {
-    RaelValue number, return_value;
+RaelValue *module_math_abs(RaelArguments *args) {
+    RaelValue *number;
+    RaelValue *return_value;
     assert(arguments_get_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != ValueTypeNumber) {
@@ -70,8 +76,9 @@ RaelValue module_math_abs(RaelArguments *args) {
     return return_value;
 }
 
-RaelValue module_math_sqrt(RaelArguments *args) {
-    RaelValue number, return_value;
+RaelValue *module_math_sqrt(RaelArguments *args) {
+    RaelValue *number;
+    RaelValue *return_value;
     RaelFloat n;
 
     assert(arguments_get_amount(args) == 1);
@@ -88,8 +95,10 @@ RaelValue module_math_sqrt(RaelArguments *args) {
     return return_value;
 }
 
-RaelValue module_math_pow(RaelArguments *args) {
-    RaelValue base, power, return_value;
+RaelValue *module_math_pow(RaelArguments *args) {
+    RaelValue *base;
+    RaelValue *power;
+    RaelValue *return_value;
 
     assert(arguments_get_amount(args) == 2);
     base = arguments_get(args, 0);
@@ -108,8 +117,8 @@ RaelValue module_math_pow(RaelArguments *args) {
     return return_value;
 }
 
-RaelValue module_math_new(void) {
-    RaelValue module;
+RaelValue *module_math_new(void) {
+    RaelValue *module;
     struct RaelModuleValue m;
 
     // create module value

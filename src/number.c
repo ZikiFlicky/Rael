@@ -46,19 +46,19 @@ struct RaelNumberValue numbervalue_newf(RaelFloat f) {
 }
 
 /* create a RaelValue from a struct RaelNumberValue */
-RaelValue number_new(struct RaelNumberValue n) {
-    RaelValue number = value_create(ValueTypeNumber);
+RaelValue *number_new(struct RaelNumberValue n) {
+    RaelValue *number = value_create(ValueTypeNumber);
     number->as_number = n;
     return number;
 }
 
 /* create a RaelValue from an int */
-RaelValue number_newi(RaelInt i) {
+RaelValue *number_newi(RaelInt i) {
     return number_new(numbervalue_newi(i));
 }
 
 /* create a RaelValue from a float */
-RaelValue number_newf(RaelFloat f) {
+RaelValue *number_newf(RaelFloat f) {
     return number_new(numbervalue_newf(f));
 }
 

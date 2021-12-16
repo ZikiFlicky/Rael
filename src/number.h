@@ -6,8 +6,6 @@
 
 #include <stdbool.h>
 
-typedef struct RaelValue* RaelValue;
-
 struct RaelNumberValue {
     bool is_float;
     union {
@@ -20,11 +18,11 @@ struct RaelNumberValue numbervalue_newi(RaelInt i);
 
 struct RaelNumberValue numbervalue_newf(RaelFloat f);
 
-RaelValue number_new(struct RaelNumberValue n);
+RaelValue *number_new(struct RaelNumberValue n);
 
-RaelValue number_newi(RaelInt i);
+RaelValue *number_newi(RaelInt i);
 
-RaelValue number_newf(RaelFloat f);
+RaelValue *number_newf(RaelFloat f);
 
 RaelFloat number_to_float(struct RaelNumberValue n);
 

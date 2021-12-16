@@ -1,11 +1,12 @@
 #include "string.h"
 #include "value.h"
+#include "common.h"
 
 #include <assert.h>
 #include <string.h>
 
-RaelValue string_new_pure(char *strptr, size_t length, bool can_free) {
-    RaelValue string = value_create(ValueTypeString);
+RaelValue *string_new_pure(char *strptr, size_t length, bool can_free) {
+    RaelValue *string = value_create(ValueTypeString);
     string->as_string = (struct RaelStringValue) {
         .type = StringTypePure,
         .can_be_freed = can_free,
@@ -15,20 +16,20 @@ RaelValue string_new_pure(char *strptr, size_t length, bool can_free) {
     return string;
 }
 
-RaelValue string_new_pure_alloc(char *strptr, size_t length) {
+RaelValue *string_new_pure_alloc(char *strptr, size_t length) {
     char *allocated = malloc(length * sizeof(char));
     memcpy(allocated, strptr, length * sizeof(char));
     return string_new_pure(allocated, length, true);
 }
 
 /* get length of a string */
-size_t string_get_length(RaelValue string) {
+size_t string_get_length(RaelValue *string) {
     assert(string->type == ValueTypeString);
     return string->as_string.length;
 }
 
 /* get the char at idx */
-char string_get_char(RaelValue string, size_t idx) {
+char string_get_char(RaelValue *string, size_t idx) {
     size_t string_length;
     assert(string->type == ValueTypeString);
     string_length = string_get_length(string);
@@ -39,8 +40,8 @@ char string_get_char(RaelValue string, size_t idx) {
 }
 
 /* get a string at idx */
-RaelValue string_get(RaelValue string, size_t idx) {
-    RaelValue new_string;
+RaelValue *string_get(RaelValue *string, size_t idx) {
+    RaelValue *new_string;
     size_t string_length;
     assert(string->type == ValueTypeString);
     string_length = string_get_length(string);
@@ -59,9 +60,9 @@ RaelValue string_get(RaelValue string, size_t idx) {
     return new_string;
 }
 
-RaelValue string_slice(RaelValue string, size_t start, size_t end) {
+RaelValue *string_slice(RaelValue *string, size_t start, size_t end) {
     struct RaelStringValue substr;
-    RaelValue new_string;
+    RaelValue *new_string;
 
     assert(string->type == ValueTypeString);
     assert(end >= start);
@@ -85,8 +86,8 @@ RaelValue string_slice(RaelValue string, size_t start, size_t end) {
     return new_string;
 }
 
-RaelValue strings_add(RaelValue string, RaelValue string2) {
-    RaelValue new_string;
+RaelValue *strings_add(RaelValue *string, RaelValue *string2) {
+    RaelValue *new_string;
     char *strptr;
     size_t length, str1len, str2len;
 
@@ -151,7 +152,7 @@ void stringvalue_repr(struct RaelStringValue *string) {
 }
 
 /* number + string */
-RaelValue string_precede_with_number(RaelValue number, RaelValue string) {
+RaelValue *string_precede_with_number(RaelValue *number, RaelValue *string) {
     RaelInt n;
     char *strptr;
     size_t string_length;
@@ -177,7 +178,7 @@ RaelValue string_precede_with_number(RaelValue number, RaelValue string) {
 }
 
 /* string + number */
-RaelValue string_add_number(RaelValue string, RaelValue number) {
+RaelValue *string_add_number(RaelValue *string, RaelValue *number) {
     RaelInt n;
     char *strptr;
     size_t string_length;
@@ -204,7 +205,7 @@ RaelValue string_add_number(RaelValue string, RaelValue number) {
 }
 
 /* is a string equal to another string? */
-bool string_eq(RaelValue string, RaelValue string2) {
+bool string_eq(RaelValue *string, RaelValue *string2) {
     size_t string_length, string2_length;
     assert(string->type == ValueTypeString);
     assert(string2->type == ValueTypeString);
