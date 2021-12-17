@@ -14,7 +14,7 @@
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Instruction *parser_parse_instr(struct Parser* const parser);
 static struct Instruction **parser_parse_block(struct Parser* const parser);
-static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
+static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 static struct Expr *parser_parse_expr_at(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
 static void block_delete(struct Instruction **block);
@@ -124,7 +124,7 @@ static bool parser_maybe_expect_newline(struct Parser* const parser) {
 
 static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
     struct ValueExpr *value;
-    struct RaelExprList stack;
+    RaelExprList stack;
     struct State backtrack = parser_dump_state(parser);
 
     if (!parser_match(parser, TokenNameLeftCur))
@@ -143,17 +143,20 @@ static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
     value->as_stack = stack;
     return value;
 }
+
 static struct ValueExpr *parser_parse_number(struct Parser* const parser) {
     struct ValueExpr *value;
-    bool success;
+    RaelNumberValue *number;
 
     if (!parser_match(parser, TokenNameNumber))
         return NULL;
 
     value = value_expr_create(ValueTypeNumber);
     // this should always work
-    success = number_from_string(parser->lexer.token.string, parser->lexer.token.length, &value->as_number);
-    assert(success);
+    // FIXME: hack
+    number = number_from_string(parser->lexer.token.string, parser->lexer.token.length);
+    value->as_number = *number;
+    value_deref((RaelValue*)number);
     return value;
 }
 
@@ -319,7 +322,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         expr = expr_create(ExprTypeValue);
         expr->as_value = value_expr_create(ValueTypeString);
         expr->as_value->as_string = (RaelStringValue) {
-            .value = string,
+            .source = string,
             .length = length
         };
 
@@ -1001,7 +1004,7 @@ end:
 /*
   parse comma seperated expressions
 */
-static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
+static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
     struct Expr **exprs_ary, *expr;
     size_t allocated, idx = 0;
 
@@ -1009,7 +1012,7 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
         parser_maybe_expect_newline(parser);
 
     if (!(expr = parser_parse_expr(parser))) {
-        return (struct RaelExprList) {
+        return (RaelExprList) {
             .amount_exprs = 0,
             .exprs = NULL
         };
@@ -1039,7 +1042,7 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
             parser_maybe_expect_newline(parser);
     }
 
-    return (struct RaelExprList) {
+    return (RaelExprList) {
         .amount_exprs = idx,
         .exprs = exprs_ary
     };
@@ -1075,7 +1078,7 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
 
 static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
     struct Instruction *inst;
-    struct RaelExprList expr_list;
+    RaelExprList expr_list;
 
     if (!parser_match(parser, TokenNameLog))
         return NULL;
@@ -1091,7 +1094,7 @@ static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
 
 static struct Instruction *parser_parse_instr_show(struct Parser* const parser) {
     struct Instruction *inst;
-    struct RaelExprList expr_list;
+    RaelExprList expr_list;
 
     if (!parser_match(parser, TokenNameShow))
         return NULL;
@@ -1397,7 +1400,7 @@ static void value_expr_delete(struct ValueExpr* value) {
         break;
     case ValueTypeString:
         if (value->as_string.length > 0)
-            free(value->as_string.value);
+            free(value->as_string.source);
         break;
     case ValueTypeRoutine:
         for (size_t i = 0; i < value->as_routine.amount_parameters; ++i) {

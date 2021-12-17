@@ -1,19 +1,20 @@
 #ifndef RAEL_PARSER_H
 #define RAEL_PARSER_H
 
-#include "lexer.h"
-#include "number.h"
 #include "common.h"
+#include "lexer.h"
 #include "value.h"
+#include "number.h"
+#include "string.h"
 
 #include <stdbool.h>
 
 struct Expr;
 
-struct RaelExprList {
+typedef struct RaelExprList {
     size_t amount_exprs;
     struct Expr **exprs;
-};
+} RaelExprList;
 
 struct ValueExpr {
     enum ValueType type;
@@ -21,7 +22,7 @@ struct ValueExpr {
         RaelStringValue as_string;
         RaelNumberValue as_number;
         RaelRoutineValue as_routine;
-        struct RaelExprList as_stack;
+        RaelExprList as_stack;
         enum ValueType as_type;
     };
 };
@@ -64,7 +65,7 @@ enum ExprType {
 
 struct CallExpr {
     struct Expr *callable_expr;
-    struct RaelExprList arguments;
+    RaelExprList arguments;
 };
 
 struct SetExpr {
@@ -175,7 +176,7 @@ struct Instruction {
     enum InstructionType type;
     struct State state;
     union {
-        struct RaelExprList csv;
+        RaelExprList csv;
         struct IfInstruction if_stat;
         struct LoopInstruction loop;
         struct Expr *pure;

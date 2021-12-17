@@ -1,70 +1,64 @@
 #include "stack.h"
 #include "value.h"
 
-#include <assert.h>
 #include <stdbool.h>
 
-RaelValue *stack_new(size_t overhead) {
-    RaelValue *stack = value_new(ValueTypeStack);
-    stack->as_stack.allocated = overhead;
-    stack->as_stack.length = 0;
-    stack->as_stack.values = overhead == 0 ? NULL : malloc(overhead * sizeof(RaelValue*));
+RaelStackValue *stack_new(size_t overhead) {
+    RaelStackValue *stack = RAEL_VALUE_NEW(ValueTypeStack, RaelStackValue);
+    stack->allocated = overhead;
+    stack->length = 0;
+    stack->values = overhead == 0 ? NULL : malloc(overhead * sizeof(RaelValue*));
     return stack;
 }
 
-size_t stack_get_length(RaelValue *stack) {
-    assert(stack->type == ValueTypeStack);
-    return stack->as_stack.length;
+size_t stack_length(RaelStackValue *stack) {
+    return stack->length;
 }
 
-RaelValue **stack_get_ptr(RaelValue *stack, size_t idx) {
-    assert(stack->type == ValueTypeStack);
-    if (idx >= stack_get_length(stack))
+RaelValue **stack_get_ptr(RaelStackValue *stack, size_t idx) {
+    if (idx >= stack_length(stack))
         return NULL;
-    return &stack->as_stack.values[idx];
+    return &stack->values[idx];
 }
 
-RaelValue *stack_get(RaelValue *stack, size_t idx) {
+RaelValue *stack_get(RaelStackValue *stack, size_t idx) {
     RaelValue *value;
-    assert(stack->type == ValueTypeStack);
-    if (idx >= stack_get_length(stack))
+    if (idx >= stack_length(stack))
         return NULL;
     value = *stack_get_ptr(stack, idx);
     value_ref(value);
     return value;
 }
 
-RaelValue *stack_slice(RaelValue *stack, size_t start, size_t end) {
-    RaelValue *new_stack;
+RaelStackValue *stack_slice(RaelStackValue *stack, size_t start, size_t end) {
+    RaelStackValue *new_stack;
     RaelValue **new_dump;
-    size_t length, stack_length;
+    size_t new_len;
+    const size_t len = stack_length(stack);
 
-    assert(stack->type == ValueTypeStack);
-    stack_length = stack_get_length(stack);
-    if (end < start || start > stack_length || end > stack_length)
+    if (end < start || start > len || end > len)
         return NULL;
 
-    new_dump = malloc((length = end - start) * sizeof(RaelValue*));
+    new_dump = malloc((new_len = end - start) * sizeof(RaelValue*));
 
-    for (size_t i = 0; i < length; ++i) {
-        RaelValue *value = stack->as_stack.values[start + i];
+    for (size_t i = 0; i < new_len; ++i) {
+        RaelValue *value = stack->values[start + i];
         value_ref(value);
         new_dump[i] = value;
     }
 
-    new_stack = value_new(ValueTypeStack);
-    new_stack->as_stack.allocated = length;
-    new_stack->as_stack.length = length;
-    new_stack->as_stack.values = new_dump;
+    new_stack = RAEL_VALUE_NEW(ValueTypeStack, RaelStackValue);
+    new_stack->allocated = new_len;
+    new_stack->length = new_len;
+    new_stack->values = new_dump;
 
     return new_stack;
 }
 
-bool stack_set(RaelValue *stack, size_t idx, RaelValue *value) {
+bool stack_set(RaelStackValue *stack, size_t idx, RaelValue *value) {
     RaelValue **value_address;
-    assert(stack->type == ValueTypeStack);
 
-    if (idx >= stack_get_length(stack))
+    if (idx >= stack_length(stack))
         return false;
 
     value_address = stack_get_ptr(stack, idx);
@@ -73,14 +67,13 @@ bool stack_set(RaelValue *stack, size_t idx, RaelValue *value) {
     return true;
 }
 
-void stack_push(RaelValue *stack, RaelValue *value) {
+void stack_push(RaelStackValue *stack, RaelValue *value) {
     RaelValue **values;
     size_t allocated, length;
-    assert(stack->type == ValueTypeStack);
 
-    values = stack->as_stack.values;
-    allocated = stack->as_stack.allocated;
-    length = stack_get_length(stack);
+    values = stack->values;
+    allocated = stack->allocated;
+    length = stack_length(stack);
 
     // allocate additional space for stack if there isn't enough
     if (allocated == 0)
@@ -89,21 +82,20 @@ void stack_push(RaelValue *stack, RaelValue *value) {
         values = realloc(values, (allocated += 16) * sizeof(RaelValue*));
     values[length++] = value;
 
-    stack->as_stack = (RaelStackValue) {
-        .values = values,
-        .allocated = allocated,
-        .length = length
-    };
+    // update the stack
+    stack->values = values;
+    stack->allocated = allocated;
+    stack->length = length;
 }
 
-void stackvalue_delete(RaelStackValue *stack) {
+void stack_delete(RaelStackValue *stack) {
     for (size_t i = 0; i < stack->length; ++i) {
         value_deref(stack->values[i]);
     }
     free(stack->values);
 }
 
-void stackvalue_repr(RaelStackValue *stack) {
+void stack_repr(RaelStackValue *stack) {
     printf("{ ");
     for (size_t i = 0; i < stack->length; ++i) {
         if (i > 0)
@@ -113,19 +105,23 @@ void stackvalue_repr(RaelStackValue *stack) {
     printf(" }");
 }
 
-bool stack_equals_stack(RaelValue *stack, RaelValue *stack2) {
-    size_t len1 = stack_get_length(stack),
-           len2 = stack_get_length(stack2);
+bool stack_eq(RaelStackValue *stack, RaelStackValue *stack2) {
+    size_t len1 = stack_length(stack),
+           len2 = stack_length(stack2);
     bool are_equal;
     if (len1 == len2) {
         are_equal = true;
         for (size_t i = 0; are_equal && i < len1; ++i) {
-            if (!values_equal(stack->as_stack.values[i], stack2->as_stack.values[i])) {
+            if (!values_eq(stack->values[i], stack2->values[i])) {
                 are_equal = false;
             }
         }
-    } else {
+    } else { // if lengths are not equal, the stacks can't be equal
         are_equal = false;
     }
     return are_equal;
+}
+
+bool stack_as_bool(RaelStackValue *stack) {
+    return stack_length(stack) > 0;
 }

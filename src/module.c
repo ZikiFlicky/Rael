@@ -7,15 +7,13 @@
 #include <math.h>
 #include <assert.h>
 
-RaelValue *module_math_new(void);
+RaelModuleValue *module_math_new(void);
 
-RaelValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amount_params) {
-    RaelValue *cfunc = value_new(ValueTypeCFunc);
-    cfunc->as_cfunc = (RaelExternalCFuncValue) {
-        .name = name,
-        .func = func,
-        .amount_params = amount_params
-    };
+RaelExternalCFuncValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amount_params) {
+    RaelExternalCFuncValue *cfunc = RAEL_VALUE_NEW(ValueTypeCFunc, RaelExternalCFuncValue);
+    cfunc->name = name;
+    cfunc->func = func;
+    cfunc->amount_params = amount_params;
     return cfunc;
 }
 
@@ -26,7 +24,7 @@ RaelValue *cfunc_call(RaelExternalCFuncValue *cfunc, RaelArguments *args, struct
     return_value = cfunc->func(args);
     // if you received an error, add a state to it because it wasn't set beforehand
     if (value_is_blame(return_value)) {
-        return_value->as_blame.original_place = error_place;
+        blame_add_state((RaelBlameValue*)return_value, error_place);
     }
     return return_value;
 }
@@ -39,9 +37,13 @@ void cfunc_repr(RaelExternalCFuncValue *cfunc) {
     printf("cfunc(:%s, %zu)", cfunc->name, cfunc->amount_params);
 }
 
-void module_new(RaelModuleValue *out, char *name) {
-    varmap_new(&out->vars);
-    out->name = name;
+RaelModuleValue *module_new(char *name) {
+    RaelModuleValue *module = RAEL_VALUE_NEW(ValueTypeModule, RaelModuleValue);
+    // initialize the module's varmap
+    varmap_new(&module->vars);
+    // set the module's name
+    module->name = name;
+    return module;
 }
 
 void module_set_key(RaelModuleValue *module, char *varname, RaelValue *value) {
@@ -59,12 +61,13 @@ void module_repr(RaelModuleValue *module) {
 
 RaelValue *module_get_key(RaelModuleValue *module, char *varname) {
     RaelValue *value = varmap_get(&module->vars, varname);
+    // if you couldn't find the key, return a Void
     if (!value)
-        value = value_new(ValueTypeVoid);
+        value = RAEL_VALUE_NEW(ValueTypeVoid, RaelValue);
     return value;
 }
 
-RaelValue *rael_get_module_by_name(char *module_name) {
+RaelModuleValue *rael_get_module_by_name(char *module_name) {
     if (strcmp(module_name, "Math") == 0) {
         return module_math_new();
     } else {

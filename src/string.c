@@ -1,134 +1,134 @@
-#include "string.h"
-#include "value.h"
 #include "common.h"
+#include "value.h"
+#include "string.h"
+#include "number.h"
 
 #include <assert.h>
 #include <string.h>
 
-RaelValue *string_new_pure(char *strptr, size_t length, bool can_free) {
-    RaelValue *string = value_new(ValueTypeString);
-    string->as_string = (RaelStringValue) {
-        .type = StringTypePure,
-        .can_be_freed = can_free,
-        .value = strptr,
-        .length = length
-    };
+RaelStringValue *string_new_pure(char *source, size_t length, bool can_free) {
+    RaelStringValue *string = RAEL_VALUE_NEW(ValueTypeString, RaelStringValue);
+    string->type = StringTypePure;
+    string->can_be_freed = can_free;
+    string->source = source;
+    string->length = length;
     return string;
 }
 
-RaelValue *string_new_pure_alloc(char *strptr, size_t length) {
+/* create a new value from a string pointer and its length */
+RaelStringValue *string_new_pure_alloc(char *source, size_t length) {
     char *allocated = malloc(length * sizeof(char));
-    memcpy(allocated, strptr, length * sizeof(char));
+    memcpy(allocated, source, length * sizeof(char));
     return string_new_pure(allocated, length, true);
 }
 
 /* get length of a string */
-size_t string_get_length(RaelValue *string) {
-    assert(string->type == ValueTypeString);
-    return string->as_string.length;
+size_t string_length(RaelStringValue *string) {
+    return string->length;
 }
 
 /* get the char at idx */
-char string_get_char(RaelValue *string, size_t idx) {
-    size_t string_length;
-    assert(string->type == ValueTypeString);
-    string_length = string_get_length(string);
-    if (idx >= string_length)
+char string_get_char(RaelStringValue *string, size_t idx) {
+    size_t str_length;
+    str_length = string_length(string);
+    if (idx >= str_length)
         return '\0';
     else
-        return string->as_string.value[idx];
+        return string->source[idx];
 }
 
 /* get a string at idx */
-RaelValue *string_get(RaelValue *string, size_t idx) {
-    RaelValue *new_string;
-    size_t string_length;
-    assert(string->type == ValueTypeString);
-    string_length = string_get_length(string);
-    if (idx > string_length)
+RaelValue *string_get(RaelStringValue *string, size_t idx) {
+    RaelStringValue *new_string;
+    size_t str_length;
+
+    // get string length
+    str_length = string_length(string);
+    if (idx > str_length)
         return NULL;
 
-    if (idx == string_length) {
+    if (idx == str_length) {
         new_string = string_new_pure(NULL, 0, true);
     } else {
         // allocate a 1-lengthed string and put the character into it
         char *ptr = malloc(1 * sizeof(char));
-        ptr[0] = string->as_string.value[idx];
+        ptr[0] = string->source[idx];
         new_string = string_new_pure(ptr, 1, true);
     }
     
-    return new_string;
+    return (RaelValue*)new_string;
 }
 
-RaelValue *string_slice(RaelValue *string, size_t start, size_t end) {
-    RaelStringValue substr;
-    RaelValue *new_string;
+RaelStringValue *string_slice(RaelStringValue *string, size_t start, size_t end) {
+    char *source;
+    size_t length;
+    RaelStringValue *reference_string, *new_string;
 
-    assert(string->type == ValueTypeString);
     assert(end >= start);
-    assert(start <= string_get_length(string) && end <= string_get_length(string));
+    assert(start <= string_length(string) && end <= string_length(string));
 
-    substr.type = StringTypeSub;
-    substr.value = string->as_string.value + start;
-    substr.length = end - start;
+    source = string->source + start;
+    length = end - start;
 
-    switch (string->as_string.type) {
-    case StringTypePure: substr.reference_string = string; break;
-    case StringTypeSub: substr.reference_string = string->as_string.reference_string; break;
+    switch (string->type) {
+    case StringTypePure: reference_string = string; break;
+    case StringTypeSub: reference_string = string->reference_string; break;
     default: RAEL_UNREACHABLE();
     }
 
-    value_ref(substr.reference_string);
+    // reference the reference string, because it is now used by our string
+    value_ref((RaelValue*)reference_string);
 
-    new_string = value_new(ValueTypeString);
-    new_string->as_string = substr;
+    // create a new substring
+    new_string = RAEL_VALUE_NEW(ValueTypeString, RaelStringValue);
+    new_string->type = StringTypeSub;
+    new_string->source = source;
+    new_string->length = length;
+    new_string->reference_string = reference_string;
 
     return new_string;
 }
 
-RaelValue *strings_add(RaelValue *string, RaelValue *string2) {
-    RaelValue *new_string;
-    char *strptr;
+RaelStringValue *strings_add(RaelStringValue *string, RaelStringValue *string2) {
+    RaelStringValue *new_string;
+    char *source;
     size_t length, str1len, str2len;
 
-    assert(string->type == ValueTypeString);
-    assert(string2->type == ValueTypeString);
-
     // calculate length of strings
-    str1len = string_get_length(string);
-    str2len = string_get_length(string2);
+    str1len = string_length(string);
+    str2len = string_length(string2);
 
     // calculate size of new string and allocate it
     length = str1len + str2len;
-    strptr = malloc(length * sizeof(char));
+    source = malloc(length * sizeof(char));
 
     // copy other strings' contents into the new string
-    strncpy(strptr, string->as_string.value, str1len);
-    strncpy(strptr + str1len, string2->as_string.value, str2len);
+    strncpy(source, string->source, str1len);
+    strncpy(source + str1len, string2->source, str2len);
 
     // create the new string object
-    new_string = string_new_pure(strptr, length, true);
+    new_string = string_new_pure(source, length, true);
     return new_string;
 }
 
-void stringvalue_delete(RaelStringValue *string) {
+void string_delete(RaelStringValue *string) {
     switch (string->type) {
     case StringTypePure:
         if (string->can_be_freed && string->length)
-            free(string->value);
+            free(string->source);
         break;
     case StringTypeSub:
-        value_deref(string->reference_string);
+        value_deref((RaelValue*)string->reference_string);
         break;
     default:
         RAEL_UNREACHABLE();
     }
 }
 
-void stringvalue_repr(RaelStringValue *string) {
+void string_repr(RaelStringValue *string) {
     putchar('"');
     for (size_t i = 0; i < string->length; ++i) {
-        switch (string->value[i]) {
+        switch (string->source[i]) {
         case '\n':
             printf("\\n");
             break;
@@ -145,84 +145,80 @@ void stringvalue_repr(RaelStringValue *string) {
             printf("\\\\");
             break;
         default:
-            putchar(string->value[i]);
+            putchar(string->source[i]);
         }
     }
     putchar('"');
 }
 
 /* number + string */
-RaelValue *string_precede_with_number(RaelValue *number, RaelValue *string) {
+RaelValue *string_precede_with_number(RaelNumberValue *number, RaelStringValue *string) {
     RaelInt n;
-    char *strptr;
-    size_t string_length;
+    char *source;
+    size_t str_length;
 
-    assert(number->type == ValueTypeNumber);
-    assert(string->type == ValueTypeString);
-
-    if (!number_is_whole(number->as_number)) {
+    if (!number_is_whole(number)) {
         return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the number to be a whole number");
     }
-    n = number_to_int(number->as_number);
+    n = number_to_int(number);
     if (!rael_int_in_range_of_char(n)) {
         return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the number to be in ascii");
     }
 
     // get length of rhs
-    string_length = string_get_length(string);
-    strptr = malloc((string_length + 1) * sizeof(char));
+    str_length = string_length(string);
+    source = malloc((str_length + 1) * sizeof(char));
 
-    strptr[0] = (char)n;
-    strncpy(strptr+1, string->as_string.value, string_length);
-    return string_new_pure(strptr, string_length + 1, true);
+    source[0] = (char)n;
+    strncpy(source + 1, string->source, str_length);
+    return (RaelValue*)string_new_pure(source, str_length + 1, true);
 }
 
 /* string + number */
-RaelValue *string_add_number(RaelValue *string, RaelValue *number) {
+RaelValue *string_add_number(RaelStringValue *string, RaelNumberValue *number) {
     RaelInt n;
-    char *strptr;
-    size_t string_length;
+    char *source;
+    size_t str_length;
 
-    assert(string->type == ValueTypeString);
-    assert(number->type == ValueTypeNumber);
-
-    if (!number_is_whole(number->as_number)) {
+    if (!number_is_whole(number)) {
         return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the number to be a whole number");
     }
 
-    n = number_to_int(number->as_number);
+    n = number_to_int(number);
     if (!rael_int_in_range_of_char(n)) {
         return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the number to be in ascii");
     }
 
     // get length of rhs
-    string_length = string_get_length(string);
-    strptr = malloc((string_length + 1) * sizeof(char));
+    str_length = string_length(string);
+    source = malloc((str_length + 1) * sizeof(char));
 
-    strncpy(strptr, string->as_string.value, string_length);
-    strptr[string_length] = (char)n;
-    return string_new_pure(strptr, string_length + 1, true);
+    strncpy(source, string->source, str_length);
+    source[str_length] = (char)n;
+    return (RaelValue*)string_new_pure(source, str_length + 1, true);
 }
 
 /* is a string equal to another string? */
-bool string_eq(RaelValue *string, RaelValue *string2) {
-    size_t string_length, string2_length;
-    assert(string->type == ValueTypeString);
-    assert(string2->type == ValueTypeString);
+bool string_eq(RaelStringValue *string, RaelStringValue *string2) {
+    size_t str_length, string2_length;
 
     // get lengths
-    string_length = string_get_length(string);
-    string2_length = string_get_length(string2);
+    str_length = string_length(string);
+    string2_length = string_length(string2);
     // if the strings have to have the same length
-    if (string_length == string2_length) {
+    if (str_length == string2_length) {
         // if the base value is the same (e.g they inherit from the same constant value or are equal substrings)
-        if (string->as_string.value == string2->as_string.value) {
+        if (string->source == string2->source) {
             return true;
         } else {
-            return strncmp(string->as_string.value, string2->as_string.value, string_length) == 0;
+            return strncmp(string->source, string2->source, str_length) == 0;
         }
     } else {
         // if the strings differ in length, they are not equal
         return false;
     }
+}
+
+bool string_as_bool(RaelStringValue *string) {
+    return string_length(string) > 0;
 }

@@ -2,6 +2,7 @@
 #define RAEL_MODULE_H
 
 #include "common.h"
+#include "value.h"
 #include "varmap.h"
 
 typedef struct RaelArguments {
@@ -13,18 +14,20 @@ typedef struct RaelArguments {
 typedef RaelValue* (*RaelRawCFunc)(RaelArguments*);
 
 typedef struct RaelExternalCFuncValue {
+    RAEL_VALUE_BASE;
     char *name;
     RaelRawCFunc func;
     size_t amount_params;
 } RaelExternalCFuncValue;
 
 typedef struct RaelModuleValue {
+    RAEL_VALUE_BASE;
     char *name;
     struct VariableMap vars;
 } RaelModuleValue;
 
 /* create a RaelValue with the type of CFunc */
-RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params);
+RaelExternalCFuncValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params);
 
 /* call a cfunc value */
 RaelValue *cfunc_call(RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place);
@@ -36,7 +39,7 @@ void cfunc_delete(RaelExternalCFuncValue *cfunc);
 void cfunc_repr(RaelExternalCFuncValue *cfunc);
 
 /* return a new initialized RaelModuleValue */
-void module_new(RaelModuleValue *out, char *name);
+RaelModuleValue *module_new(char *name);
 
 /* deallocate a module value */
 void module_delete(RaelModuleValue *module);
@@ -51,10 +54,7 @@ RaelValue *module_get_key(RaelModuleValue *module, char *varname);
 void module_repr(RaelModuleValue *module);
 
 /* get module value by name */
-RaelValue *rael_get_module_by_name(char *module_name);
-
-/* TODO: move this to a new file */
-RaelValue *module_math_new(void);
+RaelModuleValue *rael_get_module_by_name(char *module_name);
 
 /* create a RaelArguments */
 void arguments_new(RaelArguments *out);
