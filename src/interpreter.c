@@ -612,7 +612,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         } else {
             message = NULL;
         }
-        value = blame_new(message, expr->state);
+        value = blame_new(message, &expr->state);
         break;
     }
     case ExprTypeSet:

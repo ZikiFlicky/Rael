@@ -304,19 +304,15 @@ bool blame_validate(RaelValue *value) {
     return value->type == &RaelBlameType;
 }
 
-// TODO: make this take a `struct State *state` so you could decide not to initialize the blame's state,
-// which will let us get rid of `blame_no_state_new`
-RaelValue *blame_new(RaelValue *message, struct State state) {
+RaelValue *blame_new(RaelValue *message, struct State *state) {
     RaelBlameValue *blame = RAEL_VALUE_NEW(RaelBlameType, RaelBlameValue);
-    blame->state_defined = true;
-    blame->message = message;
-    blame->original_place = state;
-    return (RaelValue*)blame;
-}
-
-RaelValue *blame_no_state_new(RaelValue *message) {
-    RaelBlameValue *blame = RAEL_VALUE_NEW(RaelBlameType, RaelBlameValue);
-    blame->state_defined = false;
+    if (state) {
+        blame->state_defined = true;    
+        blame->original_place = *state;
+    } else {
+        blame->state_defined = false;
+    }
+    
     blame->message = message;
     return (RaelValue*)blame;
 }

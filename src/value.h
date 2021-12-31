@@ -8,9 +8,9 @@
 typedef struct RaelValue RaelValue;
 
 /* return a RaelValue of type blame, storing a RaelValue of type string with the value of `string` */
-#define BLAME_NEW_CSTR(string) ((RaelValue*)blame_no_state_new((RaelValue*)RAEL_STRING_FROM_CSTR((string))))
+#define BLAME_NEW_CSTR(string) ((RaelValue*)blame_new((RaelValue*)RAEL_STRING_FROM_CSTR((string)), NULL))
 /* return a RaelValue of type blame, storing a RaelValue of type string with the value of `string` and the state `state` */
-#define BLAME_NEW_CSTR_ST(string, state) ((RaelValue*)blame_new((RaelValue*)RAEL_STRING_FROM_CSTR((string)), (state)))
+#define BLAME_NEW_CSTR_ST(string, state) ((RaelValue*)blame_new((RaelValue*)RAEL_STRING_FROM_CSTR((string)), &(state)))
 /* create a value from a `RaelTypeValue` and a C type that inherits from RaelValue */
 #define RAEL_VALUE_NEW(value_type, c_type) ((c_type*)value_new(&value_type, sizeof(c_type)))
 /* header to put on top of custom rael runtime values which lets the values inherit from RaelValue */
@@ -123,16 +123,13 @@ RaelValue *void_new(void);
 RaelValue *range_new(RaelInt start, RaelInt end);
 
 /* create a new blame from a message and a state  */
-RaelValue *blame_new(RaelValue *message, struct State state);
-
-/* create a new blame from only a message  */
-RaelValue *blame_no_state_new(RaelValue *message);
-
-/* check if the value is a blame */
-bool blame_validate(RaelValue *value);
+RaelValue *blame_new(RaelValue *message, struct State *state);
 
 /* if there isn't a state defined in the blame, set it to the new state */
 void blame_set_state(RaelBlameValue *value, struct State state);
+
+/* check if the value is a blame */
+bool blame_validate(RaelValue *value);
 
 /* create a new uninitialized value from a RaelTypeValue and a size */
 RaelValue *value_new(RaelTypeValue *type, size_t size);
