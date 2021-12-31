@@ -4,110 +4,378 @@
 #include "string.h"
 #include "number.h"
 #include "common.h"
+#include "scope.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
 
-char *value_type_to_string(enum ValueType type) {
-    switch (type) {
-    case ValueTypeVoid: return "VoidType";
-    case ValueTypeNumber: return "Number";
-    case ValueTypeString: return "String";
-    case ValueTypeRoutine: return "Routine";
-    case ValueTypeStack: return "Stack";
-    case ValueTypeRange: return "Range";
-    case ValueTypeBlame: return "Blame";
-    case ValueTypeType: return "Type";
-    default: RAEL_UNREACHABLE();
+struct Instruction;
+
+void block_run(struct Interpreter* const interpreter, struct Instruction **block);
+void interpreter_push_scope(struct Interpreter* const interpreter, struct Scope *scope_addr);
+void interpreter_pop_scope(struct Interpreter* const interpreter);
+
+static bool type_validate(RaelValue *type) {
+    return type->type == &RaelTypeType;
+}
+
+bool type_eq(RaelTypeValue *self, RaelTypeValue *value) {
+    // types are constant values that are only created, statically, once
+    return self == value;
+}
+
+void type_repr(RaelTypeValue *self) {
+    printf("%s", self->name);
+}
+
+RaelValue *type_cast(RaelTypeValue *self, RaelTypeValue *type) {
+    if (type == &RaelTypeType) {
+        return string_new_pure(self->name, strlen(self->name), false);
+    } else {
+        return NULL;
     }
 }
 
-void routine_repr(RaelRoutineValue *routine) {
+RaelTypeValue RaelTypeType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "Type",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = NULL, /* pointer comparison */
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
+
+    .op_neg = NULL,
+
+    .op_call = NULL,
+
+    .as_bool = NULL,
+    .deallocator = NULL,
+    .repr = (RaelSingleFunc)type_repr,
+    .logger = NULL, /* fallbacks to .repr */
+
+    .cast = (RaelCastFunc)type_cast,
+
+    .at_index = NULL,
+    .at_range = NULL,
+    .at_key = NULL,
+
+    .length = NULL
+};
+
+RaelValue *void_cast(RaelValue *self, RaelTypeValue *type) {
+    if (type == &RaelStringType) {
+        return RAEL_STRING_FROM_CSTR("Void");
+    } else if (type == &RaelNumberType) {
+        return number_newi(0);
+    } else {
+        return NULL;
+    }
+}
+
+bool void_as_bool(RaelValue *self) {
+    return false;
+}
+
+void void_repr(RaelValue *self) {
+    printf("Void");
+}
+
+RaelValue *void_new(void) {
+    value_ref(&RaelVoid);
+    return &RaelVoid;
+}
+
+RaelTypeValue RaelVoidType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "VoidType",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = NULL,
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
+
+    .op_neg = NULL,
+
+    .op_call = NULL,
+
+    .as_bool = (RaelAsBoolFunc)void_as_bool,
+    .deallocator = NULL,
+    .repr = (RaelSingleFunc)void_repr,
+    .logger = NULL, /* fallbacks to .repr */
+
+    .cast = void_cast,
+
+    .at_index = NULL,
+    .at_range = NULL,
+    .at_key = NULL,
+
+    .length = NULL
+};
+
+RaelValue RaelVoid = (RaelValue) {
+    .type = &RaelVoidType,
+    .reference_count = 1
+};
+
+static inline bool routine_validate(RaelValue *routine) {
+    return routine->type == &RaelRoutineType;
+}
+
+RaelValue *routine_call(RaelRoutineValue *self, RaelArguments *arguments, struct Interpreter *interpreter) {
+    size_t amount_args, amount_params;
+    struct Scope *prev_scope, routine_scope;
+
+    amount_args = arguments_amount(arguments);
+    amount_params = self->amount_parameters;
+
+    if (amount_args < amount_params) {
+        return BLAME_NEW_CSTR("Too few arguments");
+    } else if (amount_args > amount_params) {
+        return BLAME_NEW_CSTR("Too many arguments");
+    }
+
+    // store last scopes
+    prev_scope = interpreter->scope;
+    // create new "scope chain"
+    interpreter->scope = self->scope;
+    interpreter_push_scope(interpreter, &routine_scope);
+
+    for (size_t i = 0; i < amount_params; ++i) {
+        RaelValue *value = arguments_get(arguments, i);
+        assert(value); // you must get a value
+        // set the parameter
+        scope_set_local(interpreter->scope, self->parameters[i], value, false);
+    }
+
+    // run the block of code
+    block_run(interpreter, self->block);
+
+    if (interpreter->interrupt == ProgramInterruptReturn) {
+        // if had a return statement
+        ;
+    } else {
+        // if you get to the end of the function without returning anything, return a Void
+        interpreter->returned_value = void_new();
+    }
+
+    // clear interrupt
+    interpreter->interrupt = ProgramInterruptNone;
+    // remove routine scope and restore previous scope
+    interpreter_pop_scope(interpreter);
+    interpreter->scope = prev_scope;
+    return interpreter->returned_value;
+}
+
+void routine_repr(RaelRoutineValue *self) {
     printf("routine(");
-    if (routine->amount_parameters > 0) {
-        printf(":%s", routine->parameters[0]);
-        for (size_t i = 1; i < routine->amount_parameters; ++i)
-            printf(", :%s", routine->parameters[i]);
+    if (self->amount_parameters > 0) {
+        printf(":%s", self->parameters[0]);
+        for (size_t i = 1; i < self->amount_parameters; ++i)
+            printf(", :%s", self->parameters[i]);
     }
     printf(")");
 }
 
-RaelRangeValue *range_new(RaelInt start, RaelInt end) {
-    RaelRangeValue *range = RAEL_VALUE_NEW(ValueTypeRange, RaelRangeValue);
+RaelTypeValue RaelRoutineType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "Routine",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = NULL,
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
+
+    .op_neg = NULL,
+
+    .op_call = (RaelCallerFunc)routine_call,
+
+    .as_bool = NULL,
+    .deallocator = NULL,
+    .repr = (RaelSingleFunc)routine_repr,
+    .logger = NULL, /* fallbacks to .repr */
+
+    .cast = NULL,
+
+    .at_index = NULL,
+    .at_range = NULL,
+    .at_key = NULL,
+
+    .length = NULL
+};
+
+RaelValue *range_new(RaelInt start, RaelInt end) {
+    RaelRangeValue *range = RAEL_VALUE_NEW(RaelRangeType, RaelRangeValue);
     range->start = start;
     range->end = end;
-    return range;
+    return (RaelValue*)range;
+}
+
+static inline bool range_validate(RaelValue *range) {
+    return range->type == &RaelRangeType;
 }
 
 size_t range_length(RaelRangeValue *range) {
     return (size_t)rael_int_abs(range->end - range->start);
 }
 
-RaelValue *range_get(RaelRangeValue *range, size_t idx) {
+bool range_as_bool(RaelRangeValue *self) {
+    return range_length(self) != 0;
+}
+
+RaelValue *range_get(RaelRangeValue *self, size_t idx) {
     RaelInt number;
 
-    if (idx >= range_length(range))
+    if (idx >= range_length(self))
         return NULL;
 
     // get the number, depending on the direction
-    if (range->end > range->start)
-        number = range->start + idx;
+    if (self->end > self->start)
+        number = self->start + idx;
     else
-        number = range->start - idx;
+        number = self->start - idx;
 
     // return the number
-    return (RaelValue*)number_newi(number);;
+    return number_newi(number);
 }
 
-bool range_eq(RaelRangeValue *range, RaelRangeValue *range2) {
-    return range->start == range2->start && range->end == range2->end;
+bool range_eq(RaelRangeValue *self, RaelRangeValue *value) {
+    return self->start == value->start && self->end == value->end;
 }
 
-void range_repr(RaelRangeValue *range) {
-    printf("%ld to %ld", range->start, range->end);
+void range_repr(RaelRangeValue *self) {
+    printf("%ld to %ld", self->start, self->end);
 }
 
-bool value_is_blame(RaelValue *value) {
-    return value->type == ValueTypeBlame;
-}
+RaelTypeValue RaelRangeType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "Range",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = (RaelBinCmpFunc)range_eq,
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
 
-bool type_eq(RaelTypeValue *type, RaelTypeValue *type2) {
-    return type->type == type2->type;
-}
+    .op_neg = NULL,
 
-void type_repr(RaelTypeValue *type) {
-    printf("%s", value_type_to_string(type->type));
+    .op_call = NULL,
+
+    .as_bool = (RaelAsBoolFunc)range_as_bool,
+    .deallocator = NULL,
+    .repr = (RaelSingleFunc)range_repr,
+    .logger = NULL, /* fallbacks to .repr */
+
+    .cast = NULL,
+
+    .at_index = (RaelGetFunc)range_get,
+    .at_range = NULL,
+    .at_key = NULL,
+
+    .length = (RaelLengthFunc)range_length
+};
+
+bool blame_validate(RaelValue *value) {
+    return value->type == &RaelBlameType;
 }
 
 // TODO: make this take a `struct State *state` so you could decide not to initialize the blame's state,
 // which will let us get rid of `blame_no_state_new`
-RaelBlameValue *blame_new(RaelValue *message, struct State state) {
-    RaelBlameValue *blame = RAEL_VALUE_NEW(ValueTypeBlame, RaelBlameValue);
-    blame->value = message;
+RaelValue *blame_new(RaelValue *message, struct State state) {
+    RaelBlameValue *blame = RAEL_VALUE_NEW(RaelBlameType, RaelBlameValue);
+    blame->state_defined = true;
+    blame->message = message;
     blame->original_place = state;
-    return blame;
+    return (RaelValue*)blame;
 }
 
-RaelBlameValue *blame_no_state_new(RaelValue *message) {
-    RaelBlameValue *blame = RAEL_VALUE_NEW(ValueTypeBlame, RaelBlameValue);
-    blame->value = message;
-    return blame;
+RaelValue *blame_no_state_new(RaelValue *message) {
+    RaelBlameValue *blame = RAEL_VALUE_NEW(RaelBlameType, RaelBlameValue);
+    blame->state_defined = false;
+    blame->message = message;
+    return (RaelValue*)blame;
+}
+
+RaelValue *blame_get_message(RaelBlameValue *blame) {
+    return blame->message;
 }
 
 void blame_delete(RaelBlameValue *blame) {
-    // if there is a value inside of the blame, dereference it
-    if (blame->value)
-        value_deref(blame->value);
+    RaelValue *message = blame_get_message(blame);
+    // if there is a blame message, dereference it
+    if (message)
+        value_deref(message);
 }
 
-void blame_add_state(RaelBlameValue *blame, struct State state) {
-    blame->original_place = state;
+/* if there was no state on the blame beforehand, add a state */
+void blame_set_state(RaelBlameValue *self, struct State state) {
+    // define a new state only if there isn't one yet
+    if (!self->state_defined) {
+        self->state_defined = true;
+        self->original_place = state;
+    }
 }
 
-/* create a new RaelValue with type `enum ValueType` and size `size` */
-RaelValue *value_new(enum ValueType type, size_t size) {
+RaelTypeValue RaelBlameType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "Blame",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = NULL,
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
+
+    .op_neg = NULL,
+
+    .op_call = NULL,
+
+    .as_bool = NULL,
+    .deallocator = (RaelSingleFunc)blame_delete,
+    .repr = NULL,
+    .logger = NULL,
+
+    .cast = NULL,
+
+    .at_index = NULL,
+    .at_range = NULL,
+    .at_key = NULL,
+
+    .length = NULL
+};
+
+/* create a new RaelValue with RaelTypeValue and size `size` */
+RaelValue *value_new(RaelTypeValue *type, size_t size) {
     RaelValue *value;
     assert(size >= sizeof(RaelValue));
 
@@ -121,94 +389,50 @@ void value_ref(RaelValue *value) {
     ++value->reference_count;
 }
 
-// TODO: optimally, this should call a deconstructor, like value->type->_deallocator
 void value_deref(RaelValue *value) {
     --value->reference_count;
     if (value->reference_count == 0) {
-        switch (value->type) {
-        case ValueTypeStack:
-            stack_delete((RaelStackValue*)value);
-            break;
-        case ValueTypeString:
-            string_delete((RaelStringValue*)value);
-            break;
-        case ValueTypeBlame:
-            blame_delete((RaelBlameValue*)value);
-            break;
-        case ValueTypeCFunc:
-            cfunc_delete((RaelExternalCFuncValue*)value);
-            break;
-        case ValueTypeModule:
-            module_delete((RaelModuleValue*)value);
-            break;
-        default:
-            break;
+        RaelSingleFunc possible_deallocator = value->type->deallocator;
+
+        // if there is a deallocator defined for the type, call it
+        if (possible_deallocator) {
+            possible_deallocator(value);
         }
+
         free(value);
     }
 }
 
-// TODO: this should optimally be something like value->type->_logger
 void value_repr(RaelValue *value) {
-    switch (value->type) {
-    case ValueTypeNumber:
-        number_repr((RaelNumberValue*)value);
-        break;
-    case ValueTypeString:
-        string_repr((RaelStringValue*)value);
-        break;
-    case ValueTypeVoid:
-        printf("Void");
-        break;
-    case ValueTypeRoutine:
-        routine_repr((RaelRoutineValue*)value);
-        break;
-    case ValueTypeStack:
-        stack_repr((RaelStackValue*)value);
-        break;
-    case ValueTypeRange:
-        range_repr((RaelRangeValue*)value);
-        break;
-    case ValueTypeType:
-        type_repr((RaelTypeValue*)value);
-        break;
-    case ValueTypeCFunc:
-        cfunc_repr((RaelExternalCFuncValue*)value);
-        break;
-    case ValueTypeModule:
-        module_repr((RaelModuleValue*)value);
-        break;
-    default:
-        RAEL_UNREACHABLE();
+    RaelSingleFunc possible_repr = value->type->repr;
+
+    // if there is a repr function defined for the type
+    if (possible_repr) {
+        possible_repr(value);
+    } else {
+        printf("[%s at %p]", value->type->name, value);
     }
 }
 
 void value_log(RaelValue *value) {
-    // only strings are printed differently when `log`ed than inside a stack
-    switch (value->type) {
-    case ValueTypeString: {
-        size_t str_length = string_length((RaelStringValue*)value);
-        for (size_t i = 0; i < str_length; ++i)
-            putchar(string_get_char((RaelStringValue*)value, i));
-        break;
-    }
-    default:
+    RaelSingleFunc possible_complex_repr = value->type->logger;
+
+    if (possible_complex_repr) {
+        possible_complex_repr(value);
+    } else {
+        // fallback to regular repr if there isn't a complex_repr
         value_repr(value);
     }
 }
 
 /* is the value booleanly true? like Python's bool() operator */
 bool value_as_bool(RaelValue *const value) {
-    switch (value->type) {
-    case ValueTypeVoid:
-        return false;
-    case ValueTypeString:
-        return string_as_bool((RaelStringValue*)value);
-    case ValueTypeNumber:
-        return number_as_bool((RaelNumberValue*)value);
-    case ValueTypeStack:
-        return stack_as_bool((RaelStackValue*)value);
-    default:
+    RaelAsBoolFunc possible_as_bool = value->type->as_bool;
+
+    if (possible_as_bool) {
+        return possible_as_bool(value);
+    } else {
+        // if there is no as_bool function just return a true
         return true;
     }
 }
@@ -222,29 +446,12 @@ bool values_eq(RaelValue* const value, RaelValue* const value2) {
         // if they don't share the same type they are not equal
         res = false;
     } else {
-        enum ValueType type = value->type;
+        RaelBinCmpFunc possible_eq = value->type->op_eq;
 
-        switch (type) {
-        case ValueTypeNumber:
-            res = number_eq((RaelNumberValue*)value, (RaelNumberValue*)value2);
-            break;
-        case ValueTypeString:
-            res = string_eq((RaelStringValue*)value, (RaelStringValue*)value2);
-            break;
-        case ValueTypeType:
-            res = type_eq((RaelTypeValue*)value, (RaelTypeValue*)value2);
-            break;
-        case ValueTypeVoid: // Void = Void will always be true
-            res = true;
-            break;
-        case ValueTypeStack: {
-            res = stack_eq((RaelStackValue*)value, (RaelStackValue*)value2);
-            break;
-        }
-        case ValueTypeRange:
-            res = range_eq((RaelRangeValue*)value, (RaelRangeValue*)value2);
-            break;
-        default:
+        // if there is a '=' operator defined, call it, else return false
+        if (possible_eq) {
+            res = possible_eq(value, value2);
+        } else {
             res = false;
         }
     }
@@ -252,57 +459,72 @@ bool values_eq(RaelValue* const value, RaelValue* const value2) {
     return res;
 }
 
-size_t value_length(RaelValue *value) {
-    size_t length;
-    assert(value_is_iterable(value));
+size_t value_length(RaelValue *self) {
+    RaelLengthFunc possible_length_func;
+    assert(value_is_iterable(self));
 
-    switch (value->type) {
-    case ValueTypeStack:
-        length = stack_length((RaelStackValue*)value);
-        break;
-    case ValueTypeString:
-        length = string_length((RaelStringValue*)value);
-        break;
-    case ValueTypeRange:
-        length = range_length((RaelRangeValue*)value);
-        break;
-    default:
-        RAEL_UNREACHABLE();
-    }
-    return length;
+    possible_length_func = self->type->length;
+    // every iterable must have a length function
+    assert(possible_length_func != NULL);
+
+    return possible_length_func(self);
 }
 
-RaelValue *value_get(RaelValue *value, size_t idx) {
-    RaelValue *out;
-    assert(value_is_iterable(value));
+/* :Value at :number */
+RaelValue *value_get(RaelValue *self, size_t idx) {
+    RaelGetFunc possible_at_idx;
 
-    switch (value->type) {
-    case ValueTypeStack:
-        out = stack_get((RaelStackValue*)value, idx);
-        break;
-    case ValueTypeString:
-        out = string_get((RaelStringValue*)value, idx);
-        break;
-    case ValueTypeRange:
-        out = range_get((RaelRangeValue*)value, idx);
-        break;
-    default:
-        RAEL_UNREACHABLE();
+    if (!value_is_iterable(self)) {
+        return NULL;
     }
+    possible_at_idx = self->type->at_index;
+    if (possible_at_idx) {
+        RaelValue *value = possible_at_idx(self, idx);
+        if (value) {
+            return value;
+        } else {
+            return BLAME_NEW_CSTR("Index too big");
+        }
+    } else {
+        return NULL;
+    }
+}
 
-    return out;
+/* :Value:Key */
+RaelValue *value_get_key(RaelValue *self, char *key) {
+    RaelAtKeyFunc possible_get_key = self->type->at_key;
+
+    if (possible_get_key) {
+        RaelValue *value = possible_get_key(self, key);
+        // the function must return a value
+        assert(value);
+        return value;
+    } else {
+        return NULL;
+    }
+}
+
+RaelValue *value_slice(RaelValue *self, size_t start, size_t end) {
+    RaelSliceFunc possible_at_range;
+    size_t value_len = value_length(self);
+
+    if (start > end || start > value_len  || end > value_len) {
+        return BLAME_NEW_CSTR("Invalid slicing");
+    }
+    possible_at_range = self->type->at_range;
+    if (possible_at_range) {
+        return possible_at_range(self, start, end);
+    } else {
+        return NULL; // can't slice value
+    }
 }
 
 /* lhs + rhs */
 RaelValue *values_add(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) { // number + number
-        return (RaelValue*)number_add((RaelNumberValue*)value, (RaelNumberValue*)value2);
-    } else if (value->type == ValueTypeString && value2->type == ValueTypeString) { // string + string
-        return (RaelValue*)strings_add((RaelStringValue*)value, (RaelStringValue*)value2);
-    } else if (value->type == ValueTypeNumber && value2->type == ValueTypeString) { // number + string
-        return (RaelValue*)string_precede_with_number((RaelNumberValue*)value, (RaelStringValue*)value2);
-    } else if (value->type == ValueTypeString && value2->type == ValueTypeNumber) { // string + number
-        return (RaelValue*)string_add_number((RaelStringValue*)value, (RaelNumberValue*)value2);
+    RaelBinExprFunc possible_add = value->type->op_add;
+
+    if (possible_add) {
+        return possible_add(value, value2);
     } else {
         return NULL;
     }
@@ -310,8 +532,10 @@ RaelValue *values_add(RaelValue *value, RaelValue *value2) {
 
 /* lhs - rhs */
 RaelValue *values_sub(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        return (RaelValue*)number_sub((RaelNumberValue*)value, (RaelNumberValue*)value2);
+    RaelBinExprFunc possible_sub = value->type->op_sub;
+
+    if (possible_sub) {
+        return possible_sub(value, value2);
     } else {
         return NULL;
     }
@@ -319,8 +543,10 @@ RaelValue *values_sub(RaelValue *value, RaelValue *value2) {
 
 /* lhs * rhs */
 RaelValue *values_mul(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        return (RaelValue*)number_mul((RaelNumberValue*)value, (RaelNumberValue*)value2);
+    RaelBinExprFunc possible_mul = value->type->op_mul;
+
+    if (possible_mul) {
+        return possible_mul(value, value2);
     } else {
         return NULL;
     }
@@ -328,12 +554,10 @@ RaelValue *values_mul(RaelValue *value, RaelValue *value2) {
 
 /* lhs / rhs */
 RaelValue *values_div(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        RaelNumberValue *out;
-        if (!(out = number_div((RaelNumberValue*)value, (RaelNumberValue*)value2))) {
-            return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Division by zero");
-        }
-        return (RaelValue*)out;
+    RaelBinExprFunc possible_div = value->type->op_div;
+
+    if (possible_div) {
+        return possible_div(value, value2);
     } else {
         return NULL;
     }
@@ -341,12 +565,21 @@ RaelValue *values_div(RaelValue *value, RaelValue *value2) {
 
 /* lhs % rhs */
 RaelValue *values_mod(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        RaelNumberValue *out;
-        // if had a div by zero
-        if (!(out = number_mod((RaelNumberValue*)value, (RaelNumberValue*)value2)))
-            return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Division by zero");
-        return (RaelValue*)out;
+    RaelBinExprFunc possible_mod = value->type->op_mod;
+
+    if (possible_mod) {
+        return possible_mod(value, value2);
+    } else {
+        return NULL;
+    }
+}
+
+/* lhs << rhs (redirect operator) */
+RaelValue *values_red(RaelValue *value, RaelValue *value2) {
+    RaelBinExprFunc possible_red = value->type->op_red;
+
+    if (possible_red) {
+        return possible_red(value, value2);
     } else {
         return NULL;
     }
@@ -354,8 +587,13 @@ RaelValue *values_mod(RaelValue *value, RaelValue *value2) {
 
 /* lhs < rhs */
 RaelValue *values_smaller(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        return (RaelValue*)number_smaller((RaelNumberValue*)value, (RaelNumberValue*)value2);
+    RaelBinCmpFunc possible_smaller = value->type->op_smaller;
+
+    if (value->type != value2->type) {
+        return BLAME_NEW_CSTR("Comparison operation expects equal types of values");
+    }
+    if (possible_smaller) {
+        return number_newi(possible_smaller(value, value2));
     } else {
         return NULL;
     }
@@ -363,8 +601,13 @@ RaelValue *values_smaller(RaelValue *value, RaelValue *value2) {
 
 /* lhs > rhs */
 RaelValue *values_bigger(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        return (RaelValue*)number_bigger((RaelNumberValue*)value, (RaelNumberValue*)value2);
+    RaelBinCmpFunc possible_bigger = value->type->op_bigger;
+
+    if (value->type != value2->type) {
+        return BLAME_NEW_CSTR("Comparison operation expects equal types of values");
+    }
+    if (possible_bigger) {
+        return number_newi(possible_bigger(value, value2));
     } else {
         return NULL;
     }
@@ -372,8 +615,13 @@ RaelValue *values_bigger(RaelValue *value, RaelValue *value2) {
 
 /* lhs <= rhs */
 RaelValue *values_smaller_eq(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        return (RaelValue*)number_smaller_eq((RaelNumberValue*)value, (RaelNumberValue*)value2);
+    RaelBinCmpFunc possible_smaller_eq = value->type->op_smaller_eq;
+
+    if (value->type != value2->type) {
+        return BLAME_NEW_CSTR("Comparison operation expects equal types of values");
+    }
+    if (possible_smaller_eq) {
+        return number_newi(possible_smaller_eq(value, value2));
     } else {
         return NULL;
     }
@@ -381,20 +629,64 @@ RaelValue *values_smaller_eq(RaelValue *value, RaelValue *value2) {
 
 /* lhs >= rhs */
 RaelValue *values_bigger_eq(RaelValue *value, RaelValue *value2) {
-    if (value->type == ValueTypeNumber && value2->type == ValueTypeNumber) {
-        return (RaelValue*)number_bigger_eq((RaelNumberValue*)value, (RaelNumberValue*)value2);
+    RaelBinCmpFunc possible_bigger_eq = value->type->op_bigger_eq;
+
+    if (value->type != value2->type) {
+        return BLAME_NEW_CSTR("Comparison operation expects equal types of values");
+    }
+    if (possible_bigger_eq) {
+        return number_newi(possible_bigger_eq(value, value2));
+    } else {
+        return NULL;
+    }
+}
+
+RaelValue *value_cast(RaelValue *value, RaelTypeValue *type) {
+    RaelCastFunc possible_cast;
+
+    if (value->type == type) {
+        value_ref(value);
+        return value;
+    }
+
+    possible_cast = value->type->cast;
+    if (possible_cast) {
+        return possible_cast(value, type);
+    } else {
+        return NULL; // cast not possible between types
+    }
+}
+
+RaelValue *value_call(RaelValue *value, RaelArguments *args, struct Interpreter *interpreter) {
+    RaelCallerFunc possible_call = value->type->op_call;
+
+    if (possible_call) {
+        RaelValue *return_value = possible_call(value, args, interpreter);
+        // if there was no return value, return a Void
+        if (!return_value) {
+            return_value = void_new();
+        }
+        return return_value;
+    } else {
+        return NULL; // non-callable
+    }
+}
+
+RaelValue *value_neg(RaelValue *value) {
+    RaelNegFunc possible_neg = value->type->op_neg;
+
+    if (possible_neg) {
+        return possible_neg(value);
     } else {
         return NULL;
     }
 }
 
 bool value_is_iterable(RaelValue *value) {
-    switch (value->type) {
-    case ValueTypeString:
-    case ValueTypeStack:
-    case ValueTypeRange:
-        return true;
-    default:
-        return false;
-    }
+    return value->type->at_index != NULL &&
+           value->type->length != NULL;
+}
+
+bool value_is_callable(RaelValue *value) {
+    return value->type->op_call != NULL;
 }

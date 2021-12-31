@@ -7,107 +7,146 @@
 #include <math.h>
 #include <assert.h>
 
-RaelModuleValue *module_math_new(void);
+RaelValue *module_math_new(void);
 
-RaelExternalCFuncValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amount_params) {
-    RaelExternalCFuncValue *cfunc = RAEL_VALUE_NEW(ValueTypeCFunc, RaelExternalCFuncValue);
+struct Interpreter;
+
+RaelValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amount_params) {
+    RaelExternalCFuncValue *cfunc = RAEL_VALUE_NEW(RaelCFuncType, RaelExternalCFuncValue);
     cfunc->name = name;
     cfunc->func = func;
     cfunc->amount_params = amount_params;
-    return cfunc;
+    return (RaelValue*)cfunc;
 }
 
-RaelValue *cfunc_call(RaelExternalCFuncValue *cfunc, RaelArguments *args, struct State error_place) {
-    RaelValue *return_value;
-    if (arguments_get_amount(args) != cfunc->amount_params)
+void cfunc_delete(RaelExternalCFuncValue *self) {
+    free(self->name);
+}
+
+static bool cfunc_validate(RaelValue *cfunc) {
+    return cfunc->type == &RaelCFuncType;
+}
+
+RaelValue *cfunc_call(RaelExternalCFuncValue *self, RaelArguments *args, struct Interpreter *interpreter) {
+    if (arguments_amount(args) != self->amount_params)
         return NULL;
-    return_value = cfunc->func(args);
-    // if you received an error, add a state to it because it wasn't set beforehand
-    if (value_is_blame(return_value)) {
-        blame_add_state((RaelBlameValue*)return_value, error_place);
-    }
-    return return_value;
+
+    return self->func(args);
 }
 
-void cfunc_delete(RaelExternalCFuncValue *cfunc) {
-    free(cfunc->name);
+bool cfunc_eq(RaelExternalCFuncValue *self, RaelExternalCFuncValue *value) {
+    return self->func == value->func;
 }
 
-void cfunc_repr(RaelExternalCFuncValue *cfunc) {
-    printf("cfunc(:%s, %zu)", cfunc->name, cfunc->amount_params);
+void cfunc_repr(RaelExternalCFuncValue *self) {
+    printf("cfunc(:%s, %zu)", self->name, self->amount_params);
 }
 
-RaelModuleValue *module_new(char *name) {
-    RaelModuleValue *module = RAEL_VALUE_NEW(ValueTypeModule, RaelModuleValue);
+RaelTypeValue RaelCFuncType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "CFunc",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = (RaelBinCmpFunc)cfunc_eq,
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
+
+    .op_neg = NULL,
+
+    .op_call = (RaelCallerFunc)cfunc_call,
+
+    .as_bool = NULL, // will just always be true
+    .deallocator = (RaelSingleFunc)cfunc_delete,
+    .repr = (RaelSingleFunc)cfunc_repr,
+    .logger = NULL, /* fallbacks to .repr */
+
+    .cast = NULL,
+
+    .at_index = NULL,
+    .at_range = NULL,
+    .at_key = NULL,
+
+    .length = NULL
+};
+
+RaelValue *module_new(char *name) {
+    RaelModuleValue *module = RAEL_VALUE_NEW(RaelModuleType, RaelModuleValue);
     // initialize the module's varmap
     varmap_new(&module->vars);
     // set the module's name
     module->name = name;
-    return module;
+    return (RaelValue*)module;
 }
 
-void module_set_key(RaelModuleValue *module, char *varname, RaelValue *value) {
-    varmap_set(&module->vars, varname, value, true, true);
+static bool module_validate(RaelValue *module) {
+    return module->type == &RaelModuleType;
 }
 
-void module_delete(RaelModuleValue *module) {
-    free(module->name);
-    varmap_delete(&module->vars);
+void module_set_key(RaelModuleValue *self, char *varname, RaelValue *value) {
+    varmap_set(&self->vars, varname, value, true, true);
 }
 
-void module_repr(RaelModuleValue *module) {
-    printf("module(:%s)", module->name);
+static void module_delete(RaelModuleValue *self) {
+    free(self->name);
+    varmap_delete(&self->vars);
 }
 
-RaelValue *module_get_key(RaelModuleValue *module, char *varname) {
-    RaelValue *value = varmap_get(&module->vars, varname);
+static void module_repr(RaelModuleValue *self) {
+    printf("module(:%s)", self->name);
+}
+
+static RaelValue *module_get_key(RaelModuleValue *self, char *key) {
+    RaelValue *value;
+    value = varmap_get(&self->vars, key);
     // if you couldn't find the key, return a Void
     if (!value)
-        value = RAEL_VALUE_NEW(ValueTypeVoid, RaelValue);
+        value = void_new();
     return value;
 }
 
-RaelModuleValue *rael_get_module_by_name(char *module_name) {
+RaelTypeValue RaelModuleType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "Module",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = NULL,
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
+
+    .op_neg = NULL,
+
+    .op_call = NULL,
+
+    .as_bool = NULL, /* will always be true */
+    .deallocator = (RaelSingleFunc)module_delete,
+    .repr = (RaelSingleFunc)module_repr,
+    .logger = NULL, /* fallbacks to .repr */
+
+    .cast = NULL,
+
+    .at_index = NULL,
+    .at_range = NULL,
+    .at_key = (RaelAtKeyFunc)module_get_key,
+
+    .length = NULL
+};
+
+RaelValue *rael_get_module_by_name(char *module_name) {
     if (strcmp(module_name, "Math") == 0) {
         return module_math_new();
     } else {
         return NULL;
     }
-}
-
-void arguments_new(RaelArguments *out) {
-    out->amount_allocated = 0;
-    out->amount_arguments = 0;
-    out->arguments = NULL;
-}
-
-void arguments_add(RaelArguments *args, RaelValue *value) {
-    if (args->amount_allocated == 0)
-        args->arguments = malloc((args->amount_allocated = 4) * sizeof(RaelValue*));
-    else if (args->amount_arguments >= args->amount_allocated)
-        args->arguments = realloc(args->arguments, (args->amount_allocated += 4) * sizeof(RaelValue*));
-    args->arguments[args->amount_arguments++] = value;
-}
-
-RaelValue *arguments_get(RaelArguments *args, size_t idx) {
-    if (idx >= args->amount_arguments)
-        return NULL;
-    return args->arguments[idx];
-}
-
-size_t arguments_get_amount(RaelArguments *args) {
-    return args->amount_arguments;
-}
-
-void arguments_delete(RaelArguments *args) {
-    for (size_t i = 0; i < args->amount_arguments; ++i) {
-        value_deref(arguments_get(args, i));
-    }
-    free(args->arguments);
-}
-
-/* this function shrinks the size of the argument buffer */
-void arguments_finalize(RaelArguments *args) {
-    args->arguments = realloc(args->arguments,
-                    (args->amount_allocated = args->amount_arguments) * sizeof(RaelValue*));
 }

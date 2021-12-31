@@ -74,3 +74,40 @@ bool rael_int_in_range_of_char(RaelInt number) {
         return false;
     }
 }
+
+void arguments_new(RaelArguments *out) {
+    out->amount_allocated = 0;
+    out->amount_arguments = 0;
+    out->arguments = NULL;
+}
+
+void arguments_add(RaelArguments *args, RaelValue *value) {
+    if (args->amount_allocated == 0)
+        args->arguments = malloc((args->amount_allocated = 4) * sizeof(RaelValue*));
+    else if (args->amount_arguments >= args->amount_allocated)
+        args->arguments = realloc(args->arguments, (args->amount_allocated += 4) * sizeof(RaelValue*));
+    args->arguments[args->amount_arguments++] = value;
+}
+
+RaelValue *arguments_get(RaelArguments *args, size_t idx) {
+    if (idx >= args->amount_arguments)
+        return NULL;
+    return args->arguments[idx];
+}
+
+size_t arguments_amount(RaelArguments *args) {
+    return args->amount_arguments;
+}
+
+void arguments_delete(RaelArguments *args) {
+    for (size_t i = 0; i < args->amount_arguments; ++i) {
+        value_deref(arguments_get(args, i));
+    }
+    free(args->arguments);
+}
+
+/* this function shrinks the size of the argument buffer */
+void arguments_finalize(RaelArguments *args) {
+    args->arguments = realloc(args->arguments,
+                    (args->amount_allocated = args->amount_arguments) * sizeof(RaelValue*));
+}

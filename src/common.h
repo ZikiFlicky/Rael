@@ -20,6 +20,40 @@ typedef long RaelInt;
 typedef double RaelFloat;
 typedef struct RaelValue RaelValue;
 
+typedef struct RaelArguments {
+    size_t amount_arguments, amount_allocated;
+    RaelValue **arguments;
+} RaelArguments;
+
+struct RaelHybridNumber {
+    bool is_float;
+    union {
+        RaelInt as_int;
+        RaelFloat as_float;
+    };
+};
+
+enum ProgramInterrupt {
+    ProgramInterruptNone,
+    ProgramInterruptBreak,
+    ProgramInterruptReturn,
+    ProgramInterruptSkip
+};
+
+struct Interpreter {
+    char *stream_base;
+    char* const filename;
+    const bool stream_on_heap;
+    struct Instruction **instructions;
+    size_t idx;
+    struct Scope *scope;
+    enum ProgramInterrupt interrupt;
+    RaelValue *returned_value;
+
+    // warnings
+    bool warn_undefined;
+};
+
 struct State {
     char *stream_pos;
     size_t line, column;
@@ -52,5 +86,23 @@ bool rael_int_in_range_of_char(RaelInt number);
     and call rael_allocate_cstr.
 */
 #define RAEL_HEAPSTR(str) (rael_allocate_cstr(str, sizeof(str)/sizeof(char)-1))
+
+/* create a RaelArguments */
+void arguments_new(RaelArguments *out);
+
+/* add an argument */
+void arguments_add(RaelArguments *args, RaelValue *value);
+
+/* returns the argument at the requested index, or NULL if the index is invalid */
+RaelValue *arguments_get(RaelArguments *args, size_t idx);
+
+/* this function returns the amount of arguments */
+size_t arguments_amount(RaelArguments *args);
+
+/* this function deallocates the arguments */
+void arguments_delete(RaelArguments *args);
+
+/* this function shrinks the size of the argument buffer */
+void arguments_finalize(RaelArguments *args);
 
 #endif // RAEL_COMMON_H

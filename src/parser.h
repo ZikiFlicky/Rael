@@ -16,14 +16,38 @@ typedef struct RaelExprList {
     struct Expr **exprs;
 } RaelExprList;
 
+enum ValueExprType {
+    ValueTypeVoid,
+    ValueTypeNumber,
+    ValueTypeString,
+    ValueTypeRoutine,
+    ValueTypeStack,
+    ValueTypeType
+};
+
+struct ASTStringValue {
+    char *source;
+    size_t length;
+};
+
+struct ASTRoutineValue {
+    char **parameters;
+    size_t amount_parameters;
+    struct Instruction **block;
+};
+
+struct ASTStackValue {
+    RaelExprList entries;
+};
+
 struct ValueExpr {
-    enum ValueType type;
+    enum ValueExprType type;
     union {
-        RaelStringValue as_string;
-        RaelNumberValue as_number;
-        RaelRoutineValue as_routine;
-        RaelExprList as_stack;
-        enum ValueType as_type;
+        struct RaelHybridNumber as_number;
+        struct ASTStringValue as_string;
+        struct ASTRoutineValue as_routine;
+        struct ASTStackValue as_stack;
+        RaelTypeValue *as_type;
     };
 };
 
@@ -92,7 +116,6 @@ struct MatchExpr {
 
 struct GetKeyExpr {
     struct Expr *lhs;
-    struct State key_state;
     char *at_key;
 };
 

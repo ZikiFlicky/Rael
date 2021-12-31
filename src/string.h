@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define RAEL_STRING_FROM_RAWSTR(string) (string_new_pure_alloc(string, sizeof(string) / sizeof(char) - 1))
+#define RAEL_STRING_FROM_CSTR(string) (string_new_pure_cpy(string, sizeof(string) / sizeof(char) - 1))
 
 struct RaelStringValue;
 
@@ -28,32 +28,30 @@ typedef struct RaelStringValue {
     };
 } RaelStringValue;
 
-RaelStringValue *string_new_pure(char *source, size_t length, bool can_free);
+extern RaelTypeValue RaelStringType;
 
-RaelStringValue *string_new_pure_alloc(char *source, size_t length);
+RaelValue *string_new_pure(char *source, size_t length, bool can_free);
 
-void string_delete(RaelStringValue *string);
+RaelValue *string_new_pure_cpy(char *source, size_t length);
 
-size_t string_length(RaelStringValue *string);
+RaelValue *string_new_substr(char *source, size_t length, RaelStringValue *reference_string);
 
-RaelValue *string_get(RaelStringValue *string, size_t idx);
+void string_delete(RaelStringValue *self);
 
-char string_get_char(RaelStringValue *string, size_t idx);
+size_t string_length(RaelStringValue *self);
 
-RaelStringValue *string_slice(RaelStringValue *string, size_t start, size_t end);
+RaelValue *string_get(RaelStringValue *self, size_t idx);
 
-RaelStringValue *strings_add(RaelStringValue *string, RaelStringValue *string2);
+char string_get_char(RaelStringValue *self, size_t idx);
 
-/* returns a RaelValue because it can also return a blame */
-RaelValue *string_precede_with_number(RaelNumberValue *number, RaelStringValue *string);
+RaelValue *string_slice(RaelStringValue *self, size_t start, size_t end);
 
-/* returns a RaelValue because it can also return a blame */
-RaelValue *string_add_number(RaelStringValue *string, RaelNumberValue *number);
+RaelValue *string_add(RaelStringValue *self, RaelValue *string2);
 
 bool string_eq(RaelStringValue *string, RaelStringValue *string2);
 
-void string_repr(RaelStringValue *string);
+void string_repr(RaelStringValue *self);
 
-bool string_as_bool(RaelStringValue *string);
+bool string_as_bool(RaelStringValue *self);
 
 #endif /* RAEL_STRING_H */

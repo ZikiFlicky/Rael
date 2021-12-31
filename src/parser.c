@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "lexer.h"
 #include "number.h"
+#include "stack.h"
 #include "value.h"
 #include "common.h"
 
@@ -55,7 +56,7 @@ static inline struct Expr *expr_create(enum ExprType type) {
     return expr;
 }
 
-static inline struct ValueExpr *value_expr_create(enum ValueType type) {
+static struct ValueExpr *value_expr_create(enum ValueExprType type) {
     struct ValueExpr *value = malloc(sizeof(struct ValueExpr));
     value->type = type;
     return value;
@@ -140,29 +141,28 @@ static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
     }
 
     value = value_expr_create(ValueTypeStack);
-    value->as_stack = stack;
+    value->as_stack.entries = stack;
     return value;
 }
 
 static struct ValueExpr *parser_parse_number(struct Parser* const parser) {
     struct ValueExpr *value;
-    RaelNumberValue *number;
+    struct RaelHybridNumber ast_number;
 
     if (!parser_match(parser, TokenNameNumber))
         return NULL;
 
-    value = value_expr_create(ValueTypeNumber);
     // this should always work
-    // FIXME: hack
-    number = number_from_string(parser->lexer.token.string, parser->lexer.token.length);
-    value->as_number = *number;
-    value_deref((RaelValue*)number);
+    number_from_string(parser->lexer.token.string, parser->lexer.token.length, &ast_number);
+
+    value = value_expr_create(ValueTypeNumber);
+    value->as_number = ast_number;
     return value;
 }
 
 static struct ValueExpr *parser_parse_type(struct Parser* const parser) {
     struct ValueExpr *value;
-    enum ValueType type;
+    RaelTypeValue *type;
     struct State backtrack = parser_dump_state(parser);
 
     if (!lexer_tokenize(&parser->lexer))
@@ -170,11 +170,11 @@ static struct ValueExpr *parser_parse_type(struct Parser* const parser) {
 
     // get the type
     switch (parser->lexer.token.name) {
-    case TokenNameTypeNumber:  type = ValueTypeNumber; break;
-    case TokenNameTypeString:  type = ValueTypeString; break;
-    case TokenNameTypeRoutine: type = ValueTypeRoutine; break;
-    case TokenNameTypeStack:   type = ValueTypeStack; break;
-    case TokenNameTypeRange:   type = ValueTypeRange; break;
+    case TokenNameTypeNumber:  type = &RaelNumberType; break;
+    case TokenNameTypeString:  type = &RaelStringType; break;
+    case TokenNameTypeRoutine: type = &RaelRoutineType; break;
+    case TokenNameTypeStack:   type = &RaelStackType; break;
+    case TokenNameTypeRange:   type = &RaelRangeType; break;
     default: parser_load_state(parser, backtrack); return NULL;
     }
 
@@ -185,7 +185,7 @@ static struct ValueExpr *parser_parse_type(struct Parser* const parser) {
 
 static struct ValueExpr *parser_parse_routine(struct Parser* const parser) {
     struct ValueExpr *value;
-    RaelRoutineValue decl;
+    struct ASTRoutineValue decl;
     struct State backtrack;
     bool old_can_return;
 
@@ -321,7 +321,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
         expr = expr_create(ExprTypeValue);
         expr->as_value = value_expr_create(ValueTypeString);
-        expr->as_value->as_string = (RaelStringValue) {
+        expr->as_value->as_string = (struct ASTStringValue) {
             .source = string,
             .length = length
         };
@@ -552,7 +552,6 @@ static struct Expr *parser_parse_suffix(struct Parser* const parser) {
             new_expr = expr_create(ExprTypeGetKey);
             new_expr->as_getkey.lhs = expr;
             new_expr->as_getkey.at_key = key;
-            new_expr->as_getkey.key_state = start_backtrack;
             expr = new_expr;
         } else {
             // parse call
@@ -1001,9 +1000,7 @@ end:
     return inst;
 }
 
-/*
-  parse comma seperated expressions
-*/
+/* parse comma seperated expressions */
 static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
     struct Expr **exprs_ary, *expr;
     size_t allocated, idx = 0;
@@ -1410,10 +1407,10 @@ static void value_expr_delete(struct ValueExpr* value) {
         block_delete(value->as_routine.block);
         break;
     case ValueTypeStack:
-        for (size_t i = 0; i < value->as_stack.amount_exprs; ++i) {
-            expr_delete(value->as_stack.exprs[i]);
+        for (size_t i = 0; i < value->as_stack.entries.amount_exprs; ++i) {
+            expr_delete(value->as_stack.entries.exprs[i]);
         }
-        free(value->as_stack.exprs);
+        free(value->as_stack.entries.exprs);
         break;
     default:
         RAEL_UNREACHABLE();

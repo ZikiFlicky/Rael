@@ -16,26 +16,28 @@ typedef struct RaelStackValue {
     size_t length, allocated;
 } RaelStackValue;
 
-RaelStackValue *stack_new(size_t overhead);
+extern RaelTypeValue RaelStackType;
 
-void stack_delete(RaelStackValue *stack); // FIXME: should this dereference the value too?
+RaelValue *stack_new(size_t overhead);
 
-size_t stack_length(RaelStackValue *stack);
+void stack_delete(RaelStackValue *self);
 
-RaelValue **stack_get_ptr(RaelStackValue *stack, size_t idx);
+size_t stack_length(RaelStackValue *self);
 
-RaelValue *stack_get(RaelStackValue *stack, size_t idx);
+RaelValue **stack_get_ptr(RaelStackValue *self, size_t idx);
 
-RaelStackValue *stack_slice(RaelStackValue *stack, size_t start, size_t end);
+RaelValue *stack_get(RaelStackValue *self, size_t idx);
 
-bool stack_set(RaelStackValue *stack, size_t idx, RaelValue *value);
+RaelValue *stack_slice(RaelStackValue *self, size_t start, size_t end);
 
-void stack_push(RaelStackValue *stack, RaelValue *value);
+bool stack_set(RaelStackValue *self, size_t idx, RaelValue *value);
 
-void stack_repr(RaelStackValue *stack);
+void stack_push(RaelStackValue *self, RaelValue *value);
 
-bool stack_eq(RaelStackValue *stack, RaelStackValue *stack2);
+void stack_repr(RaelStackValue *self);
 
-bool stack_as_bool(RaelStackValue *stack);
+bool stack_eq(RaelStackValue *self, RaelStackValue *value);
+
+bool stack_as_bool(RaelStackValue *self);
 
 #endif /* RAEL_STACK_H */

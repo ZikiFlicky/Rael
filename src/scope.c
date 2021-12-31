@@ -51,6 +51,6 @@ RaelValue *scope_get(struct Scope *scope, char* const key, const bool warn_undef
         if (warn_undefined) {
             fprintf(stderr, "WARNING: getting undefined variable ':%s'\n", key);
         }
-        return value_new(ValueTypeVoid, sizeof(RaelValue));
+        return void_new();
     }
 }

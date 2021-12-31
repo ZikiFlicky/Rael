@@ -1,3 +1,3 @@
-Error [tests/test133.rael:1:17]: Negative range direction for substrings is not allowed
+Error [tests/test133.rael:1:17]: Invalid range for slicing
 | log "string" at (3 to 1)
 |                 ^
