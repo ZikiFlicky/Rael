@@ -1,4 +1,5 @@
 #include "common.h"
+#include "value.h"
 
 #include <string.h>
 #include <stdarg.h>

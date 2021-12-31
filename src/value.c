@@ -17,10 +17,6 @@ void block_run(struct Interpreter* const interpreter, struct Instruction **block
 void interpreter_push_scope(struct Interpreter* const interpreter, struct Scope *scope_addr);
 void interpreter_pop_scope(struct Interpreter* const interpreter);
 
-static bool type_validate(RaelValue *type) {
-    return type->type == &RaelTypeType;
-}
-
 bool type_eq(RaelTypeValue *self, RaelTypeValue *value) {
     // types are constant values that are only created, statically, once
     return self == value;
@@ -72,6 +68,7 @@ RaelTypeValue RaelTypeType = {
 };
 
 RaelValue *void_cast(RaelValue *self, RaelTypeValue *type) {
+    (void)self;
     if (type == &RaelStringType) {
         return RAEL_STRING_FROM_CSTR("Void");
     } else if (type == &RaelNumberType) {
@@ -82,10 +79,12 @@ RaelValue *void_cast(RaelValue *self, RaelTypeValue *type) {
 }
 
 bool void_as_bool(RaelValue *self) {
+    (void)self;
     return false;
 }
 
 void void_repr(RaelValue *self) {
+    (void)self;
     printf("Void");
 }
 
@@ -300,6 +299,7 @@ RaelTypeValue RaelRangeType = {
     .length = (RaelLengthFunc)range_length
 };
 
+/* return true if the value is a blame */
 bool blame_validate(RaelValue *value) {
     return value->type == &RaelBlameType;
 }

@@ -23,11 +23,8 @@ void cfunc_delete(RaelExternalCFuncValue *self) {
     free(self->name);
 }
 
-static bool cfunc_validate(RaelValue *cfunc) {
-    return cfunc->type == &RaelCFuncType;
-}
-
 RaelValue *cfunc_call(RaelExternalCFuncValue *self, RaelArguments *args, struct Interpreter *interpreter) {
+    (void)interpreter;
     if (arguments_amount(args) != self->amount_params)
         return NULL;
 
@@ -82,10 +79,6 @@ RaelValue *module_new(char *name) {
     // set the module's name
     module->name = name;
     return (RaelValue*)module;
-}
-
-static bool module_validate(RaelValue *module) {
-    return module->type == &RaelModuleType;
 }
 
 void module_set_key(RaelModuleValue *self, char *varname, RaelValue *value) {
