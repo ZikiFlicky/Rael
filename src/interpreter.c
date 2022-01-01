@@ -20,7 +20,7 @@ typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
 static void interpreter_interpret_inst(struct Interpreter* const interpreter, struct Instruction* const instruction);
 static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* const expr, const bool can_explode);
-void block_run(struct Interpreter* const interpreter, struct Instruction **block);
+void block_run(struct Interpreter* const interpreter, struct Instruction **block, bool create_new_scope);
 
 void interpreter_push_scope(struct Interpreter* const interpreter, struct Scope *scope_addr) {
     scope_construct(scope_addr, interpreter->scope);
@@ -38,8 +38,9 @@ void interpreter_pop_scope(struct Interpreter* const interpreter) {
 /* make the interpreter deallocate everything it stores */
 static void interpreter_destroy_all(struct Interpreter* const interpreter) {
     // deallocate all of the scopes
-    while (interpreter->scope)
+    while (interpreter->scope) {
         interpreter_pop_scope(interpreter);
+    }
 
     // deallocate all of the intstructions
     for (size_t i = 0; interpreter->instructions[i]; ++i)
@@ -306,6 +307,48 @@ static RaelValue *eval_set_operation_expr(struct Interpreter *interpreter, struc
     default:
         RAEL_UNREACHABLE();
     }
+}
+
+/* a match statement is basically a more complex switch statement */
+static RaelValue *expr_match_eval(struct Interpreter *interpreter, struct MatchExpr *match){
+    RaelValue *match_against = expr_eval(interpreter, match->match_against, true);
+    RaelValue *return_value;
+    bool matched = false;
+
+    // loop all match cases while there's no match
+    for (size_t i = 0; i < match->amount_cases && !matched; ++i) {
+        struct MatchCase match_case = match->match_cases[i];
+        // evaluate the value to compare with
+        RaelValue *with_value = expr_eval(interpreter, match_case.case_value, true);
+
+        // check if the case matches, and if it does,
+        // run its block and stop the match's execution
+        if (values_eq(match_against, with_value)) {
+            block_run(interpreter, match_case.case_block, false);
+            matched = true;
+        }
+        value_deref(with_value);
+    }
+
+    // if you've matched nothing and there's an else case, run the else block
+    if (!matched && match->else_block) {
+        block_run(interpreter, match->else_block, false);
+    }
+
+    // if there was a return, set the match's return value to the return
+    // value and clear the interrupt
+    if (interpreter->interrupt == ProgramInterruptReturn) {
+        // set return value
+        return_value = interpreter->returned_value;
+        interpreter->interrupt = ProgramInterruptNone;
+    } else {
+        // if there was no interrupt, set the return value to Void
+        return_value = void_new();
+    }
+
+    // deallocate the value it matched against because it has no use anymore
+    value_deref(match_against);
+    return return_value;
 }
 
 static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* const expr, const bool can_explode) {
@@ -702,44 +745,9 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         value_deref(single);
         value = rael_readline(interpreter, expr->state);
         break;
-    case ExprTypeMatch: { // a more complex switch statement
-        RaelValue *match_against = expr_eval(interpreter, expr->as_match.match_against, true);
-        bool matched = false;
-
-        // loop all match cases while there's no match
-        for (size_t i = 0; i < expr->as_match.amount_cases && !matched; ++i) {
-            struct MatchCase match_case = expr->as_match.match_cases[i];
-            // evaluate the value to compare with
-            RaelValue *with_value = expr_eval(interpreter, match_case.case_value, true);
-
-            // check if the case matches, and if it does,
-            // run its block and stop the match's execution
-            if (values_eq(match_against, with_value)) {
-                block_run(interpreter, match_case.case_block);
-                matched = true;
-            }
-            value_deref(with_value);
-        }
-
-        // if you've matched nothing and there's an else case, run the else block
-        if (!matched && expr->as_match.else_block)
-            block_run(interpreter, expr->as_match.else_block);
-
-        // if there was a return, set the match's return value to the return
-        // value and clear the interrupt
-        if (interpreter->interrupt == ProgramInterruptReturn) {
-            // set return value
-            value = interpreter->returned_value;
-            interpreter->interrupt = ProgramInterruptNone;
-        } else {
-            // if there was no interrupt, set the return value to Void
-            value = void_new();
-        }
-
-        // deallocate the value it matched against because it has no use anymore
-        value_deref(match_against);
+    case ExprTypeMatch:
+        value = expr_match_eval(interpreter, &expr->as_match);
         break;
-    }
     case ExprTypeGetKey:
         lhs = expr_eval(interpreter, expr->as_getkey.lhs, true);
         value = value_get_key(lhs, expr->as_getkey.at_key);
@@ -762,7 +770,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         assert(blame->state_defined);
         state = blame->original_place;
 
-        // advance all whitespace
+        // remove preceding whitespace
         while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
             ++state.column;
             ++state.stream_pos;
@@ -783,12 +791,90 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
     return value;
 }
 
-// FIXME: shouldn't this always create a new scope?
-void block_run(struct Interpreter* const interpreter, struct Instruction **block) {
+void block_run(struct Interpreter* const interpreter, struct Instruction **block, bool create_new_scope) {
+    struct Scope block_scope;
+    if (create_new_scope)
+        interpreter_push_scope(interpreter, &block_scope);
     for (size_t i = 0; block[i]; ++i) {
         interpreter_interpret_inst(interpreter, block[i]);
         if (interpreter->interrupt != ProgramInterruptNone)
             break;
+    }
+    if (create_new_scope)
+        interpreter_pop_scope(interpreter);
+}
+
+static void interpreter_interpret_loop(struct Interpreter *interpreter, struct LoopInstruction *loop) {
+    struct Scope loop_scope;
+    switch (loop->type) {
+    case LoopWhile: {
+        bool continue_loop;
+        do {
+            RaelValue *condition;
+            interpreter_push_scope(interpreter, &loop_scope);
+
+            condition = expr_eval(interpreter, loop->while_condition, true);
+            continue_loop = value_as_bool(condition);
+            value_deref(condition);
+            // if you can loop, run the block
+            if (continue_loop) {
+                block_run(interpreter, loop->block, false);
+                if (interpreter->interrupt == ProgramInterruptBreak) {
+                    interpreter->interrupt = ProgramInterruptNone;
+                    continue_loop = false;
+                } else if (interpreter->interrupt == ProgramInterruptReturn) {
+                    continue_loop = false;
+                } else if (interpreter->interrupt == ProgramInterruptSkip) {
+                    interpreter->interrupt = ProgramInterruptNone;
+                }
+            }
+            interpreter_pop_scope(interpreter);
+        } while (continue_loop);
+        break;
+    }
+    case LoopThrough: {
+        bool continue_loop = true;
+        RaelValue *iterator = expr_eval(interpreter, loop->iterate.expr, true);
+
+        if (!value_is_iterable(iterator)) {
+            value_deref(iterator);
+            interpreter_error(interpreter, loop->iterate.expr->state, "Expected an iterable");
+        }
+
+        // calculate length every time because stacks can always grow
+        for (size_t i = 0; continue_loop && i < value_length(iterator); ++i) {
+            interpreter_push_scope(interpreter, &loop_scope);
+            scope_set_local(interpreter->scope, loop->iterate.key, value_get(iterator, i), false);
+            block_run(interpreter, loop->block, false);
+
+            if (interpreter->interrupt == ProgramInterruptBreak) {
+                interpreter->interrupt = ProgramInterruptNone;
+                continue_loop = false;
+            } else if (interpreter->interrupt == ProgramInterruptReturn) {
+                continue_loop = false;
+            } else if (interpreter->interrupt == ProgramInterruptSkip) {
+                interpreter->interrupt = ProgramInterruptNone;
+            }
+            interpreter_pop_scope(interpreter);
+        }
+        value_deref(iterator);
+        break;
+    }
+    case LoopForever:
+        for (;;) {
+            block_run(interpreter, loop->block, true);
+            if (interpreter->interrupt == ProgramInterruptBreak) {
+                interpreter->interrupt = ProgramInterruptNone;
+                break;
+            } else if (interpreter->interrupt == ProgramInterruptReturn) {
+                break;
+            } else if (interpreter->interrupt == ProgramInterruptSkip) {
+                interpreter->interrupt = ProgramInterruptNone;
+            }
+        }
+        break;
+    default:
+        RAEL_UNREACHABLE();
     }
 }
 
@@ -821,28 +907,33 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
         RaelValue *condition;
         bool is_true;
 
-        interpreter_push_scope(interpreter, &if_scope);
-
-        // evaluate condition and see check it is true then dereference the condition
-        condition = expr_eval(interpreter, instruction->if_stat.condition, true);
-        is_true = value_as_bool(condition);
-        value_deref(condition);
-
-        if (is_true) {
-            switch(instruction->if_stat.if_type) {
-            case IfTypeBlock:
-                block_run(interpreter, instruction->if_stat.if_block);
-                break;
-            case IfTypeInstruction:
-                interpreter_interpret_inst(interpreter, instruction->if_stat.if_instruction);
-                break;
-            default:
-                RAEL_UNREACHABLE();
+        switch (instruction->if_stat.if_type) {
+        case IfTypeBlock:
+            interpreter_push_scope(interpreter, &if_scope);
+            // evaluate condition and check if it is true then dereference the condition
+            condition = expr_eval(interpreter, instruction->if_stat.condition, true);
+            is_true = value_as_bool(condition);
+            value_deref(condition);
+            if (is_true) {
+                block_run(interpreter, instruction->if_stat.if_block, false);
             }
-        } else {
+            interpreter_pop_scope(interpreter);
+            break;
+        case IfTypeInstruction:
+            condition = expr_eval(interpreter, instruction->if_stat.condition, true);
+            is_true = value_as_bool(condition);
+            value_deref(condition);
+            if (is_true) {
+                interpreter_interpret_inst(interpreter, instruction->if_stat.if_instruction);
+            }
+            break;
+        default:
+            RAEL_UNREACHABLE();
+        }
+        if (!is_true) {
             switch (instruction->if_stat.else_type) {
             case ElseTypeBlock:
-                block_run(interpreter, instruction->if_stat.else_block);
+                block_run(interpreter, instruction->if_stat.else_block, true);
                 break;
             case ElseTypeInstruction:
                 interpreter_interpret_inst(interpreter, instruction->if_stat.else_instruction);
@@ -853,80 +944,11 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
                 RAEL_UNREACHABLE();
             }
         }
-
-        interpreter_pop_scope(interpreter);
         break;
     }
-    case InstructionTypeLoop: {
-        struct Scope loop_scope;
-        interpreter_push_scope(interpreter, &loop_scope);
-
-        switch (instruction->loop.type) {
-        case LoopWhile: {
-            RaelValue *condition;
-
-            while (value_as_bool((condition = expr_eval(interpreter, instruction->loop.while_condition, true)))) {
-                value_deref(condition);
-                block_run(interpreter, instruction->loop.block);
-
-                if (interpreter->interrupt == ProgramInterruptBreak) {
-                    interpreter->interrupt = ProgramInterruptNone;
-                    break;
-                } else if (interpreter->interrupt == ProgramInterruptReturn) {
-                    break;
-                } else if (interpreter->interrupt == ProgramInterruptSkip) {
-                    interpreter->interrupt = ProgramInterruptNone;
-                }
-            }
-
-            break;
-        }
-        case LoopThrough: {
-            RaelValue *iterator = expr_eval(interpreter, instruction->loop.iterate.expr, true);
-
-            if (!value_is_iterable(iterator)) {
-                value_deref(iterator);
-                interpreter_error(interpreter, instruction->loop.iterate.expr->state, "Expected an iterable");
-            }
-
-            // calculate length every time because stacks can always grow
-            for (size_t i = 0; i < value_length(iterator); ++i) {
-                scope_set(interpreter->scope, instruction->loop.iterate.key, value_get(iterator, i), false);
-                block_run(interpreter, instruction->loop.block);
-
-                if (interpreter->interrupt == ProgramInterruptBreak) {
-                    interpreter->interrupt = ProgramInterruptNone;
-                    break;
-                } else if (interpreter->interrupt == ProgramInterruptReturn) {
-                    break;
-                } else if (interpreter->interrupt == ProgramInterruptSkip) {
-                    interpreter->interrupt = ProgramInterruptNone;
-                }
-            }
-
-            break;
-        }
-        case LoopForever:
-            for (;;) {
-                block_run(interpreter, instruction->loop.block);
-
-                if (interpreter->interrupt == ProgramInterruptBreak) {
-                    interpreter->interrupt = ProgramInterruptNone;
-                    break;
-                } else if (interpreter->interrupt == ProgramInterruptReturn) {
-                    break;
-                } else if (interpreter->interrupt == ProgramInterruptSkip) {
-                    interpreter->interrupt = ProgramInterruptNone;
-                }
-            }
-            break;
-        default:
-            RAEL_UNREACHABLE();
-        }
-
-        interpreter_pop_scope(interpreter);
+    case InstructionTypeLoop:
+        interpreter_interpret_loop(interpreter, &instruction->loop);
         break;
-    }
     case InstructionTypePureExpr:
         // dereference result right after evaluation
         value_deref(expr_eval(interpreter, instruction->pure, true));
@@ -952,10 +974,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
 
         // handle blame
         if (blame_validate(caught_value)) {
-            struct Scope catch_scope;
-            interpreter_push_scope(interpreter, &catch_scope);
-            block_run(interpreter, instruction->catch.handle_block);
-            interpreter_pop_scope(interpreter);
+            block_run(interpreter, instruction->catch.handle_block, true);
         }
 
         value_deref(caught_value);

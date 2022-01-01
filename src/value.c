@@ -13,7 +13,7 @@
 
 struct Instruction;
 
-void block_run(struct Interpreter* const interpreter, struct Instruction **block);
+void block_run(struct Interpreter* const interpreter, struct Instruction **block, bool create_new_scope);
 void interpreter_push_scope(struct Interpreter* const interpreter, struct Scope *scope_addr);
 void interpreter_pop_scope(struct Interpreter* const interpreter);
 
@@ -162,7 +162,7 @@ RaelValue *routine_call(RaelRoutineValue *self, RaelArguments *arguments, struct
     }
 
     // run the block of code
-    block_run(interpreter, self->block);
+    block_run(interpreter, self->block, false);
 
     if (interpreter->interrupt == ProgramInterruptReturn) {
         // if had a return statement
