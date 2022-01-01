@@ -114,6 +114,8 @@ void arguments_delete(RaelArguments *args) {
 
 /* this function shrinks the size of the argument buffer */
 void arguments_finalize(RaelArguments *args) {
-    args->arguments = realloc(args->arguments,
-                    (args->amount_allocated = args->amount_arguments) * sizeof(RaelValue*));
+    if (args->amount_allocated > 0) {
+        args->arguments = realloc(args->arguments,
+                          (args->amount_allocated = args->amount_arguments) * sizeof(RaelValue*));
+    }
 }
