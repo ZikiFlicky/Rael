@@ -30,17 +30,22 @@ void rael_show_error_tag(char* const filename, struct State state) {
 }
 
 void rael_show_line_state(struct State state) {
+    size_t line_length = state.column - 1;
+    char *line_start = state.stream_pos - line_length;
+
+    // show the line
     printf("| ");
-    for (int i = -state.column + 1; state.stream_pos[i] && state.stream_pos[i] != '\n'; ++i) {
-        if (state.stream_pos[i] == '\t') {
+    for (size_t i = 0; line_start[i] && line_start[i] != '\n'; ++i) {
+        if (line_start[i] == '\t') {
             printf("    ");
         } else {
-            putchar(state.stream_pos[i]);
+            putchar(line_start[i]);
         }
     }
+    // show the pointer/cursor
     printf("\n| ");
-    for (size_t i = 0; i < state.column - 1; ++i) {
-        if (state.stream_pos[-state.column + i] == '\t') {
+    for (size_t i = 0; i < line_length; ++i) {
+        if (line_start[i] == '\t') {
             printf("    ");
         } else {
             putchar(' ');
