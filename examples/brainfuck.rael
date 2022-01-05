@@ -15,7 +15,7 @@ loop :0 through 0 to :tape_size {
 
 :parse ?= routine() {
     if :i > sizeof(:input) - 1
-        ^ blame "Parse out of range"
+        ^blame "Parse out of range"
     :c ?= :input at :i
 
     :out ?= match :c {
