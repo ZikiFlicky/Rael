@@ -67,40 +67,27 @@ RaelTypeValue RaelCFuncType = {
 
     .at_index = NULL,
     .at_range = NULL,
-    .at_key = NULL,
 
     .length = NULL
 };
 
 RaelValue *module_new(char *name) {
     RaelModuleValue *module = RAEL_VALUE_NEW(RaelModuleType, RaelModuleValue);
-    // initialize the module's varmap
-    varmap_new(&module->vars);
     // set the module's name
     module->name = name;
     return (RaelValue*)module;
 }
 
 void module_set_key(RaelModuleValue *self, char *varname, RaelValue *value) {
-    varmap_set(&self->vars, varname, value, true, true);
+    varmap_set(&((RaelValue*)self)->keys, varname, value, true, true);
 }
 
 static void module_delete(RaelModuleValue *self) {
     free(self->name);
-    varmap_delete(&self->vars);
 }
 
 static void module_repr(RaelModuleValue *self) {
     printf("module(:%s)", self->name);
-}
-
-static RaelValue *module_get_key(RaelModuleValue *self, char *key) {
-    RaelValue *value;
-    value = varmap_get(&self->vars, key);
-    // if you couldn't find the key, return a Void
-    if (!value)
-        value = void_new();
-    return value;
 }
 
 RaelTypeValue RaelModuleType = {
@@ -131,7 +118,6 @@ RaelTypeValue RaelModuleType = {
 
     .at_index = NULL,
     .at_range = NULL,
-    .at_key = (RaelAtKeyFunc)module_get_key,
 
     .length = NULL
 };

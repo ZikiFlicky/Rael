@@ -375,7 +375,6 @@ RaelTypeValue RaelNumberType = {
 
     .at_index = NULL,
     .at_range = NULL,
-    .at_key = NULL,
 
     .length = NULL
 };

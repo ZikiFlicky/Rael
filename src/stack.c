@@ -170,7 +170,6 @@ RaelTypeValue RaelStackType = {
 
     .at_index = (RaelGetFunc)stack_get,
     .at_range = (RaelSliceFunc)stack_slice,
-    .at_key = NULL,
 
     .length = (RaelLengthFunc)stack_length
 };

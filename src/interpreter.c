@@ -750,13 +750,8 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         break;
     case ExprTypeGetKey:
         lhs = expr_eval(interpreter, expr->as_getkey.lhs, true);
+        // get key from value
         value = value_get_key(lhs, expr->as_getkey.at_key);
-        if (!value) {
-            value = BLAME_NEW_CSTR("Can't get a key from value of that type");
-        }
-        if (blame_validate(value)) {
-            blame_set_state((RaelBlameValue*)value, expr->state);
-        }
         value_deref(lhs);
         break;
     default:

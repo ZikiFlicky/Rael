@@ -69,6 +69,8 @@ void rael_show_line_state(struct State state);
 
 void rael_show_error_message(char* const filename, struct State state, const char* const error_message, va_list va);
 
+void rael_show_warning_key(char *key);
+
 char *rael_allocate_cstr(char *string, size_t length);
 
 bool rael_int_in_range_of_char(RaelInt number);

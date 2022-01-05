@@ -49,7 +49,7 @@ RaelValue *scope_get(struct Scope *scope, char* const key, const bool warn_undef
     } else {
         // if defined --warn-undefined
         if (warn_undefined) {
-            fprintf(stderr, "WARNING: getting undefined variable ':%s'\n", key);
+            rael_show_warning_key(key);
         }
         return void_new();
     }

@@ -2,6 +2,7 @@
 #define RAEL_VALUE_H
 
 #include "common.h"
+#include "varmap.h"
 
 #include <stddef.h>
 
@@ -28,6 +29,7 @@ typedef struct RaelTypeValue RaelTypeValue;
 typedef struct RaelValue {
     RaelTypeValue *type;
     size_t reference_count;
+    struct VariableMap keys;
 } RaelValue;
 
 typedef struct RaelRangeValue {
@@ -100,7 +102,6 @@ typedef struct RaelTypeValue {
     /* indexing operations */
     RaelGetFunc at_index;
     RaelSliceFunc at_range;
-    RaelAtKeyFunc at_key; /* :Value:Key */
 
     /* length */
     RaelLengthFunc length;

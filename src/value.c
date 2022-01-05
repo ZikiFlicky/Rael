@@ -62,7 +62,6 @@ RaelTypeValue RaelTypeType = {
 
     .at_index = NULL,
     .at_range = NULL,
-    .at_key = NULL,
 
     .length = NULL
 };
@@ -121,7 +120,6 @@ RaelTypeValue RaelVoidType = {
 
     .at_index = NULL,
     .at_range = NULL,
-    .at_key = NULL,
 
     .length = NULL
 };
@@ -218,7 +216,6 @@ RaelTypeValue RaelRoutineType = {
 
     .at_index = NULL,
     .at_range = NULL,
-    .at_key = NULL,
 
     .length = NULL
 };
@@ -294,7 +291,6 @@ RaelTypeValue RaelRangeType = {
 
     .at_index = (RaelGetFunc)range_get,
     .at_range = NULL,
-    .at_key = NULL,
 
     .length = (RaelLengthFunc)range_length
 };
@@ -365,7 +361,6 @@ RaelTypeValue RaelBlameType = {
 
     .at_index = NULL,
     .at_range = NULL,
-    .at_key = NULL,
 
     .length = NULL
 };
@@ -375,9 +370,13 @@ RaelValue *value_new(RaelTypeValue *type, size_t size) {
     RaelValue *value;
     assert(size >= sizeof(RaelValue));
 
+    // rereference the type because it's going to be used for the type
+    value_ref((RaelValue*)type);
     value = malloc(size);
     value->type = type;
     value->reference_count = 1;
+    // initialize inner keys
+    varmap_new(&value->keys);
     return value;
 }
 
@@ -395,6 +394,11 @@ void value_deref(RaelValue *value) {
             possible_deallocator(value);
         }
 
+        // delete set keys
+        varmap_delete(&value->keys);
+        // dereference the type
+        value_deref((RaelValue*)value->type);
+        // remove the allocated space of the dynamic value in memory
         free(value);
     }
 }
@@ -488,16 +492,17 @@ RaelValue *value_get(RaelValue *self, size_t idx) {
 
 /* :Value:Key */
 RaelValue *value_get_key(RaelValue *self, char *key) {
-    RaelAtKeyFunc possible_get_key = self->type->at_key;
+    // get value at that key
+    RaelValue *value = varmap_get(&self->keys, key);
 
-    if (possible_get_key) {
-        RaelValue *value = possible_get_key(self, key);
-        // the function must return a value
-        assert(value);
+    // if the key is found, return it, otherwise return a Void
+    if (value) {
         return value;
-    } else {
-        return NULL;
     }
+
+    // TODO: display a warning here if there is a warning flag enabled
+
+    return void_new();
 }
 
 RaelValue *value_slice(RaelValue *self, size_t start, size_t end) {

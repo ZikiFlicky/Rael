@@ -18,7 +18,6 @@ typedef struct RaelExternalCFuncValue {
 typedef struct RaelModuleValue {
     RAEL_VALUE_BASE;
     char *name;
-    struct VariableMap vars;
 } RaelModuleValue;
 
 /* declare module-related types */

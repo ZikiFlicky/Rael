@@ -66,6 +66,10 @@ void rael_show_error_message(char* const filename, struct State state, const cha
     rael_show_line_state(state);
 }
 
+void rael_show_warning_key(char *key) {
+    fprintf(stderr, "WARNING: getting undefined key ':%s'\n", key);
+}
+
 char *rael_allocate_cstr(char *string, size_t length) {
     char *new_string = malloc((length + 1) * sizeof(char));
     strncpy(new_string, string, length);
