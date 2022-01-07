@@ -17,6 +17,7 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser);
 static struct Instruction **parser_parse_block(struct Parser* const parser);
 static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 static struct Expr *parser_parse_expr_at(struct Parser* const parser);
+static struct Expr *parser_parse_suffix(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
 static void block_delete(struct Instruction **block);
 
@@ -328,11 +329,10 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
         return expr;
     }
-    case TokenNameKey: {
+    case TokenNameKey:
         expr = expr_create(ExprTypeKey);
         expr->as_key = token_allocate_key(&parser->lexer.token);
         return expr;
-    }
     case TokenNameVoid:
         expr = expr_create(ExprTypeValue);
         expr->as_value = value_expr_create(ValueTypeVoid);
@@ -480,16 +480,32 @@ static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
 
     if ((at_set = parser_parse_expr_at(parser)) && at_set->type == ExprTypeAt) {
         set_expr.set_type = SetTypeAtExpr;
-        set_expr.as_at_stat = at_set;
+        set_expr.as_at = at_set;
     } else {
-        // load state to the previous state, in case parser_parse_expr_at worked
+        struct Expr *get_member;
+
+        // load state to the previous state, in case we couldn't parse an 'at' statement
         parser_load_state(parser, backtrack);
-        if (at_set)
+        if (at_set) {
             expr_delete(at_set);
-        if (!parser_match(parser, TokenNameKey))
-            return NULL;
-        set_expr.set_type = SetTypeKey;
-        set_expr.as_key = token_allocate_key(&parser->lexer.token);
+        }
+
+        if ((get_member = parser_parse_suffix(parser)) && get_member->type == ExprTypeGetMember) {
+            set_expr.set_type = SetTypeMember;
+            set_expr.as_member = get_member;
+        } else {
+            // load state to the previous state, in case we couldn't parse an get_member statement
+            parser_load_state(parser, backtrack);
+            if (get_member) {
+                expr_delete(get_member);
+            }
+            // if the lhs of the '?=' is invalid
+            if (!parser_match(parser, TokenNameKey)) {
+                return NULL;
+            }
+            set_expr.set_type = SetTypeKey;
+            set_expr.as_key = token_allocate_key(&parser->lexer.token);
+        }
     }
     // store the state in which the operator is found
     operator_state = parser_dump_state(parser);
@@ -521,7 +537,7 @@ error:
     // if you couldn't parse the expression proparly, free used stuff and return a NULL
     switch (set_expr.set_type) {
     case SetTypeAtExpr:
-        expr_delete(set_expr.as_at_stat);
+        expr_delete(set_expr.as_at);
         break;
     case SetTypeKey:
         free(set_expr.as_key);
@@ -549,9 +565,9 @@ static struct Expr *parser_parse_suffix(struct Parser* const parser) {
             struct Expr *new_expr;
             char *key = token_allocate_key(&parser->lexer.token);
 
-            new_expr = expr_create(ExprTypeGetKey);
-            new_expr->as_getkey.lhs = expr;
-            new_expr->as_getkey.at_key = key;
+            new_expr = expr_create(ExprTypeGetMember);
+            new_expr->as_get_member.lhs = expr;
+            new_expr->as_get_member.key = key;
             expr = new_expr;
         } else {
             // parse call
@@ -1474,7 +1490,10 @@ static void expr_delete(struct Expr* const expr) {
             free(expr->as_set.as_key);
             break;
         case SetTypeAtExpr:
-            expr_delete(expr->as_set.as_at_stat);
+            expr_delete(expr->as_set.as_at);
+            break;
+        case SetTypeMember:
+            expr_delete(expr->as_set.as_member);
             break;
         default:
             RAEL_UNREACHABLE();
@@ -1492,9 +1511,9 @@ static void expr_delete(struct Expr* const expr) {
         if (expr->as_match.else_block)
             block_delete(expr->as_match.else_block);
         break;
-    case ExprTypeGetKey:
-        expr_delete(expr->as_getkey.lhs);
-        free(expr->as_getkey.at_key);
+    case ExprTypeGetMember:
+        expr_delete(expr->as_get_member.lhs);
+        free(expr->as_get_member.key);
         break;
     default:
         RAEL_UNREACHABLE();

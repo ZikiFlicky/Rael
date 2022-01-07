@@ -129,10 +129,6 @@ RaelValue RaelVoid = (RaelValue) {
     .reference_count = 1
 };
 
-static inline bool routine_validate(RaelValue *routine) {
-    return routine->type == &RaelRoutineType;
-}
-
 RaelValue *routine_call(RaelRoutineValue *self, RaelArguments *arguments, struct Interpreter *interpreter) {
     size_t amount_args, amount_params;
     struct Scope *prev_scope, routine_scope;
@@ -375,7 +371,7 @@ RaelValue *value_new(RaelTypeValue *type, size_t size) {
     value = malloc(size);
     value->type = type;
     value->reference_count = 1;
-    // initialize inner keys
+    // initialize members
     varmap_new(&value->keys);
     return value;
 }
@@ -503,6 +499,10 @@ RaelValue *value_get_key(RaelValue *self, char *key) {
     // TODO: display a warning here if there is a warning flag enabled
 
     return void_new();
+}
+
+void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate_key_on_free) {
+    varmap_set(&self->keys, key, value, true, deallocate_key_on_free);
 }
 
 RaelValue *value_slice(RaelValue *self, size_t start, size_t end) {

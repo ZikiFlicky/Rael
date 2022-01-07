@@ -84,7 +84,7 @@ enum ExprType {
     ExprTypeOr,
     ExprTypeNot,
     ExprTypeMatch,
-    ExprTypeGetKey
+    ExprTypeGetMember
 };
 
 struct CallExpr {
@@ -95,10 +95,12 @@ struct CallExpr {
 struct SetExpr {
     enum {
         SetTypeAtExpr = 1,
-        SetTypeKey
+        SetTypeKey,
+        SetTypeMember
     } set_type;
     union {
-        struct Expr *as_at_stat;
+        struct Expr *as_at;
+        struct Expr *as_member;
         char *as_key;
     };
     struct Expr *expr;
@@ -114,9 +116,9 @@ struct MatchExpr {
     struct Instruction **else_block;
 };
 
-struct GetKeyExpr {
+struct GetMemberExpr {
     struct Expr *lhs;
-    char *at_key;
+    char *key;
 };
 
 struct Expr {
@@ -132,7 +134,7 @@ struct Expr {
         struct CallExpr as_call;
         struct SetExpr as_set;
         struct MatchExpr as_match;
-        struct GetKeyExpr as_getkey;
+        struct GetMemberExpr as_get_member;
     };
 };
 

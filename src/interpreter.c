@@ -263,9 +263,9 @@ static RaelValue *eval_key_operation_set(struct Interpreter *interpreter, char *
     RaelValue *value;
     RaelValue **lhs_ptr;
 
-    // try to get the pointer to the value you modify
+    // try to get the pointer to the value you need to modify
     lhs_ptr = scope_get_ptr(interpreter->scope, key);
-    // if there is a value at that key, get its value and do addition
+    // if there is a value at that key, get its value and do the operation
     if (lhs_ptr) {
         RaelValue *rhs = expr_eval(interpreter, value_expr, true);
         // do the operation on the two values
@@ -277,10 +277,10 @@ static RaelValue *eval_key_operation_set(struct Interpreter *interpreter, char *
             value = BLAME_NEW_CSTR("Invalid operation between values");
         }
     } else {
-        value = BLAME_NEW_CSTR("Key has not been assigned yet");
+        value = BLAME_NEW_CSTR("Can't perform such operation on an undefined member");
     }
     // if a blame was created (the blame was returned from the function or the operation was unsuccessful),
-    // add a state to the blame value
+    // add a state to it
     if (blame_validate(value)) {
         blame_set_state((RaelBlameValue*)value, expr_state);
     } else {
@@ -294,16 +294,60 @@ static RaelValue *eval_key_operation_set(struct Interpreter *interpreter, char *
     return value;
 }
 
-static RaelValue *eval_set_operation_expr(struct Interpreter *interpreter, struct Expr *set_expr,
-                                                  RaelBinExprFunc operation) {
-    switch (set_expr->as_set.set_type) {
-    case SetTypeAtExpr: {
-        return eval_at_operation_set(interpreter, set_expr->as_set.as_at_stat,
-                                     set_expr->as_set.expr, operation, set_expr->state);
+/* given an operation a get_member expression, and an expression, sets the key in the lhs of the get_member expression
+ * to be the result of the operation on it and the result of the evaluation of the other expression */
+static RaelValue *eval_get_member_operation_set(struct Interpreter *interpreter, struct GetMemberExpr *get_member, struct Expr *value_expr,
+                                         RaelBinExprFunc operation, struct State expr_state) {
+    RaelValue *value;
+    RaelValue *get_member_lhs, **lhs_ptr;
+
+    get_member_lhs = expr_eval(interpreter, get_member->lhs, true);
+    // try to get the pointer to the value you modify
+    lhs_ptr = varmap_get_ptr(&get_member_lhs->keys, get_member->key);
+    value_deref(get_member_lhs);
+    // if there is a value at that key, get its value and do the operation
+    if (lhs_ptr) {
+        RaelValue *rhs = expr_eval(interpreter, value_expr, true);
+        // do the operation on the two values
+        value = operation(*lhs_ptr, rhs);
+        // dereference the temporary rhs
+        value_deref(rhs);
+
+        // if it couldn't add the values, return a blame
+        if (!value) {
+            value = BLAME_NEW_CSTR("Invalid operation between values");
+        }
+    } else {
+        value = BLAME_NEW_CSTR("Can't perform such operation on an undefined key");
     }
+    // if a blame was created (the blame was returned from the function or the operation was unsuccessful),
+    // add a state to it
+    if (blame_validate(value)) {
+        blame_set_state((RaelBlameValue*)value, expr_state);
+    } else {
+        // dereference the old value
+        value_deref(*lhs_ptr);
+        // set the new value
+        *lhs_ptr = value;
+        // reference the value again because it is returned from the set expression
+        value_ref(value);
+    }
+    return value;
+}
+
+static RaelValue *eval_set_operation_expr(struct Interpreter *interpreter, struct SetExpr *set_expr, struct State state,
+                                          RaelBinExprFunc operation) {
+    switch (set_expr->set_type) {
+    case SetTypeAtExpr:
+        return eval_at_operation_set(interpreter, set_expr->as_at,
+                                     set_expr->expr, operation, state);
     case SetTypeKey:
-        return eval_key_operation_set(interpreter, set_expr->as_set.as_key, set_expr->as_set.expr,
-                                      operation, set_expr->state);
+        return eval_key_operation_set(interpreter, set_expr->as_key, set_expr->expr,
+                                      operation, state);
+    case SetTypeMember:
+        assert(set_expr->as_member->type == ExprTypeGetMember);
+        return eval_get_member_operation_set(interpreter, &set_expr->as_member->as_get_member,
+                                         set_expr->expr, operation, state);
     default:
         RAEL_UNREACHABLE();
     }
@@ -658,16 +702,32 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         value = blame_new(message, &expr->state);
         break;
     }
-    case ExprTypeSet:
+    case ExprTypeSet: {
+        struct SetExpr set = expr->as_set;
+
         switch (expr->as_set.set_type) {
         case SetTypeAtExpr: {
-            value = eval_stack_set(interpreter, expr->as_set.as_at_stat, expr->as_set.expr);
+            value = eval_stack_set(interpreter, set.as_at, set.expr);
             break;
         }
-        case SetTypeKey: {
-            value = expr_eval(interpreter, expr->as_set.expr, true);
-            scope_set(interpreter->scope, expr->as_set.as_key, value, false);
-            // reference again because the value is returned
+        case SetTypeKey:
+            value = expr_eval(interpreter, set.expr, true);
+            scope_set(interpreter->scope, set.as_key, value, false);
+            // reference again because the value set is also the return value of the expression
+            value_ref(value);
+            break;
+        case SetTypeMember: {
+            struct GetMemberExpr get_member = set.as_member->as_get_member;
+
+            // get the value to put the member in
+            lhs = expr_eval(interpreter, get_member.lhs, true);
+            // get the member's value
+            value = expr_eval(interpreter, set.expr, true);
+            // set the member
+            varmap_set(&lhs->keys, get_member.key, value, true, false);
+
+            value_deref(lhs);
+            // reference again because the member's value is also the expression's return value
             value_ref(value);
             break;
         }
@@ -675,20 +735,21 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
             RAEL_UNREACHABLE();
         }
         break;
+    }
     case ExprTypeAddEqual:
-        value = eval_set_operation_expr(interpreter, expr, values_add);
+        value = eval_set_operation_expr(interpreter, &expr->as_set, expr->state, values_add);
         break;
     case ExprTypeSubEqual:
-        value = eval_set_operation_expr(interpreter, expr, values_sub);
+        value = eval_set_operation_expr(interpreter, &expr->as_set, expr->state, values_sub);
         break;
     case ExprTypeMulEqual:
-        value = eval_set_operation_expr(interpreter, expr, values_mul);
+        value = eval_set_operation_expr(interpreter, &expr->as_set, expr->state, values_mul);
         break;
     case ExprTypeDivEqual:
-        value = eval_set_operation_expr(interpreter, expr, values_div);
+        value = eval_set_operation_expr(interpreter, &expr->as_set, expr->state, values_div);
         break;
     case ExprTypeModEqual:
-        value = eval_set_operation_expr(interpreter, expr, values_mod);
+        value = eval_set_operation_expr(interpreter, &expr->as_set, expr->state, values_mod);
         break;
     case ExprTypeAnd: {
         int result = 0;
@@ -748,10 +809,10 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
     case ExprTypeMatch:
         value = expr_match_eval(interpreter, &expr->as_match);
         break;
-    case ExprTypeGetKey:
-        lhs = expr_eval(interpreter, expr->as_getkey.lhs, true);
+    case ExprTypeGetMember:
+        lhs = expr_eval(interpreter, expr->as_get_member.lhs, true);
         // get key from value
-        value = value_get_key(lhs, expr->as_getkey.at_key);
+        value = value_get_key(lhs, expr->as_get_member.key);
         value_deref(lhs);
         break;
     default:

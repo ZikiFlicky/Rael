@@ -207,6 +207,9 @@ RaelValue *value_cast(RaelValue *value, RaelTypeValue *type);
 /* value:key */
 RaelValue *value_get_key(RaelValue *self, char *key);
 
+/* value:key ?= */
+void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate_key_on_free);
+
 /* value at range */
 RaelValue *value_slice(RaelValue *self, size_t start, size_t end);
 
