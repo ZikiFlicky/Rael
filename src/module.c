@@ -12,18 +12,18 @@ RaelValue *module_math_new(void);
 struct Interpreter;
 
 RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params) {
-    RaelExternalCFuncValue *cfunc = RAEL_VALUE_NEW(RaelCFuncType, RaelExternalCFuncValue);
+    RaelCFuncValue *cfunc = RAEL_VALUE_NEW(RaelCFuncType, RaelCFuncValue);
     cfunc->name = name;
     cfunc->func = func;
     cfunc->amount_params = amount_params;
     return (RaelValue*)cfunc;
 }
 
-void cfunc_delete(RaelExternalCFuncValue *self) {
+void cfunc_delete(RaelCFuncValue *self) {
     free(self->name);
 }
 
-RaelValue *cfunc_call(RaelExternalCFuncValue *self, RaelArgumentList *args, struct Interpreter *interpreter) {
+RaelValue *cfunc_call(RaelCFuncValue *self, RaelArgumentList *args, struct Interpreter *interpreter) {
     (void)interpreter;
     if (arguments_amount(args) != self->amount_params)
         return NULL;
@@ -31,11 +31,11 @@ RaelValue *cfunc_call(RaelExternalCFuncValue *self, RaelArgumentList *args, stru
     return self->func(args);
 }
 
-bool cfunc_eq(RaelExternalCFuncValue *self, RaelExternalCFuncValue *value) {
+bool cfunc_eq(RaelCFuncValue *self, RaelCFuncValue *value) {
     return self->func == value->func;
 }
 
-void cfunc_repr(RaelExternalCFuncValue *self) {
+void cfunc_repr(RaelCFuncValue *self) {
     printf("cfunc(:%s, %zu)", self->name, self->amount_params);
 }
 

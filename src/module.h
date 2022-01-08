@@ -8,12 +8,12 @@
 /* define custom C function pointers as RaelRawCFunc */
 typedef RaelValue* (*RaelRawCFunc)(RaelArgumentList*);
 
-typedef struct RaelExternalCFuncValue {
+typedef struct RaelCFuncValue {
     RAEL_VALUE_BASE;
     char *name;
     RaelRawCFunc func;
     size_t amount_params;
-} RaelExternalCFuncValue;
+} RaelCFuncValue;
 
 typedef struct RaelModuleValue {
     RAEL_VALUE_BASE;
