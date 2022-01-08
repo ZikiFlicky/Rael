@@ -1,1 +1,2 @@
-log Range()
+load :Types
+log :Types:Range()

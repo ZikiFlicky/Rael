@@ -5,6 +5,6 @@
 Voidd
 1
 123.230
-Error [tests/test157.rael:8:16]: Can't cast value to such type
-| log (123.23 to Stack)
+Error [tests/test157.rael:10:16]: Can't cast value to such type
+| log (123.23 to :Types:Stack)
 |                ^

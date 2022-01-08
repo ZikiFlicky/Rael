@@ -161,29 +161,6 @@ static struct ValueExpr *parser_parse_number(struct Parser* const parser) {
     return value;
 }
 
-static struct ValueExpr *parser_parse_type(struct Parser* const parser) {
-    struct ValueExpr *value;
-    RaelTypeValue *type;
-    struct State backtrack = parser_dump_state(parser);
-
-    if (!lexer_tokenize(&parser->lexer))
-        return NULL;
-
-    // get the type
-    switch (parser->lexer.token.name) {
-    case TokenNameTypeNumber:  type = &RaelNumberType; break;
-    case TokenNameTypeString:  type = &RaelStringType; break;
-    case TokenNameTypeRoutine: type = &RaelRoutineType; break;
-    case TokenNameTypeStack:   type = &RaelStackType; break;
-    case TokenNameTypeRange:   type = &RaelRangeType; break;
-    default: parser_load_state(parser, backtrack); return NULL;
-    }
-
-    value = value_expr_create(ValueTypeType);
-    value->as_type = type;
-    return value;
-}
-
 static struct ValueExpr *parser_parse_routine(struct Parser* const parser) {
     struct ValueExpr *value;
     struct ASTRoutineValue decl;
@@ -268,8 +245,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
     if ((value = parser_parse_routine(parser))       ||
         (value = parser_parse_stack(parser))         ||
-        (value = parser_parse_number(parser))        ||
-        (value = parser_parse_type(parser))) {
+        (value = parser_parse_number(parser))) {
         expr = expr_create(ExprTypeValue);
         expr->as_value = value;
         return expr;

@@ -1,1 +1,3 @@
-log Number, String, Stack, Routine, Range
+load :Types
+
+log :Types:Number, :Types:String, :Types:Stack, :Types:Routine, :Types:Range

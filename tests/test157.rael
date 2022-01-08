@@ -1,8 +1,10 @@
-log ("123" to Number) + 2
-log ("123" to String) + "2"
-log (123 to String) + "1"
-log ("123" to Stack)
-log (Void to String) + "d"
-log (Void to Number) + 1
-log (123.23 to String) + "0"
-log (123.23 to Stack)
+load :Types
+
+log ("123" to :Types:Number) + 2
+log ("123" to :Types:String) + "2"
+log (123 to :Types:String) + "1"
+log ("123" to :Types:Stack)
+log (Void to :Types:String) + "d"
+log (Void to :Types:Number) + 1
+log (123.23 to :Types:String) + "0"
+log (123.23 to :Types:Stack)

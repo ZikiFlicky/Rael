@@ -1,4 +1,5 @@
-log Range
-log Range(89)
-log Range(5, 12)
-log String(60)
+load :Types
+log :Types:Range
+log :Types:Range(89)
+log :Types:Range(5, 12)
+log :Types:String(60)
