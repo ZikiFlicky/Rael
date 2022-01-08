@@ -1,0 +1,11 @@
+Void
+120
+125
+120
+600
+120
+3
+This is a string
+Error [tests/test178.rael:17:27]: Can't perform such operation on an undefined key
+| :someValue:undefinedValue += 5
+|                           ^

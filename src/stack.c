@@ -160,6 +160,7 @@ RaelTypeValue RaelStackType = {
     .op_neg = NULL,
 
     .op_call = NULL,
+    .op_construct = NULL,
 
     .as_bool = (RaelAsBoolFunc)stack_as_bool,
     .deallocator = (RaelSingleFunc)stack_delete,

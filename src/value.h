@@ -58,6 +58,7 @@ typedef bool (*RaelBinCmpFunc)(RaelValue*, RaelValue*);
 typedef bool (*RaelAsBoolFunc)(RaelValue*);
 typedef void (*RaelSingleFunc)(RaelValue*);
 typedef RaelValue* (*RaelCallerFunc)(RaelValue*, RaelArguments*, struct Interpreter*);
+typedef RaelValue* (*RaelConstructorFunc)(RaelArguments*, struct Interpreter*);
 typedef RaelValue* (*RaelGetFunc)(RaelValue*, size_t);
 typedef RaelValue* (*RaelSliceFunc)(RaelValue*, size_t, size_t);
 typedef RaelValue* (*RaelCastFunc)(RaelValue*, RaelTypeValue*);
@@ -87,6 +88,7 @@ typedef struct RaelTypeValue {
 
     /* non-binary operations */
     RaelCallerFunc op_call; /* Call the value */
+    RaelConstructorFunc op_construct; /* construct a new value of such type */
 
     RaelAsBoolFunc as_bool; /* Convert a value to its boolean representation */
     RaelSingleFunc deallocator; /* Free all of the internally allocated values. Called by the interpreter */

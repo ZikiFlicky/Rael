@@ -34,6 +34,15 @@ RaelValue *type_cast(RaelTypeValue *self, RaelTypeValue *type) {
     }
 }
 
+RaelValue *type_call(RaelTypeValue *self, RaelArguments *args, struct Interpreter *interpreter) {
+    // if there is a constructor to the type, call it
+    if (self->op_construct) {
+        return self->op_construct(args, interpreter);
+    } else {
+        return BLAME_NEW_CSTR("Tried to construct a non-constructable type");
+    }
+}
+
 RaelTypeValue RaelTypeType = {
     RAEL_TYPE_DEF_INIT,
     .name = "Type",
@@ -43,7 +52,7 @@ RaelTypeValue RaelTypeType = {
     .op_div = NULL,
     .op_mod = NULL,
     .op_red = NULL,
-    .op_eq = NULL, /* pointer comparison */
+    .op_eq = NULL, /* pointer comparison of types */
     .op_smaller = NULL,
     .op_bigger = NULL,
     .op_smaller_eq = NULL,
@@ -51,7 +60,8 @@ RaelTypeValue RaelTypeType = {
 
     .op_neg = NULL,
 
-    .op_call = NULL,
+    .op_call = (RaelCallerFunc)type_call, /* calls the constructor of the type */
+    .op_construct = NULL,
 
     .as_bool = NULL,
     .deallocator = NULL,
@@ -110,6 +120,7 @@ RaelTypeValue RaelVoidType = {
     .op_neg = NULL,
 
     .op_call = NULL,
+    .op_construct = NULL,
 
     .as_bool = (RaelAsBoolFunc)void_as_bool,
     .deallocator = NULL,
@@ -129,11 +140,11 @@ RaelValue RaelVoid = (RaelValue) {
     .reference_count = 1
 };
 
-RaelValue *routine_call(RaelRoutineValue *self, RaelArguments *arguments, struct Interpreter *interpreter) {
+RaelValue *routine_call(RaelRoutineValue *self, RaelArguments *args, struct Interpreter *interpreter) {
     size_t amount_args, amount_params;
     struct Scope *prev_scope, routine_scope;
 
-    amount_args = arguments_amount(arguments);
+    amount_args = arguments_amount(args);
     amount_params = self->amount_parameters;
 
     if (amount_args < amount_params) {
@@ -149,7 +160,7 @@ RaelValue *routine_call(RaelRoutineValue *self, RaelArguments *arguments, struct
     interpreter_push_scope(interpreter, &routine_scope);
 
     for (size_t i = 0; i < amount_params; ++i) {
-        RaelValue *value = arguments_get(arguments, i);
+        RaelValue *value = arguments_get(args, i);
         assert(value); // you must get a value
         // set the parameter
         scope_set_local(interpreter->scope, self->parameters[i], value, false);
@@ -202,6 +213,7 @@ RaelTypeValue RaelRoutineType = {
     .op_neg = NULL,
 
     .op_call = (RaelCallerFunc)routine_call,
+    .op_construct = NULL,
 
     .as_bool = NULL,
     .deallocator = NULL,
@@ -259,6 +271,48 @@ void range_repr(RaelRangeValue *self) {
     printf("%ld to %ld", self->start, self->end);
 }
 
+RaelValue *range_construct(RaelArguments *args, struct Interpreter *interpreter) {
+    RaelInt start, end;
+
+    (void)interpreter;
+
+    if (args->amount_arguments == 1) {
+        RaelValue *arg1 = args->arguments[0];
+
+        // verify the argument is a whole number
+        if (arg1->type != &RaelNumberType) {
+            return BLAME_NEW_CSTR("Expected number as argument");
+        }
+        if (!number_is_whole((RaelNumberValue*)arg1)) {
+            return BLAME_NEW_CSTR("Expected a whole number as argument");
+        }
+        start = 0;
+        end = number_to_int((RaelNumberValue*)arg1);
+    } else if (args->amount_arguments == 2) {
+        RaelValue *arg1 = args->arguments[0],
+                  *arg2 = args->arguments[1];
+
+        // verify the two arguments are whole numbers
+        if (arg1->type != &RaelNumberType) {
+            return BLAME_NEW_CSTR("Expected number as first argument");
+        }
+        if (!number_is_whole((RaelNumberValue*)arg1)) {
+            return BLAME_NEW_CSTR("Expected a whole number as first argument");
+        }
+        if (arg2->type != &RaelNumberType) {
+            return BLAME_NEW_CSTR("Expected number as second argument");
+        }
+        if (!number_is_whole((RaelNumberValue*)arg2)) {
+            return BLAME_NEW_CSTR("Expected a whole number as second argument");
+        }
+        start = number_to_int((RaelNumberValue*)arg1);
+        end = number_to_int((RaelNumberValue*)arg2);
+    } else {
+        return BLAME_NEW_CSTR("Expected 1 or 2 arguments");
+    }
+    return range_new(start, end);
+}
+
 RaelTypeValue RaelRangeType = {
     RAEL_TYPE_DEF_INIT,
     .name = "Range",
@@ -277,6 +331,7 @@ RaelTypeValue RaelRangeType = {
     .op_neg = NULL,
 
     .op_call = NULL,
+    .op_construct = (RaelConstructorFunc)range_construct,
 
     .as_bool = (RaelAsBoolFunc)range_as_bool,
     .deallocator = NULL,
@@ -347,6 +402,7 @@ RaelTypeValue RaelBlameType = {
     .op_neg = NULL,
 
     .op_call = NULL,
+    .op_construct = NULL,
 
     .as_bool = NULL,
     .deallocator = (RaelSingleFunc)blame_delete,

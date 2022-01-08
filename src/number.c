@@ -365,6 +365,7 @@ RaelTypeValue RaelNumberType = {
     .op_neg = (RaelNegFunc)number_neg,
 
     .op_call = NULL,
+    .op_construct = NULL,
 
     .as_bool = (RaelAsBoolFunc)number_as_bool,
     .deallocator = NULL,

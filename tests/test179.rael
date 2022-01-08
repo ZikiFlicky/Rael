@@ -1,0 +1,4 @@
+log Range
+log Range(89)
+log Range(5, 12)
+log String(60)

@@ -57,6 +57,7 @@ RaelTypeValue RaelCFuncType = {
     .op_neg = NULL,
 
     .op_call = (RaelCallerFunc)cfunc_call,
+    .op_construct = NULL,
 
     .as_bool = NULL, // will just always be true
     .deallocator = (RaelSingleFunc)cfunc_delete,
@@ -108,6 +109,7 @@ RaelTypeValue RaelModuleType = {
     .op_neg = NULL,
 
     .op_call = NULL,
+    .op_construct = NULL,
 
     .as_bool = NULL, /* will always be true */
     .deallocator = (RaelSingleFunc)module_delete,
