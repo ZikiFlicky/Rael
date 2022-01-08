@@ -1,1 +1,3 @@
-log Number = String, String = String
+load :Types
+
+log :Types:Number = :Types:String, :Types:String = :Types:String

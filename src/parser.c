@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "lexer.h"
 #include "number.h"
+#include "stack.h"
 #include "value.h"
 #include "common.h"
 
@@ -14,8 +15,9 @@
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Instruction *parser_parse_instr(struct Parser* const parser);
 static struct Instruction **parser_parse_block(struct Parser* const parser);
-static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
+static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 static struct Expr *parser_parse_expr_at(struct Parser* const parser);
+static struct Expr *parser_parse_suffix(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
 static void block_delete(struct Instruction **block);
 
@@ -55,7 +57,7 @@ static inline struct Expr *expr_create(enum ExprType type) {
     return expr;
 }
 
-static inline struct ValueExpr *value_expr_create(enum ValueType type) {
+static struct ValueExpr *value_expr_create(enum ValueExprType type) {
     struct ValueExpr *value = malloc(sizeof(struct ValueExpr));
     value->type = type;
     return value;
@@ -124,7 +126,7 @@ static bool parser_maybe_expect_newline(struct Parser* const parser) {
 
 static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
     struct ValueExpr *value;
-    struct RaelExprList stack;
+    RaelExprList stack;
     struct State backtrack = parser_dump_state(parser);
 
     if (!parser_match(parser, TokenNameLeftCur))
@@ -140,49 +142,28 @@ static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
     }
 
     value = value_expr_create(ValueTypeStack);
-    value->as_stack = stack;
+    value->as_stack.entries = stack;
     return value;
 }
+
 static struct ValueExpr *parser_parse_number(struct Parser* const parser) {
     struct ValueExpr *value;
-    bool success;
+    struct RaelHybridNumber ast_number;
 
     if (!parser_match(parser, TokenNameNumber))
         return NULL;
 
-    value = value_expr_create(ValueTypeNumber);
     // this should always work
-    success = number_from_string(parser->lexer.token.string, parser->lexer.token.length, &value->as_number);
-    assert(success);
-    return value;
-}
+    number_from_string(parser->lexer.token.string, parser->lexer.token.length, &ast_number);
 
-static struct ValueExpr *parser_parse_type(struct Parser* const parser) {
-    struct ValueExpr *value;
-    enum ValueType type;
-    struct State backtrack = parser_dump_state(parser);
-
-    if (!lexer_tokenize(&parser->lexer))
-        return NULL;
-
-    // get the type
-    switch (parser->lexer.token.name) {
-    case TokenNameTypeNumber:  type = ValueTypeNumber; break;
-    case TokenNameTypeString:  type = ValueTypeString; break;
-    case TokenNameTypeRoutine: type = ValueTypeRoutine; break;
-    case TokenNameTypeStack:   type = ValueTypeStack; break;
-    case TokenNameTypeRange:   type = ValueTypeRange; break;
-    default: parser_load_state(parser, backtrack); return NULL;
-    }
-
-    value = value_expr_create(ValueTypeType);
-    value->as_type = type;
+    value = value_expr_create(ValueTypeNumber);
+    value->as_number = ast_number;
     return value;
 }
 
 static struct ValueExpr *parser_parse_routine(struct Parser* const parser) {
     struct ValueExpr *value;
-    RaelRoutineValue decl;
+    struct ASTRoutineValue decl;
     struct State backtrack;
     bool old_can_return;
 
@@ -264,8 +245,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
     if ((value = parser_parse_routine(parser))       ||
         (value = parser_parse_stack(parser))         ||
-        (value = parser_parse_number(parser))        ||
-        (value = parser_parse_type(parser))) {
+        (value = parser_parse_number(parser))) {
         expr = expr_create(ExprTypeValue);
         expr->as_value = value;
         return expr;
@@ -318,18 +298,17 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
         expr = expr_create(ExprTypeValue);
         expr->as_value = value_expr_create(ValueTypeString);
-        expr->as_value->as_string = (RaelStringValue) {
-            .value = string,
+        expr->as_value->as_string = (struct ASTStringValue) {
+            .source = string,
             .length = length
         };
 
         return expr;
     }
-    case TokenNameKey: {
+    case TokenNameKey:
         expr = expr_create(ExprTypeKey);
         expr->as_key = token_allocate_key(&parser->lexer.token);
         return expr;
-    }
     case TokenNameVoid:
         expr = expr_create(ExprTypeValue);
         expr->as_value = value_expr_create(ValueTypeVoid);
@@ -477,16 +456,32 @@ static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
 
     if ((at_set = parser_parse_expr_at(parser)) && at_set->type == ExprTypeAt) {
         set_expr.set_type = SetTypeAtExpr;
-        set_expr.as_at_stat = at_set;
+        set_expr.as_at = at_set;
     } else {
-        // load state to the previous state, in case parser_parse_expr_at worked
+        struct Expr *get_member;
+
+        // load state to the previous state, in case we couldn't parse an 'at' statement
         parser_load_state(parser, backtrack);
-        if (at_set)
+        if (at_set) {
             expr_delete(at_set);
-        if (!parser_match(parser, TokenNameKey))
-            return NULL;
-        set_expr.set_type = SetTypeKey;
-        set_expr.as_key = token_allocate_key(&parser->lexer.token);
+        }
+
+        if ((get_member = parser_parse_suffix(parser)) && get_member->type == ExprTypeGetMember) {
+            set_expr.set_type = SetTypeMember;
+            set_expr.as_member = get_member;
+        } else {
+            // load state to the previous state, in case we couldn't parse an get_member statement
+            parser_load_state(parser, backtrack);
+            if (get_member) {
+                expr_delete(get_member);
+            }
+            // if the lhs of the '?=' is invalid
+            if (!parser_match(parser, TokenNameKey)) {
+                return NULL;
+            }
+            set_expr.set_type = SetTypeKey;
+            set_expr.as_key = token_allocate_key(&parser->lexer.token);
+        }
     }
     // store the state in which the operator is found
     operator_state = parser_dump_state(parser);
@@ -518,7 +513,7 @@ error:
     // if you couldn't parse the expression proparly, free used stuff and return a NULL
     switch (set_expr.set_type) {
     case SetTypeAtExpr:
-        expr_delete(set_expr.as_at_stat);
+        expr_delete(set_expr.as_at);
         break;
     case SetTypeKey:
         free(set_expr.as_key);
@@ -546,10 +541,9 @@ static struct Expr *parser_parse_suffix(struct Parser* const parser) {
             struct Expr *new_expr;
             char *key = token_allocate_key(&parser->lexer.token);
 
-            new_expr = expr_create(ExprTypeGetKey);
-            new_expr->as_getkey.lhs = expr;
-            new_expr->as_getkey.at_key = key;
-            new_expr->as_getkey.key_state = start_backtrack;
+            new_expr = expr_create(ExprTypeGetMember);
+            new_expr->as_get_member.lhs = expr;
+            new_expr->as_get_member.key = key;
             expr = new_expr;
         } else {
             // parse call
@@ -559,7 +553,7 @@ static struct Expr *parser_parse_suffix(struct Parser* const parser) {
                 break;
 
             call.callable_expr = expr;
-            call.arguments = parser_parse_csv(parser, true);
+            call.args = parser_parse_csv(parser, true);
 
             backtrack = parser_dump_state(parser);
             if (!parser_match(parser, TokenNameRightParen))
@@ -998,10 +992,8 @@ end:
     return inst;
 }
 
-/*
-  parse comma seperated expressions
-*/
-static struct RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
+/* parse comma seperated expressions */
+static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
     struct Expr **exprs_ary, *expr;
     size_t allocated, idx = 0;
 
@@ -1009,7 +1001,7 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
         parser_maybe_expect_newline(parser);
 
     if (!(expr = parser_parse_expr(parser))) {
-        return (struct RaelExprList) {
+        return (RaelExprList) {
             .amount_exprs = 0,
             .exprs = NULL
         };
@@ -1039,7 +1031,7 @@ static struct RaelExprList parser_parse_csv(struct Parser* const parser, const b
             parser_maybe_expect_newline(parser);
     }
 
-    return (struct RaelExprList) {
+    return (RaelExprList) {
         .amount_exprs = idx,
         .exprs = exprs_ary
     };
@@ -1075,7 +1067,7 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
 
 static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
     struct Instruction *inst;
-    struct RaelExprList expr_list;
+    RaelExprList expr_list;
 
     if (!parser_match(parser, TokenNameLog))
         return NULL;
@@ -1091,7 +1083,7 @@ static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
 
 static struct Instruction *parser_parse_instr_show(struct Parser* const parser) {
     struct Instruction *inst;
-    struct RaelExprList expr_list;
+    RaelExprList expr_list;
 
     if (!parser_match(parser, TokenNameShow))
         return NULL;
@@ -1397,7 +1389,7 @@ static void value_expr_delete(struct ValueExpr* value) {
         break;
     case ValueTypeString:
         if (value->as_string.length > 0)
-            free(value->as_string.value);
+            free(value->as_string.source);
         break;
     case ValueTypeRoutine:
         for (size_t i = 0; i < value->as_routine.amount_parameters; ++i) {
@@ -1407,10 +1399,10 @@ static void value_expr_delete(struct ValueExpr* value) {
         block_delete(value->as_routine.block);
         break;
     case ValueTypeStack:
-        for (size_t i = 0; i < value->as_stack.amount_exprs; ++i) {
-            expr_delete(value->as_stack.exprs[i]);
+        for (size_t i = 0; i < value->as_stack.entries.amount_exprs; ++i) {
+            expr_delete(value->as_stack.entries.exprs[i]);
         }
-        free(value->as_stack.exprs);
+        free(value->as_stack.entries.exprs);
         break;
     default:
         RAEL_UNREACHABLE();
@@ -1423,13 +1415,15 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeValue:
         value_expr_delete(expr->as_value);
         break;
-    case ExprTypeCall:
-        expr_delete(expr->as_call.callable_expr);
-        for (size_t i = 0; i < expr->as_call.arguments.amount_exprs; ++i) {
-            expr_delete(expr->as_call.arguments.exprs[i]);
+    case ExprTypeCall: {
+        struct CallExpr call = expr->as_call;
+        expr_delete(call.callable_expr);
+        for (size_t i = 0; i < call.args.amount_exprs; ++i) {
+            expr_delete(call.args.exprs[i]);
         }
-        free(expr->as_call.arguments.exprs);
+        free(call.args.exprs);
         break;
+    }
     case ExprTypeKey:
         free(expr->as_key);
         break;
@@ -1474,7 +1468,10 @@ static void expr_delete(struct Expr* const expr) {
             free(expr->as_set.as_key);
             break;
         case SetTypeAtExpr:
-            expr_delete(expr->as_set.as_at_stat);
+            expr_delete(expr->as_set.as_at);
+            break;
+        case SetTypeMember:
+            expr_delete(expr->as_set.as_member);
             break;
         default:
             RAEL_UNREACHABLE();
@@ -1492,9 +1489,9 @@ static void expr_delete(struct Expr* const expr) {
         if (expr->as_match.else_block)
             block_delete(expr->as_match.else_block);
         break;
-    case ExprTypeGetKey:
-        expr_delete(expr->as_getkey.lhs);
-        free(expr->as_getkey.at_key);
+    case ExprTypeGetMember:
+        expr_delete(expr->as_get_member.lhs);
+        free(expr->as_get_member.key);
         break;
     default:
         RAEL_UNREACHABLE();

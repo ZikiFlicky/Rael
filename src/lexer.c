@@ -375,11 +375,6 @@ bool lexer_tokenize(struct Lexer* const lexer) {
     ADD_KEYWORD("catch", TokenNameCatch);
     ADD_KEYWORD("with", TokenNameWith);
     ADD_KEYWORD("show", TokenNameShow);
-    ADD_KEYWORD("Number", TokenNameTypeNumber);
-    ADD_KEYWORD("String", TokenNameTypeString);
-    ADD_KEYWORD("Routine", TokenNameTypeRoutine);
-    ADD_KEYWORD("Stack", TokenNameTypeStack);
-    ADD_KEYWORD("Range", TokenNameTypeRange);
     ADD_KEYWORD("getstring", TokenNameGetString);
     ADD_KEYWORD("match", TokenNameMatch);
     ADD_KEYWORD("skip", TokenNameSkip);

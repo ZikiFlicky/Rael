@@ -1,180 +1,222 @@
 #include "number.h"
+
 #include "value.h"
+#include "string.h"
 
 #include <math.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
+
+bool number_validate(RaelValue *self) {
+    return self->type == &RaelNumberType;
+}
 
 /* number to float */
-RaelFloat number_to_float(RaelNumberValue n) {
-    return n.is_float ? n.as_float : (RaelFloat)n.as_int;
+RaelFloat number_to_float(RaelNumberValue *self) {
+    return self->is_float ? self->as_float : (RaelFloat)self->as_int;
 }
 
-RaelInt number_to_int(RaelNumberValue number) {
-    if (number.is_float)
-        return (RaelInt)number.as_float;
+RaelInt number_to_int(RaelNumberValue *self) {
+    if (self->is_float)
+        return (RaelInt)self->as_float;
     else
-        return number.as_int;
+        return self->as_int;
 }
 
-bool number_is_whole(RaelNumberValue number) {
-    if (number.is_float) {
-        if (fmod(number.as_float, 1)) {
+bool number_is_whole(RaelNumberValue *self) {
+    if (self->is_float) {
+        if (fmod(self->as_float, 1)) {
             return false;
         } else {
             return true;
         }
-    } else {
+    } else { // an int is obviously a whole number; it's defined as a whole number
         return true;
     }
 }
 
-/* create a RaelNumberValue from an int */
-RaelNumberValue numbervalue_newi(RaelInt i) {
-    return (RaelNumberValue) {
-        .is_float = false,
-        .as_int = i
-    };
-}
-
-/* create a RaelNumberValue from a float */
-RaelNumberValue numbervalue_newf(RaelFloat f) {
-    return (RaelNumberValue) {
-        .is_float = true,
-        .as_float = f
-    };
-}
-
-/* create a RaelValue from a RaelNumberValue */
-RaelValue *number_new(RaelNumberValue n) {
-    RaelValue *number = value_new(ValueTypeNumber);
-    number->as_number = n;
-    return number;
-}
-
 /* create a RaelValue from an int */
 RaelValue *number_newi(RaelInt i) {
-    return number_new(numbervalue_newi(i));
+    RaelNumberValue *number = RAEL_VALUE_NEW(RaelNumberType, RaelNumberValue);
+    number->is_float = false;
+    number->as_int = i;
+    return (RaelValue*)number;
 }
 
 /* create a RaelValue from a float */
 RaelValue *number_newf(RaelFloat f) {
-    return number_new(numbervalue_newf(f));
+    RaelNumberValue *number = RAEL_VALUE_NEW(RaelNumberType, RaelNumberValue);
+    number->is_float = true;
+    number->as_float = f;
+    return (RaelValue*)number;
 }
 
-RaelNumberValue number_add(RaelNumberValue a, RaelNumberValue b) {
-    if (a.is_float || b.is_float)
-        return numbervalue_newf(number_to_float(a) + number_to_float(b));
-    else
-        return numbervalue_newi(a.as_int + b.as_int);
+/* number + string */
+static RaelValue *number_add_string(RaelNumberValue *number, RaelStringValue *string) {
+    RaelInt n;
+    char *source;
+    size_t str_len;
+
+    if (!number_is_whole(number)) {
+        return BLAME_NEW_CSTR("Expected the number to be a whole number");
+    }
+    n = number_to_int(number);
+    if (!rael_int_in_range_of_char(n)) {
+        return BLAME_NEW_CSTR("Expected the number to be in ascii");
+    }
+
+    // get length of rhs
+    str_len = string_length(string);
+    source = malloc((str_len + 1) * sizeof(char));
+
+    source[0] = (char)n;
+    strncpy(source + 1, string->source, str_len);
+    return (RaelValue*)string_new_pure(source, str_len + 1, true);
 }
 
-RaelNumberValue number_sub(RaelNumberValue a, RaelNumberValue b) {
-    if (a.is_float || b.is_float)
-        return numbervalue_newf(number_to_float(a) - number_to_float(b));
-    else
-        return numbervalue_newi(a.as_int - b.as_int);
-}
-
-RaelNumberValue number_mul(RaelNumberValue a, RaelNumberValue b) {
-    if (a.is_float || b.is_float)
-        return numbervalue_newf(number_to_float(a) * number_to_float(b));
-    else
-        return numbervalue_newi(a.as_int * b.as_int);
-}
-
-/* returns false on division by zero */
-bool number_div(RaelNumberValue a, RaelNumberValue b, RaelNumberValue *out) {
-    if (a.is_float || b.is_float) {
-        if (number_to_float(b) == 0.0)
-            return false;
-        *out = numbervalue_newf(number_to_float(a) / number_to_float(b));
+RaelValue *number_add(RaelNumberValue *self, RaelValue *value) {
+    if (number_validate(value)) {
+        RaelNumberValue *number = (RaelNumberValue*)value;
+        if (self->is_float || number->is_float)
+            return number_newf(number_to_float(self) + number_to_float(number));
+        else
+            return number_newi(self->as_int + number->as_int);
+    } else if (value->type == &RaelStringType) {
+        return number_add_string(self, (RaelStringValue*)value);
     } else {
-        div_t division;
+        return NULL;
+    }
+}
 
-        if (b.as_int == 0)
-            return false;
-        division = div(a.as_int, b.as_int);
-        if (division.rem == 0) {
-            *out = numbervalue_newi(division.quot);
+RaelValue *number_sub(RaelNumberValue *self, RaelValue *value) {
+    if (number_validate(value)) {
+        RaelNumberValue *number = (RaelNumberValue*)value;
+        if (self->is_float || self->is_float)
+            return number_newf(number_to_float(self) - number_to_float(number));
+        else
+            return number_newi(self->as_int - number->as_int);
+    } else {
+        return NULL;
+    }
+}
+
+RaelValue *number_mul(RaelNumberValue *self, RaelValue *value) {
+    // TODO: add number * string
+    if (number_validate(value)) {
+        RaelNumberValue *number = (RaelNumberValue*)value;
+        if (self->is_float || self->is_float)
+            return number_newf(number_to_float(self) * number_to_float(number));
+        else
+            return number_newi(self->as_int * number->as_int);
+    } else {
+        return NULL;
+    }
+}
+
+RaelValue *number_div(RaelNumberValue *self, RaelValue *value) {
+    if (number_validate(value)) {
+        RaelNumberValue *number = (RaelNumberValue*)value;
+        if (self->is_float || number->is_float) {
+            if (number_to_float(number) == 0.0)
+                return BLAME_NEW_CSTR("Division by zero");
+            return number_newf(number_to_float(self) / number_to_float(number));
         } else {
-            *out = numbervalue_newf(number_to_float(a) / number_to_float(b));
+            ldiv_t division;
+
+            if (number->as_int == 0)
+                return BLAME_NEW_CSTR("Division by zero");
+            division = ldiv(self->as_int, number->as_int);
+            if (division.rem == 0) {
+                return number_newi(division.quot);
+            } else {
+                return number_newf(number_to_float(self) / number_to_float(number));
+            }
         }
-    }
-    return true;
-}
-
-/* returns false on mod of zero */
-bool number_mod(RaelNumberValue a, RaelNumberValue b, RaelNumberValue *out) {
-    if (a.is_float || b.is_float) {
-        if (number_to_float(b) == 0.0)
-            return false;
-        *out = numbervalue_newf(fmod(number_to_float(a), number_to_float(b)));
     } else {
-        if (b.as_int == 0)
-            return false;
-        *out = numbervalue_newi(a.as_int % b.as_int);
+        return NULL; // invalid operation between types
     }
-    return true;
 }
 
-RaelNumberValue number_neg(RaelNumberValue n) {
-    if (n.is_float)
-        return numbervalue_newf(-n.as_float);
+RaelValue *number_mod(RaelNumberValue *self, RaelValue *value) {
+    if (number_validate(value)) {
+        RaelNumberValue *number = (RaelNumberValue*)value;
+
+        if (self->is_float || number->is_float) {
+            if (number_to_float(number) == 0.0)
+                return BLAME_NEW_CSTR("Division by zero");
+            return number_newf(fmod(number_to_float(self), number_to_float(number)));
+        } else {
+            if (number->as_int == 0)
+                return BLAME_NEW_CSTR("Division by zero");
+            return number_newi(self->as_int % number->as_int);
+        }
+    } else {
+        return NULL; // invalid operation between types
+    }
+}
+
+RaelValue *number_neg(RaelNumberValue *self) {
+    if (self->is_float)
+        return number_newf(-self->as_float);
     else
-        return numbervalue_newi(-n.as_int);
+        return number_newi(-self->as_int);
 }
 
-RaelNumberValue number_eq(RaelNumberValue a, RaelNumberValue b) {
-    if (a.is_float || b.is_float)
-        return numbervalue_newi(number_to_float(a) == number_to_float(b));
+bool number_eq(RaelNumberValue *self, RaelNumberValue *value) {
+    if (self->is_float || value->is_float)
+        return number_to_float(self) == number_to_float(value);
     else
-        return numbervalue_newi(a.as_int == b.as_int);
+        return self->as_int == value->as_int;
 }
 
-RaelNumberValue number_smaller(RaelNumberValue a, RaelNumberValue b) {
-    if (a.is_float || b.is_float)
-        return numbervalue_newi(number_to_float(a) < number_to_float(b));
+bool number_smaller(RaelNumberValue *self, RaelNumberValue *value) {
+    if (self->is_float || value->is_float)
+        return number_to_float(self) < number_to_float(value);
     else
-        return numbervalue_newi(a.as_int < b.as_int);
+        return self->as_int < value->as_int;
 }
 
-RaelNumberValue number_bigger(RaelNumberValue a, RaelNumberValue b) {
-    if (a.is_float || b.is_float)
-        return numbervalue_newi(number_to_float(a) > number_to_float(b));
+bool number_bigger(RaelNumberValue *self, RaelNumberValue *value) {
+    if (self->is_float || value->is_float)
+        return number_to_float(self) > number_to_float(value);
     else
-        return numbervalue_newi(a.as_int > b.as_int);
+        return self->as_int > value->as_int;
 }
 
-RaelNumberValue number_smaller_eq(RaelNumberValue a, RaelNumberValue b) {
-    if (a.is_float || b.is_float)
-        return numbervalue_newi(number_to_float(a) <= number_to_float(b));
+bool number_smaller_eq(RaelNumberValue *self, RaelNumberValue *value) {
+    if (self->is_float || value->is_float)
+        return number_to_float(self) <= number_to_float(value);
     else
-        return numbervalue_newi(a.as_int <= b.as_int);
+        return self->as_int <= value->as_int;
 }
 
-RaelNumberValue number_bigger_eq(RaelNumberValue a, RaelNumberValue b) {
-    if (a.is_float || b.is_float)
-        return numbervalue_newi(number_to_float(a) >= number_to_float(b));
+bool number_bigger_eq(RaelNumberValue *self, RaelNumberValue *value) {
+    if (self->is_float || value->is_float)
+        return number_to_float(self) >= number_to_float(value);
     else
-        return numbervalue_newi(a.as_int >= b.as_int);
+        return self->as_int >= value->as_int;
 }
 
-bool number_as_bool(RaelNumberValue n) {
-    if (n.is_float)
-        return n.as_float != 0.0;
+bool number_as_bool(RaelNumberValue *self) {
+    if (self->is_float)
+        return self->as_float != 0.0;
     else
-        return n.as_int != 0;
+        return self->as_int != 0;
 }
 
-bool number_from_string(char *string, size_t length, RaelNumberValue *out_number) {
+/*
+ * given a string + length, the function parses a number into `out`.
+ * the function returns false on failure and true on success
+ */
+bool number_from_string(char *string, size_t length, struct RaelHybridNumber *out) {
     bool is_float = false;
     RaelInt decimal = 0;
     RaelFloat fractional;
     size_t since_dot;
 
     if (length == 0)
-        return false;
+        return NULL;
 
     for (size_t i = 0; i < length; ++i) {
         if (string[i] == '.') {
@@ -204,36 +246,138 @@ bool number_from_string(char *string, size_t length, RaelNumberValue *out_number
     }
 
     if (is_float) {
-        *out_number = numbervalue_newf((RaelFloat)decimal + fractional);
+        out->is_float = true;
+        out->as_float = (RaelFloat)decimal + fractional;
     } else {
-        *out_number = numbervalue_newi(decimal);
+        out->is_float = false;
+        out->as_int = decimal;
     }
-
     return true;
 }
 
-RaelNumberValue number_abs(RaelNumberValue number) {
-    if (number.is_float)
-        return numbervalue_newf(number.as_float > 0 ? number.as_float : -number.as_float);
+RaelValue *number_abs(RaelNumberValue *self) {
+    if (self->is_float)
+        return number_newf(self->as_float > 0.0 ? self->as_float : -self->as_float);
     else
-        return numbervalue_newi(number.as_int > 0 ? number.as_int : -number.as_int);
+        return number_newi(self->as_int > 0 ? self->as_int : -self->as_int);
 }
 
-RaelNumberValue number_floor(RaelNumberValue number) {
-    return numbervalue_newi(number_to_int(number));
+RaelValue *number_floor(RaelNumberValue *self) {
+    return number_newi(number_to_int(self));
 }
 
-RaelNumberValue number_ceil(RaelNumberValue number) {
-    RaelInt n = number_to_int(number);
-    // if the number is not an integer, round up (add 1)
-    if (!number_is_whole(number))
+RaelValue *number_ceil(RaelNumberValue *self) {
+    RaelInt n;
+
+    n = number_to_int(self);
+    // if the number is not whole, round up (add 1)
+    if (!number_is_whole(self))
         ++n;
-    return numbervalue_newi(n);
+    return number_newi(n);
 }
 
-void number_repr(RaelNumberValue number) {
-    if (number.is_float)
-        printf("%.17g", number.as_float);
-    else
-        printf("%ld", number.as_int);
+RaelValue *number_cast(RaelNumberValue *self, RaelTypeValue *type) {
+    if (type == &RaelStringType) {
+        // FIXME: make float conversions more accurate
+        bool is_negative;
+        RaelInt decimal;
+        RaelFloat fractional;
+        size_t allocated, idx = 0;
+        char *source = malloc((allocated = 10) * sizeof(char));
+        size_t middle;
+
+        // check if the number is negative and set a flag
+        if (self->is_float) {
+            is_negative = self->as_float < 0.0;
+            fractional = fmod(rael_float_abs(self->as_float), 1);
+        } else {
+            is_negative = self->as_int < 0;
+            fractional = 0.0;
+        }
+        // set the decimal value to the absolute whole value of the number
+        decimal = rael_int_abs(number_to_int((RaelNumberValue*)self));
+
+        do {
+            if (idx >= allocated)
+                source = realloc(source, (allocated += 10) * sizeof(char));
+            source[idx++] = '0' + (decimal % 10);
+            decimal = (decimal - decimal % 10) / 10;
+        } while (decimal);
+
+        // minimize size, and add a '-' to be flipped at the end
+        if (is_negative) {
+            source = realloc(source, (allocated = idx + 1) * sizeof(char));
+            source[idx++] = '-';
+        } else {
+            source = realloc(source, (allocated = idx) * sizeof(char));
+        }
+
+        middle = (idx - idx % 2) / 2;
+
+        // flip string
+        for (size_t i = 0; i < middle; ++i) {
+            char c = source[i];
+            source[i] = source[idx - i - 1];
+            source[idx - i - 1] = c;
+        }
+
+        if (fractional) {
+            size_t characters_added = 0;
+            source = realloc(source, (allocated += 4) * sizeof(char));
+            source[idx++] = '.';
+            fractional *= 10;
+            do {
+                RaelFloat new_fractional = fmod(fractional, 1);
+                if (idx >= allocated)
+                    source = realloc(source, (allocated += 4) * sizeof(char));
+                source[idx++] = '0' + (RaelInt)(fractional - new_fractional);
+                fractional = new_fractional;
+            } while (++characters_added < 14 && (RaelInt)(fractional *= 10));
+
+            source = realloc(source, (allocated = idx) * sizeof(char));
+        }
+        return string_new_pure(source, allocated, true);
+    } else {
+        return NULL;
+    }
 }
+
+void number_repr(RaelNumberValue *self) {
+    if (self->is_float)
+        printf("%.17g", self->as_float);
+    else
+        printf("%ld", self->as_int);
+}
+
+RaelTypeValue RaelNumberType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "Number",
+    .op_add = (RaelBinExprFunc)number_add,
+    .op_sub = (RaelBinExprFunc)number_sub,
+    .op_mul = (RaelBinExprFunc)number_mul,
+    .op_div = (RaelBinExprFunc)number_div,
+    .op_mod = (RaelBinExprFunc)number_mod,
+    .op_red = NULL,
+    .op_eq = (RaelBinCmpFunc)number_eq,
+    .op_smaller = (RaelBinCmpFunc)number_smaller,
+    .op_bigger = (RaelBinCmpFunc)number_bigger,
+    .op_smaller_eq = (RaelBinCmpFunc)number_smaller_eq,
+    .op_bigger_eq = (RaelBinCmpFunc)number_bigger_eq,
+
+    .op_neg = (RaelNegFunc)number_neg,
+
+    .op_call = NULL,
+    .op_construct = NULL,
+
+    .as_bool = (RaelAsBoolFunc)number_as_bool,
+    .deallocator = NULL,
+    .repr = (RaelSingleFunc)number_repr,
+    .logger = NULL, /* fallbacks to .repr */
+
+    .cast = (RaelCastFunc)number_cast,
+
+    .at_index = NULL,
+    .at_range = NULL,
+
+    .length = NULL
+};

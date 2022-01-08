@@ -1,4 +1,6 @@
 %% Brainfuck, implemented in Rael
+load :Types
+
 :input ?= getstring("Enter brainfuck code: ")
 :tape_size ?= 128
 
@@ -101,7 +103,7 @@ loop :0 through 0 to :tape_size {
         if sizeof(:input_stream) = 0
             :input_stream ?= :input_stream + getstring("") + "\n"
 
-        :tape at :tape_idx ?= ((:input_stream at 0) to Stack) at 0
+        :tape at :tape_idx ?= ((:input_stream at 0) to :Types:Stack) at 0
         :input_stream ?= :input_stream at (1 to sizeof(:input_stream))
     }
     else {

@@ -2,7 +2,12 @@ load :Math
 
 log :Math
 log :Math:PI
-log :Math:Floor
+log :Math:Cos, :Math:Sin, :Math:Tan, :Math:ASin, :Math:ATan, :Math:ACos, :Math:Log10, :Math:Log2, :Math:Floor, :Math:Ceil
 log :Math:Floor(2.3)
 log :Math:UndefinedCFunc
+
+load :Types
+
+log :Types:String, :Types:Number, :Types:Range(9)
+
 log :Math:Floor("string")

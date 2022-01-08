@@ -1,0 +1,17 @@
+:someValue ?= "This is a string"
+log :someValue:key
+:someValue:key ?= 120
+log :someValue:key
+:someValue:key += 5
+log :someValue:key
+:someValue:key -= 5
+log :someValue:key
+:someValue:key *= 5
+log :someValue:key
+:someValue:key /= 5
+log :someValue:key
+:someValue:key %= 9
+log :someValue:key
+log :someValue
+
+:someValue:undefinedValue += 5

@@ -6,137 +6,175 @@
 #include <math.h>
 #include <assert.h>
 
-RaelValue *module_math_cos(RaelArguments *args) {
+RaelValue *module_math_cos(RaelArgumentList *args) {
     RaelValue *number;
-    RaelValue *return_value;
-    assert(arguments_get_amount(args) == 1);
+    assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
-    assert(number->type == ValueTypeNumber);
-    return_value = number_newf(cos(number_to_float(number->as_number)));
-    return return_value;
-}
-
-RaelValue *module_math_sin(RaelArguments *args) {
-    RaelValue *number;
-    RaelValue *return_value;
-    assert(arguments_get_amount(args) == 1);
-    number = arguments_get(args, 0);
-    if (number->type != ValueTypeNumber) {
-        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
-    return_value = number_newf(sin(number_to_float(number->as_number)));
-    return return_value;
+    return number_newf(cos(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_tan(RaelArguments *args) {
+RaelValue *module_math_sin(RaelArgumentList *args) {
     RaelValue *number;
-    RaelValue *return_value;
-    assert(arguments_get_amount(args) == 1);
+    assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
-    if (number->type != ValueTypeNumber) {
-        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
-    return_value = number_newf(tan(number_to_float(number->as_number)));
-    return return_value;
+    return number_newf(sin(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_ceil(RaelArguments *args) {
+RaelValue *module_math_tan(RaelArgumentList *args) {
     RaelValue *number;
-    RaelValue *return_value;
-    assert(arguments_get_amount(args) == 1);
+    assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
-    if (number->type != ValueTypeNumber) {
-        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
-    return_value = number_new(number_ceil(number->as_number));
-    return return_value;
+    return number_newf(tan(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_floor(RaelArguments *args) {
+RaelValue *module_math_acos(RaelArgumentList *args) {
     RaelValue *number;
-    RaelValue *return_value;
-    assert(arguments_get_amount(args) == 1);
+    assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
-    if (number->type != ValueTypeNumber) {
-        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
-    return_value = number_new(number_floor(number->as_number));
-    return return_value;
+    return number_newf(acos(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_abs(RaelArguments *args) {
+RaelValue *module_math_asin(RaelArgumentList *args) {
     RaelValue *number;
-    RaelValue *return_value;
-    assert(arguments_get_amount(args) == 1);
+    assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
-    if (number->type != ValueTypeNumber) {
-        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
-    return_value = number_new(number_abs(number->as_number));
-    return return_value;
+    return number_newf(asin(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_sqrt(RaelArguments *args) {
+RaelValue *module_math_atan(RaelArgumentList *args) {
     RaelValue *number;
-    RaelValue *return_value;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(atan(number_to_float((RaelNumberValue*)number)));
+}
+
+RaelValue *module_math_log10(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(log10(number_to_float((RaelNumberValue*)number)));
+}
+
+RaelValue *module_math_log2(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(log2(number_to_float((RaelNumberValue*)number)));
+}
+
+RaelValue *module_math_ceil(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return (RaelValue*)number_ceil((RaelNumberValue*)number);
+}
+
+RaelValue *module_math_floor(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return (RaelValue*)number_floor((RaelNumberValue*)number);
+}
+
+RaelValue *module_math_abs(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return (RaelValue*)number_abs((RaelNumberValue*)number);
+}
+
+RaelValue *module_math_sqrt(RaelArgumentList *args) {
+    RaelValue *number;
     RaelFloat n;
 
-    assert(arguments_get_amount(args) == 1);
+    assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
 
-    if (number->type != ValueTypeNumber)
-        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected a number");
+    if (number->type != &RaelNumberType)
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
 
-    n = number_to_float(number->as_number);
+    n = number_to_float((RaelNumberValue*)number);
     if (n < 0)
-        return RAEL_BLAME_FROM_RAWSTR_NO_STATE("sqrt of a negative number");
+        return BLAME_NEW_CSTR_ST("Sqrt of a negative number is not possible", *arguments_state(args, 0));
 
-    return_value = number_newf(sqrt(n));
-    return return_value;
+    return number_newf(sqrt(n));
 }
 
-RaelValue *module_math_pow(RaelArguments *args) {
+RaelValue *module_math_pow(RaelArgumentList *args) {
     RaelValue *base;
     RaelValue *power;
-    RaelValue *return_value;
 
-    assert(arguments_get_amount(args) == 2);
+    assert(arguments_amount(args) == 2);
     base = arguments_get(args, 0);
     power = arguments_get(args, 1);
-    if (base->type != ValueTypeNumber) {
-        return_value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the base to be a number");
-    } else if (power->type != ValueTypeNumber) {
-        return_value = RAEL_BLAME_FROM_RAWSTR_NO_STATE("Expected the power to be a number");
+    if (base->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    } else if (power->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 1));
     } else {
-        RaelFloat n_base = number_to_float(base->as_number),
-                  n_power = number_to_float(power->as_number),
-                  result = pow(n_base, n_power);
+        RaelFloat n_base = number_to_float((RaelNumberValue*)base),
+                  n_power = number_to_float((RaelNumberValue*)power);
+        RaelFloat result = pow(n_base, n_power);
 
-        return_value = number_newf(result);
+        return number_newf(result);
     }
-    return return_value;
 }
 
 RaelValue *module_math_new(void) {
-    RaelValue *module;
-    RaelModuleValue m;
+    RaelModuleValue *m;
 
     // create module value
-    module_new(&m, RAEL_HEAPSTR("Math"));
+    m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("Math"));
     // set all keys
-    module_set_key(&m, RAEL_HEAPSTR("Cos"), cfunc_new(RAEL_HEAPSTR("Cos"), module_math_cos, 1));
-    module_set_key(&m, RAEL_HEAPSTR("Sin"), cfunc_new(RAEL_HEAPSTR("Sin"), module_math_sin, 1));
-    module_set_key(&m, RAEL_HEAPSTR("Tan"), cfunc_new(RAEL_HEAPSTR("Tan"), module_math_tan, 1));
-    module_set_key(&m, RAEL_HEAPSTR("Floor"), cfunc_new(RAEL_HEAPSTR("Floor"), module_math_floor, 1));
-    module_set_key(&m, RAEL_HEAPSTR("Ceil"), cfunc_new(RAEL_HEAPSTR("Ceil"), module_math_ceil, 1));
-    module_set_key(&m, RAEL_HEAPSTR("Sqrt"), cfunc_new(RAEL_HEAPSTR("Sqrt"), module_math_sqrt, 1));
-    module_set_key(&m, RAEL_HEAPSTR("Pow"), cfunc_new(RAEL_HEAPSTR("Pow"), module_math_pow, 2));
-    module_set_key(&m, RAEL_HEAPSTR("Abs"), cfunc_new(RAEL_HEAPSTR("Abs"), module_math_abs, 1));
-    module_set_key(&m, RAEL_HEAPSTR("PI"), number_newf(RAEL_CONSTANT_PI));
-    module_set_key(&m, RAEL_HEAPSTR("2PI"), number_newf(RAEL_CONSTANT_2PI));
-    module_set_key(&m, RAEL_HEAPSTR("E"), number_newf(RAEL_CONSTANT_E));
-    module = value_new(ValueTypeModule);
-    module->as_module = m;
+    module_set_key(m, RAEL_HEAPSTR("Cos"), cfunc_new(RAEL_HEAPSTR("Cos"), module_math_cos, 1));
+    module_set_key(m, RAEL_HEAPSTR("Sin"), cfunc_new(RAEL_HEAPSTR("Sin"), module_math_sin, 1));
+    module_set_key(m, RAEL_HEAPSTR("Tan"), cfunc_new(RAEL_HEAPSTR("Tan"), module_math_tan, 1));
+    module_set_key(m, RAEL_HEAPSTR("ACos"), cfunc_new(RAEL_HEAPSTR("ACos"), module_math_acos, 1));
+    module_set_key(m, RAEL_HEAPSTR("ASin"), cfunc_new(RAEL_HEAPSTR("ASin"), module_math_asin, 1));
+    module_set_key(m, RAEL_HEAPSTR("ATan"), cfunc_new(RAEL_HEAPSTR("ATan"), module_math_atan, 1));
+    module_set_key(m, RAEL_HEAPSTR("Log10"), cfunc_new(RAEL_HEAPSTR("Log10"), module_math_log10, 1));
+    module_set_key(m, RAEL_HEAPSTR("Log2"), cfunc_new(RAEL_HEAPSTR("Log2"), module_math_log2, 1));
+    module_set_key(m, RAEL_HEAPSTR("Floor"), cfunc_new(RAEL_HEAPSTR("Floor"), module_math_floor, 1));
+    module_set_key(m, RAEL_HEAPSTR("Ceil"), cfunc_new(RAEL_HEAPSTR("Ceil"), module_math_ceil, 1));
+    module_set_key(m, RAEL_HEAPSTR("Sqrt"), cfunc_new(RAEL_HEAPSTR("Sqrt"), module_math_sqrt, 1));
+    module_set_key(m, RAEL_HEAPSTR("Pow"), cfunc_new(RAEL_HEAPSTR("Pow"), module_math_pow, 2));
+    module_set_key(m, RAEL_HEAPSTR("Abs"), cfunc_new(RAEL_HEAPSTR("Abs"), module_math_abs, 1));
+    module_set_key(m, RAEL_HEAPSTR("PI"), number_newf(RAEL_CONSTANT_PI));
+    module_set_key(m, RAEL_HEAPSTR("2PI"), number_newf(RAEL_CONSTANT_2PI));
+    module_set_key(m, RAEL_HEAPSTR("E"), number_newf(RAEL_CONSTANT_E));
 
-    return module;
+    return (RaelValue*)m;
 }

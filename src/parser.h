@@ -1,28 +1,53 @@
 #ifndef RAEL_PARSER_H
 #define RAEL_PARSER_H
 
-#include "lexer.h"
-#include "number.h"
 #include "common.h"
+#include "lexer.h"
 #include "value.h"
+#include "number.h"
+#include "string.h"
 
 #include <stdbool.h>
 
 struct Expr;
 
-struct RaelExprList {
+typedef struct RaelExprList {
     size_t amount_exprs;
     struct Expr **exprs;
+} RaelExprList;
+
+enum ValueExprType {
+    ValueTypeVoid,
+    ValueTypeNumber,
+    ValueTypeString,
+    ValueTypeRoutine,
+    ValueTypeStack,
+    ValueTypeType
+};
+
+struct ASTStringValue {
+    char *source;
+    size_t length;
+};
+
+struct ASTRoutineValue {
+    char **parameters;
+    size_t amount_parameters;
+    struct Instruction **block;
+};
+
+struct ASTStackValue {
+    RaelExprList entries;
 };
 
 struct ValueExpr {
-    enum ValueType type;
+    enum ValueExprType type;
     union {
-        RaelStringValue as_string;
-        RaelNumberValue as_number;
-        RaelRoutineValue as_routine;
-        struct RaelExprList as_stack;
-        enum ValueType as_type;
+        struct RaelHybridNumber as_number;
+        struct ASTStringValue as_string;
+        struct ASTRoutineValue as_routine;
+        struct ASTStackValue as_stack;
+        RaelTypeValue *as_type;
     };
 };
 
@@ -59,21 +84,23 @@ enum ExprType {
     ExprTypeOr,
     ExprTypeNot,
     ExprTypeMatch,
-    ExprTypeGetKey
+    ExprTypeGetMember
 };
 
 struct CallExpr {
     struct Expr *callable_expr;
-    struct RaelExprList arguments;
+    RaelExprList args;
 };
 
 struct SetExpr {
     enum {
         SetTypeAtExpr = 1,
-        SetTypeKey
+        SetTypeKey,
+        SetTypeMember
     } set_type;
     union {
-        struct Expr *as_at_stat;
+        struct Expr *as_at;
+        struct Expr *as_member;
         char *as_key;
     };
     struct Expr *expr;
@@ -89,10 +116,9 @@ struct MatchExpr {
     struct Instruction **else_block;
 };
 
-struct GetKeyExpr {
+struct GetMemberExpr {
     struct Expr *lhs;
-    struct State key_state;
-    char *at_key;
+    char *key;
 };
 
 struct Expr {
@@ -108,7 +134,7 @@ struct Expr {
         struct CallExpr as_call;
         struct SetExpr as_set;
         struct MatchExpr as_match;
-        struct GetKeyExpr as_getkey;
+        struct GetMemberExpr as_get_member;
     };
 };
 
@@ -175,7 +201,7 @@ struct Instruction {
     enum InstructionType type;
     struct State state;
     union {
-        struct RaelExprList csv;
+        RaelExprList csv;
         struct IfInstruction if_stat;
         struct LoopInstruction loop;
         struct Expr *pure;

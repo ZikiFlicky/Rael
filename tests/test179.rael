@@ -1,0 +1,5 @@
+load :Types
+log :Types:Range
+log :Types:Range(89)
+log :Types:Range(5, 12)
+log :Types:String(60)

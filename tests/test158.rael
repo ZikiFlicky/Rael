@@ -1,4 +1,5 @@
-if String {
+load :Types
+if :Types:String {
     log "true"
 } else {
     log "false"

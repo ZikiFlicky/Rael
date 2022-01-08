@@ -2,11 +2,13 @@
 #define RAEL_NUMBER_H
 
 #include "common.h"
+#include "value.h"
 #include "lexer.h"
 
 #include <stdbool.h>
 
 typedef struct RaelNumberValue {
+    RAEL_VALUE_BASE;
     bool is_float;
     union {
         RaelInt as_int;
@@ -14,54 +16,50 @@ typedef struct RaelNumberValue {
     };
 } RaelNumberValue;
 
-RaelNumberValue numbervalue_newi(RaelInt i);
-
-RaelNumberValue numbervalue_newf(RaelFloat f);
-
-RaelValue *number_new(RaelNumberValue n);
+extern RaelTypeValue RaelNumberType;
 
 RaelValue *number_newi(RaelInt i);
 
 RaelValue *number_newf(RaelFloat f);
 
-RaelFloat number_to_float(RaelNumberValue n);
+RaelFloat number_to_float(RaelNumberValue *self);
 
-RaelInt number_to_int(RaelNumberValue number);
+RaelInt number_to_int(RaelNumberValue *self);
 
-bool number_is_whole(RaelNumberValue number);
+bool number_is_whole(RaelNumberValue *self);
 
-RaelNumberValue number_add(RaelNumberValue a, RaelNumberValue b);
+RaelValue *number_add(RaelNumberValue *self, RaelValue *value);
 
-RaelNumberValue number_sub(RaelNumberValue a, RaelNumberValue b);
+RaelValue *number_sub(RaelNumberValue *self, RaelValue *value);
 
-RaelNumberValue number_mul(RaelNumberValue a, RaelNumberValue b);
+RaelValue *number_mul(RaelNumberValue *self, RaelValue *value);
 
-bool number_div(RaelNumberValue a, RaelNumberValue b, RaelNumberValue *out);
+RaelValue *number_div(RaelNumberValue *self, RaelValue *value);
 
-bool number_mod(RaelNumberValue a, RaelNumberValue b, RaelNumberValue *out);
+RaelValue *number_mod(RaelNumberValue *self, RaelValue *value);
 
-RaelNumberValue number_neg(RaelNumberValue n);
+RaelValue *number_neg(RaelNumberValue *self);
 
-RaelNumberValue number_eq(RaelNumberValue a, RaelNumberValue b);
+bool number_eq(RaelNumberValue *self, RaelNumberValue *value);
 
-RaelNumberValue number_smaller(RaelNumberValue a, RaelNumberValue b);
+bool number_smaller(RaelNumberValue *self, RaelNumberValue *value);
 
-RaelNumberValue number_bigger(RaelNumberValue a, RaelNumberValue b);
+bool number_bigger(RaelNumberValue *self, RaelNumberValue *value);
 
-RaelNumberValue number_smaller_eq(RaelNumberValue a, RaelNumberValue b);
+bool number_smaller_eq(RaelNumberValue *self, RaelNumberValue *value);
 
-RaelNumberValue number_bigger_eq(RaelNumberValue a, RaelNumberValue b);
+bool number_bigger_eq(RaelNumberValue *self, RaelNumberValue *value);
 
-RaelNumberValue number_abs(RaelNumberValue number);
+RaelValue *number_abs(RaelNumberValue *self);
 
-RaelNumberValue number_floor(RaelNumberValue number);
+RaelValue *number_floor(RaelNumberValue *self);
 
-RaelNumberValue number_ceil(RaelNumberValue number);
+RaelValue *number_ceil(RaelNumberValue *self);
 
-bool number_as_bool(RaelNumberValue n);
+bool number_as_bool(RaelNumberValue *self);
 
-bool number_from_string(char *string, size_t length, RaelNumberValue *out_number);
+bool number_from_string(char *string, size_t length, struct RaelHybridNumber *out);
 
-void number_repr(RaelNumberValue number);
+void number_repr(RaelNumberValue *self);
 
 #endif // RAEL_NUMBER_H
