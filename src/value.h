@@ -57,8 +57,8 @@ typedef RaelValue* (*RaelBinExprFunc)(RaelValue*, RaelValue*);
 typedef bool (*RaelBinCmpFunc)(RaelValue*, RaelValue*);
 typedef bool (*RaelAsBoolFunc)(RaelValue*);
 typedef void (*RaelSingleFunc)(RaelValue*);
-typedef RaelValue* (*RaelCallerFunc)(RaelValue*, RaelArguments*, struct Interpreter*);
-typedef RaelValue* (*RaelConstructorFunc)(RaelArguments*, struct Interpreter*);
+typedef RaelValue* (*RaelCallerFunc)(RaelValue*, RaelArgumentList*, struct Interpreter*);
+typedef RaelValue* (*RaelConstructorFunc)(RaelArgumentList*, struct Interpreter*);
 typedef RaelValue* (*RaelGetFunc)(RaelValue*, size_t);
 typedef RaelValue* (*RaelSliceFunc)(RaelValue*, size_t, size_t);
 typedef RaelValue* (*RaelCastFunc)(RaelValue*, RaelTypeValue*);
@@ -88,7 +88,7 @@ typedef struct RaelTypeValue {
 
     /* non-binary operations */
     RaelCallerFunc op_call; /* Call the value */
-    RaelConstructorFunc op_construct; /* construct a new value of such type */
+    RaelConstructorFunc op_construct; /* Construct a new value of such type */
 
     RaelAsBoolFunc as_bool; /* Convert a value to its boolean representation */
     RaelSingleFunc deallocator; /* Free all of the internally allocated values. Called by the interpreter */
@@ -98,14 +98,14 @@ typedef struct RaelTypeValue {
                               If this is undefined (NULL), the interpreter will fallback and
                               automatically run the normal repr function instead. defined without a following newline */
 
-    /* cast the value to a new type */
+    /* Cast the value to a new type */
     RaelCastFunc cast;
 
-    /* indexing operations */
+    /* Indexing operations */
     RaelGetFunc at_index;
     RaelSliceFunc at_range;
 
-    /* length */
+    /* Get length */
     RaelLengthFunc length;
 } RaelTypeValue;
 
@@ -216,6 +216,6 @@ void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate
 RaelValue *value_slice(RaelValue *self, size_t start, size_t end);
 
 /* value(arg1, arg2, ...) */
-RaelValue *value_call(RaelValue *value, RaelArguments *args, struct Interpreter *interpreter);
+RaelValue *value_call(RaelValue *value, RaelArgumentList *args, struct Interpreter *interpreter);
 
 #endif /* RAEL_VALUE_H */

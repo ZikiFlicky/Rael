@@ -562,15 +562,19 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         value_deref(rhs);
         break;
     case ExprTypeCall: {
-        RaelValue *callable = expr_eval(interpreter, expr->as_call.callable_expr, true);
-        RaelArguments args;
+        struct CallExpr call = expr->as_call;
+        RaelValue *callable = expr_eval(interpreter, call.callable_expr, true);
+        RaelArgumentList args;
 
         if (value_is_callable(callable)) {
             arguments_new(&args); // initialize args
-            for (size_t i = 0; i < expr->as_call.arguments.amount_exprs; ++i) {
-                RaelValue *arg = expr_eval(interpreter, expr->as_call.arguments.exprs[i], true);
-                value_ref(arg);
-                arguments_add(&args, arg);
+            for (size_t i = 0; i < call.args.amount_exprs; ++i) {
+                struct Expr *arg_expr = call.args.exprs[i];
+                RaelValue *arg_value = expr_eval(interpreter, arg_expr, true);
+                struct State arg_state = arg_expr->state;
+
+                value_ref(arg_value);
+                arguments_add(&args, arg_value, arg_state);
             }
             arguments_finalize(&args); // finish
 

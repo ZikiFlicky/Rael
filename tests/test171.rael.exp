@@ -3,6 +3,6 @@ module(:Math)
 cfunc(:Floor, 1)
 2
 Void
-Error [tests/test171.rael:8:5]: Expected a number
+Error [tests/test171.rael:8:17]: Expected a number
 | log :Math:Floor("string")
-|     ^
+|                 ^

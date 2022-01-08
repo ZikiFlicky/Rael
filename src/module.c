@@ -11,7 +11,7 @@ RaelValue *module_math_new(void);
 
 struct Interpreter;
 
-RaelValue *cfunc_new(char *name, RaelValue* (*func)(RaelArguments *), size_t amount_params) {
+RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params) {
     RaelExternalCFuncValue *cfunc = RAEL_VALUE_NEW(RaelCFuncType, RaelExternalCFuncValue);
     cfunc->name = name;
     cfunc->func = func;
@@ -23,7 +23,7 @@ void cfunc_delete(RaelExternalCFuncValue *self) {
     free(self->name);
 }
 
-RaelValue *cfunc_call(RaelExternalCFuncValue *self, RaelArguments *args, struct Interpreter *interpreter) {
+RaelValue *cfunc_call(RaelExternalCFuncValue *self, RaelArgumentList *args, struct Interpreter *interpreter) {
     (void)interpreter;
     if (arguments_amount(args) != self->amount_params)
         return NULL;

@@ -6,65 +6,67 @@
 #include <math.h>
 #include <assert.h>
 
-RaelValue *module_math_cos(RaelArguments *args) {
-    RaelValue *number;
-    assert(arguments_amount(args) == 1);
-    number = arguments_get(args, 0);
-    assert(number->type == &RaelNumberType);
-    return number_newf(cos(number_to_float((RaelNumberValue*)number)));
-}
-
-RaelValue *module_math_sin(RaelArguments *args) {
+RaelValue *module_math_cos(RaelArgumentList *args) {
     RaelValue *number;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
-        return BLAME_NEW_CSTR("Expected a number");
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(cos(number_to_float((RaelNumberValue*)number)));
+}
+
+RaelValue *module_math_sin(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
     return number_newf(sin(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_tan(RaelArguments *args) {
+RaelValue *module_math_tan(RaelArgumentList *args) {
     RaelValue *number;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
-        return BLAME_NEW_CSTR("Expected a number");
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
     return number_newf(tan(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_ceil(RaelArguments *args) {
+RaelValue *module_math_ceil(RaelArgumentList *args) {
     RaelValue *number;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
-        return BLAME_NEW_CSTR("Expected a number");
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
     return (RaelValue*)number_ceil((RaelNumberValue*)number);
 }
 
-RaelValue *module_math_floor(RaelArguments *args) {
+RaelValue *module_math_floor(RaelArgumentList *args) {
     RaelValue *number;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
-        return BLAME_NEW_CSTR("Expected a number");
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
     return (RaelValue*)number_floor((RaelNumberValue*)number);
 }
 
-RaelValue *module_math_abs(RaelArguments *args) {
+RaelValue *module_math_abs(RaelArgumentList *args) {
     RaelValue *number;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
-        return BLAME_NEW_CSTR("Expected a number");
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
     return (RaelValue*)number_abs((RaelNumberValue*)number);
 }
 
-RaelValue *module_math_sqrt(RaelArguments *args) {
+RaelValue *module_math_sqrt(RaelArgumentList *args) {
     RaelValue *number;
     RaelFloat n;
 
@@ -72,16 +74,16 @@ RaelValue *module_math_sqrt(RaelArguments *args) {
     number = arguments_get(args, 0);
 
     if (number->type != &RaelNumberType)
-        return BLAME_NEW_CSTR("Expected a number");
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
 
     n = number_to_float((RaelNumberValue*)number);
     if (n < 0)
-        return BLAME_NEW_CSTR("sqrt of a negative number");
+        return BLAME_NEW_CSTR_ST("Sqrt of a negative number is not possible", *arguments_state(args, 0));
 
     return number_newf(sqrt(n));
 }
 
-RaelValue *module_math_pow(RaelArguments *args) {
+RaelValue *module_math_pow(RaelArgumentList *args) {
     RaelValue *base;
     RaelValue *power;
 
@@ -89,13 +91,13 @@ RaelValue *module_math_pow(RaelArguments *args) {
     base = arguments_get(args, 0);
     power = arguments_get(args, 1);
     if (base->type != &RaelNumberType) {
-        return BLAME_NEW_CSTR("Expected the base to be a number");
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     } else if (power->type != &RaelNumberType) {
-        return BLAME_NEW_CSTR("Expected the power to be a number");
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 1));
     } else {
         RaelFloat n_base = number_to_float((RaelNumberValue*)base),
-                  n_power = number_to_float((RaelNumberValue*)power),
-                  result = pow(n_base, n_power);
+                  n_power = number_to_float((RaelNumberValue*)power);
+        RaelFloat result = pow(n_base, n_power);
 
         return number_newf(result);
     }

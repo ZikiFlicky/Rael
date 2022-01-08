@@ -89,7 +89,7 @@ enum ExprType {
 
 struct CallExpr {
     struct Expr *callable_expr;
-    RaelExprList arguments;
+    RaelExprList args;
 };
 
 struct SetExpr {

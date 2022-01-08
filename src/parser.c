@@ -577,7 +577,7 @@ static struct Expr *parser_parse_suffix(struct Parser* const parser) {
                 break;
 
             call.callable_expr = expr;
-            call.arguments = parser_parse_csv(parser, true);
+            call.args = parser_parse_csv(parser, true);
 
             backtrack = parser_dump_state(parser);
             if (!parser_match(parser, TokenNameRightParen))
@@ -1439,13 +1439,15 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeValue:
         value_expr_delete(expr->as_value);
         break;
-    case ExprTypeCall:
-        expr_delete(expr->as_call.callable_expr);
-        for (size_t i = 0; i < expr->as_call.arguments.amount_exprs; ++i) {
-            expr_delete(expr->as_call.arguments.exprs[i]);
+    case ExprTypeCall: {
+        struct CallExpr call = expr->as_call;
+        expr_delete(call.callable_expr);
+        for (size_t i = 0; i < call.args.amount_exprs; ++i) {
+            expr_delete(call.args.exprs[i]);
         }
-        free(expr->as_call.arguments.exprs);
+        free(call.args.exprs);
         break;
+    }
     case ExprTypeKey:
         free(expr->as_key);
         break;

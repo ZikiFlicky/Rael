@@ -85,31 +85,41 @@ bool rael_int_in_range_of_char(RaelInt number) {
     }
 }
 
-void arguments_new(RaelArguments *out) {
+void arguments_new(RaelArgumentList *out) {
     out->amount_allocated = 0;
     out->amount_arguments = 0;
     out->arguments = NULL;
 }
 
-void arguments_add(RaelArguments *args, RaelValue *value) {
+void arguments_add(RaelArgumentList *args, RaelValue *value, struct State state) {
+    RaelArgument arg = (RaelArgument) {
+        .value = value,
+        .state = state
+    };
     if (args->amount_allocated == 0)
-        args->arguments = malloc((args->amount_allocated = 4) * sizeof(RaelValue*));
+        args->arguments = malloc((args->amount_allocated = 4) * sizeof(RaelArgument));
     else if (args->amount_arguments >= args->amount_allocated)
-        args->arguments = realloc(args->arguments, (args->amount_allocated += 4) * sizeof(RaelValue*));
-    args->arguments[args->amount_arguments++] = value;
+        args->arguments = realloc(args->arguments, (args->amount_allocated += 4) * sizeof(RaelArgument));
+    args->arguments[args->amount_arguments++] = arg;
 }
 
-RaelValue *arguments_get(RaelArguments *args, size_t idx) {
+RaelValue *arguments_get(RaelArgumentList *args, size_t idx) {
     if (idx >= args->amount_arguments)
         return NULL;
-    return args->arguments[idx];
+    return args->arguments[idx].value;
 }
 
-size_t arguments_amount(RaelArguments *args) {
+struct State *arguments_state(RaelArgumentList *args, size_t idx) {
+    if (idx >= args->amount_arguments)
+        return NULL;
+    return &args->arguments[idx].state;
+}
+
+size_t arguments_amount(RaelArgumentList *args) {
     return args->amount_arguments;
 }
 
-void arguments_delete(RaelArguments *args) {
+void arguments_delete(RaelArgumentList *args) {
     for (size_t i = 0; i < args->amount_arguments; ++i) {
         value_deref(arguments_get(args, i));
     }
@@ -117,9 +127,9 @@ void arguments_delete(RaelArguments *args) {
 }
 
 /* this function shrinks the size of the argument buffer */
-void arguments_finalize(RaelArguments *args) {
+void arguments_finalize(RaelArgumentList *args) {
     if (args->amount_allocated > 0) {
         args->arguments = realloc(args->arguments,
-                          (args->amount_allocated = args->amount_arguments) * sizeof(RaelValue*));
+                          (args->amount_allocated = args->amount_arguments) * sizeof(RaelArgument));
     }
 }

@@ -20,11 +20,6 @@ typedef long RaelInt;
 typedef double RaelFloat;
 typedef struct RaelValue RaelValue;
 
-typedef struct RaelArguments {
-    size_t amount_arguments, amount_allocated;
-    RaelValue **arguments;
-} RaelArguments;
-
 struct RaelHybridNumber {
     bool is_float;
     union {
@@ -59,6 +54,16 @@ struct State {
     size_t line, column;
 };
 
+typedef struct RaelArgument {
+    struct State state;
+    RaelValue *value;
+} RaelArgument;
+
+typedef struct RaelArgumentList {
+    size_t amount_arguments, amount_allocated;
+    RaelArgument *arguments;
+} RaelArgumentList;
+
 RaelInt rael_int_abs(RaelInt i);
 
 RaelFloat rael_float_abs(RaelFloat f);
@@ -84,27 +89,30 @@ bool rael_int_in_range_of_char(RaelInt number);
     char *str = "String";
     char *heaped = RAEL_HEAPSTR(str);
 
-    To allocate an already "variable'd" string, you must know its size
-    and call rael_allocate_cstr.
+    To allocate a non-raw string, you must know its length
+    and call rael_allocate_cstr with that length.
 */
 #define RAEL_HEAPSTR(str) (rael_allocate_cstr(str, sizeof(str)/sizeof(char)-1))
 
 /* create a RaelArguments */
-void arguments_new(RaelArguments *out);
+void arguments_new(RaelArgumentList *out);
 
 /* add an argument */
-void arguments_add(RaelArguments *args, RaelValue *value);
+void arguments_add(RaelArgumentList *args, RaelValue *value, struct State state);
 
 /* returns the argument at the requested index, or NULL if the index is invalid */
-RaelValue *arguments_get(RaelArguments *args, size_t idx);
+RaelValue *arguments_get(RaelArgumentList *args, size_t idx);
+
+/* returns the state of the argument at the requested index, or NULL if the index is invalid */
+struct State *arguments_state(RaelArgumentList *args, size_t idx);
 
 /* this function returns the amount of arguments */
-size_t arguments_amount(RaelArguments *args);
+size_t arguments_amount(RaelArgumentList *args);
 
 /* this function deallocates the arguments */
-void arguments_delete(RaelArguments *args);
+void arguments_delete(RaelArgumentList *args);
 
 /* this function shrinks the size of the argument buffer */
-void arguments_finalize(RaelArguments *args);
+void arguments_finalize(RaelArgumentList *args);
 
 #endif // RAEL_COMMON_H

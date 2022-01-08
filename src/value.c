@@ -34,7 +34,8 @@ RaelValue *type_cast(RaelTypeValue *self, RaelTypeValue *type) {
     }
 }
 
-RaelValue *type_call(RaelTypeValue *self, RaelArguments *args, struct Interpreter *interpreter) {
+/* construct a new value from the type, if possible */
+RaelValue *type_call(RaelTypeValue *self, RaelArgumentList *args, struct Interpreter *interpreter) {
     // if there is a constructor to the type, call it
     if (self->op_construct) {
         return self->op_construct(args, interpreter);
@@ -140,7 +141,7 @@ RaelValue RaelVoid = (RaelValue) {
     .reference_count = 1
 };
 
-RaelValue *routine_call(RaelRoutineValue *self, RaelArguments *args, struct Interpreter *interpreter) {
+RaelValue *routine_call(RaelRoutineValue *self, RaelArgumentList *args, struct Interpreter *interpreter) {
     size_t amount_args, amount_params;
     struct Scope *prev_scope, routine_scope;
 
@@ -271,39 +272,43 @@ void range_repr(RaelRangeValue *self) {
     printf("%ld to %ld", self->start, self->end);
 }
 
-RaelValue *range_construct(RaelArguments *args, struct Interpreter *interpreter) {
+RaelValue *range_construct(RaelArgumentList *args, struct Interpreter *interpreter) {
     RaelInt start, end;
 
     (void)interpreter;
 
     if (args->amount_arguments == 1) {
-        RaelValue *arg1 = args->arguments[0];
+        RaelValue *arg1 = arguments_get(args, 0);
 
         // verify the argument is a whole number
         if (arg1->type != &RaelNumberType) {
-            return BLAME_NEW_CSTR("Expected number as argument");
+            return BLAME_NEW_CSTR_ST("Expected number", *arguments_state(args, 0));
         }
         if (!number_is_whole((RaelNumberValue*)arg1)) {
-            return BLAME_NEW_CSTR("Expected a whole number as argument");
+            return BLAME_NEW_CSTR_ST("Expected a whole number", *arguments_state(args, 0));
         }
         start = 0;
         end = number_to_int((RaelNumberValue*)arg1);
     } else if (args->amount_arguments == 2) {
-        RaelValue *arg1 = args->arguments[0],
-                  *arg2 = args->arguments[1];
+        RaelValue *arg1 = arguments_get(args, 0),
+                  *arg2 = arguments_get(args, 1);
 
         // verify the two arguments are whole numbers
         if (arg1->type != &RaelNumberType) {
-            return BLAME_NEW_CSTR("Expected number as first argument");
+            return BLAME_NEW_CSTR_ST("Expected a number",
+                                     *arguments_state(args, 0));
         }
         if (!number_is_whole((RaelNumberValue*)arg1)) {
-            return BLAME_NEW_CSTR("Expected a whole number as first argument");
+            return BLAME_NEW_CSTR_ST("Expected a whole number",
+                                     *arguments_state(args, 0));
         }
         if (arg2->type != &RaelNumberType) {
-            return BLAME_NEW_CSTR("Expected number as second argument");
+            return BLAME_NEW_CSTR_ST("Expected a number",
+                                     *arguments_state(args, 1));
         }
         if (!number_is_whole((RaelNumberValue*)arg2)) {
-            return BLAME_NEW_CSTR("Expected a whole number as second argument");
+            return BLAME_NEW_CSTR_ST("Expected a whole number",
+                                     *arguments_state(args, 1));
         }
         start = number_to_int((RaelNumberValue*)arg1);
         end = number_to_int((RaelNumberValue*)arg2);
@@ -714,7 +719,7 @@ RaelValue *value_cast(RaelValue *value, RaelTypeValue *type) {
     }
 }
 
-RaelValue *value_call(RaelValue *value, RaelArguments *args, struct Interpreter *interpreter) {
+RaelValue *value_call(RaelValue *value, RaelArgumentList *args, struct Interpreter *interpreter) {
     RaelCallerFunc possible_call = value->type->op_call;
 
     if (possible_call) {
