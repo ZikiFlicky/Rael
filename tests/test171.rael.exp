@@ -1,6 +1,6 @@
 module(:Math)
 3.1415926535897931
-cfunc(:Floor, 1)
+cfunc(:Cos, 1) cfunc(:Sin, 1) cfunc(:Tan, 1) cfunc(:ASin, 1) cfunc(:ATan, 1) cfunc(:ACos, 1) cfunc(:Log10, 1) cfunc(:Log2, 1) cfunc(:Floor, 1) cfunc(:Ceil, 1)
 2
 Void
 Error [tests/test171.rael:8:17]: Expected a number

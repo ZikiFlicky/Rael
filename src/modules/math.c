@@ -36,6 +36,56 @@ RaelValue *module_math_tan(RaelArgumentList *args) {
     return number_newf(tan(number_to_float((RaelNumberValue*)number)));
 }
 
+RaelValue *module_math_acos(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(acos(number_to_float((RaelNumberValue*)number)));
+}
+
+RaelValue *module_math_asin(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(asin(number_to_float((RaelNumberValue*)number)));
+}
+
+RaelValue *module_math_atan(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(atan(number_to_float((RaelNumberValue*)number)));
+}
+
+RaelValue *module_math_log10(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(log10(number_to_float((RaelNumberValue*)number)));
+}
+
+RaelValue *module_math_log2(RaelArgumentList *args) {
+    RaelValue *number;
+    assert(arguments_amount(args) == 1);
+    number = arguments_get(args, 0);
+    if (number->type != &RaelNumberType) {
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+    return number_newf(log2(number_to_float((RaelNumberValue*)number)));
+}
+
 RaelValue *module_math_ceil(RaelArgumentList *args) {
     RaelValue *number;
     assert(arguments_amount(args) == 1);
@@ -112,6 +162,11 @@ RaelValue *module_math_new(void) {
     module_set_key(m, RAEL_HEAPSTR("Cos"), cfunc_new(RAEL_HEAPSTR("Cos"), module_math_cos, 1));
     module_set_key(m, RAEL_HEAPSTR("Sin"), cfunc_new(RAEL_HEAPSTR("Sin"), module_math_sin, 1));
     module_set_key(m, RAEL_HEAPSTR("Tan"), cfunc_new(RAEL_HEAPSTR("Tan"), module_math_tan, 1));
+    module_set_key(m, RAEL_HEAPSTR("ACos"), cfunc_new(RAEL_HEAPSTR("ACos"), module_math_acos, 1));
+    module_set_key(m, RAEL_HEAPSTR("ASin"), cfunc_new(RAEL_HEAPSTR("ASin"), module_math_asin, 1));
+    module_set_key(m, RAEL_HEAPSTR("ATan"), cfunc_new(RAEL_HEAPSTR("ATan"), module_math_atan, 1));
+    module_set_key(m, RAEL_HEAPSTR("Log10"), cfunc_new(RAEL_HEAPSTR("Log10"), module_math_log10, 1));
+    module_set_key(m, RAEL_HEAPSTR("Log2"), cfunc_new(RAEL_HEAPSTR("Log2"), module_math_log2, 1));
     module_set_key(m, RAEL_HEAPSTR("Floor"), cfunc_new(RAEL_HEAPSTR("Floor"), module_math_floor, 1));
     module_set_key(m, RAEL_HEAPSTR("Ceil"), cfunc_new(RAEL_HEAPSTR("Ceil"), module_math_ceil, 1));
     module_set_key(m, RAEL_HEAPSTR("Sqrt"), cfunc_new(RAEL_HEAPSTR("Sqrt"), module_math_sqrt, 1));
