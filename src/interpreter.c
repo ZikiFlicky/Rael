@@ -294,8 +294,11 @@ static RaelValue *eval_key_operation_set(struct Interpreter *interpreter, char *
     return value;
 }
 
-/* given an operation a get_member expression, and an expression, sets the key in the lhs of the get_member expression
- * to be the result of the operation on it and the result of the evaluation of the other expression */
+/*
+ * given an operation a get_member expression, and an expression, sets the key in
+ * the lhs of the get_member expression to be the result of the operation on it
+ * and the result of the evaluation of the other expression
+ */
 static RaelValue *eval_get_member_operation_set(struct Interpreter *interpreter, struct GetMemberExpr *get_member, struct Expr *value_expr,
                                          RaelBinExprFunc operation, struct State expr_state) {
     RaelValue *value;

@@ -7,8 +7,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-/* This is an implementation of the stack value type in Rael,
-   not the execution stack's implementation */
+/*
+ * This is an implementation of the stack value type in Rael,
+ * not the execution stack's implementation
+ */
 
 typedef struct RaelStackValue {
     RAEL_VALUE_BASE;

@@ -86,17 +86,26 @@ typedef struct RaelTypeValue {
 
     RaelNegFunc op_neg; /* -value */
 
-    /* non-binary operations */
-    RaelCallerFunc op_call; /* Call the value */
-    RaelConstructorFunc op_construct; /* Construct a new value of such type */
+    /* Call the value */
+    RaelCallerFunc op_call;
+    /* Construct a new value with that type */
+    RaelConstructorFunc op_construct;
 
-    RaelAsBoolFunc as_bool; /* Convert a value to its boolean representation */
-    RaelSingleFunc deallocator; /* Free all of the internally allocated values. Called by the interpreter */
-    RaelSingleFunc repr; /* Log (print) the value, as its raw representation (For example: "String").
-                            If this is uninitialized, return a default representation for the value */
-    RaelSingleFunc logger; /* Log a more complex representation of the value (For example: String).
-                              If this is undefined (NULL), the interpreter will fallback and
-                              automatically run the normal repr function instead. defined without a following newline */
+    /* Convert a value to its boolean representation */
+    RaelAsBoolFunc as_bool; 
+    /* Free all of the internally allocated values. Called by the interpreter */
+    RaelSingleFunc deallocator;
+    /*
+     * Log (print) the value, as its raw representation (For example: "String").
+     * If this is uninitialized, return a default representation for the value
+     */
+    RaelSingleFunc repr;
+    /*
+     * Log a more complex representation of the value (For example: String).
+     * If this is undefined (NULL), the interpreter will fallback and
+     * automatically run the normal repr function instead. defined without a following newline
+     */
+    RaelSingleFunc logger;
 
     /* Cast the value to a new type */
     RaelCastFunc cast;

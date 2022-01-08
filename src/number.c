@@ -205,8 +205,10 @@ bool number_as_bool(RaelNumberValue *self) {
         return self->as_int != 0;
 }
 
-/* given a string + length, the function parses a number into `out`.
-   the function returns false on failure and true on success */
+/*
+ * given a string + length, the function parses a number into `out`.
+ * the function returns false on failure and true on success
+ */
 bool number_from_string(char *string, size_t length, struct RaelHybridNumber *out) {
     bool is_float = false;
     RaelInt decimal = 0;
