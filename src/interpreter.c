@@ -572,8 +572,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
                 struct Expr *arg_expr = call.args.exprs[i];
                 RaelValue *arg_value = expr_eval(interpreter, arg_expr, true);
                 struct State arg_state = arg_expr->state;
-
-                value_ref(arg_value);
+                // add the argument
                 arguments_add(&args, arg_value, arg_state);
             }
             arguments_finalize(&args); // finish

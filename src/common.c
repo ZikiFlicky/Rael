@@ -92,14 +92,17 @@ void arguments_new(RaelArgumentList *out) {
 }
 
 void arguments_add(RaelArgumentList *args, RaelValue *value, struct State state) {
-    RaelArgument arg = (RaelArgument) {
-        .value = value,
-        .state = state
-    };
+    RaelArgument arg;
+
     if (args->amount_allocated == 0)
         args->arguments = malloc((args->amount_allocated = 4) * sizeof(RaelArgument));
     else if (args->amount_arguments >= args->amount_allocated)
         args->arguments = realloc(args->arguments, (args->amount_allocated += 4) * sizeof(RaelArgument));
+
+    // push argument to argument list
+    value_ref(value);
+    arg.value = value;
+    arg.state = state;
     args->arguments[args->amount_arguments++] = arg;
 }
 
