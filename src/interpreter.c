@@ -747,9 +747,9 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         int result = 0;
         lhs = expr_eval(interpreter, expr->lhs, true);
 
-        if (value_as_bool(lhs) == true) {
+        if (value_truthy(lhs) == true) {
             rhs = expr_eval(interpreter, expr->rhs, true);
-            result = value_as_bool(rhs) == true;
+            result = value_truthy(rhs) == true;
             value_deref(rhs);
         }
         value_deref(lhs);
@@ -761,11 +761,11 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         int result = 0;
         lhs = expr_eval(interpreter, expr->lhs, true);
 
-        if (value_as_bool(lhs) == true) {
+        if (value_truthy(lhs) == true) {
             result = 1;
         } else {
             rhs = expr_eval(interpreter, expr->rhs, true);
-            result = value_as_bool(rhs) == true;
+            result = value_truthy(rhs) == true;
             value_deref(rhs);
         }
         value_deref(lhs);
@@ -778,7 +778,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
         // eval the inside of the '!' expr
         single = expr_eval(interpreter, expr->lhs, true);
         // take the opposite of the value's boolean representation
-        negative = !value_as_bool(single);
+        negative = !value_truthy(single);
         // deallocate the now unused inside value
         value_deref(single);
         // create a new number value from the opposite of `single`
@@ -862,7 +862,7 @@ static void interpreter_interpret_loop(struct Interpreter *interpreter, struct L
             interpreter_push_scope(interpreter, &loop_scope);
 
             condition = expr_eval(interpreter, loop->while_condition, true);
-            continue_loop = value_as_bool(condition);
+            continue_loop = value_truthy(condition);
             value_deref(condition);
             // if you can loop, run the block
             if (continue_loop) {
@@ -960,7 +960,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
             interpreter_push_scope(interpreter, &if_scope);
             // evaluate condition and check if it is true then dereference the condition
             condition = expr_eval(interpreter, instruction->if_stat.condition, true);
-            is_true = value_as_bool(condition);
+            is_true = value_truthy(condition);
             value_deref(condition);
             if (is_true) {
                 block_run(interpreter, instruction->if_stat.if_block, false);
@@ -969,7 +969,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
             break;
         case IfTypeInstruction:
             condition = expr_eval(interpreter, instruction->if_stat.condition, true);
-            is_true = value_as_bool(condition);
+            is_true = value_truthy(condition);
             value_deref(condition);
             if (is_true) {
                 interpreter_interpret_inst(interpreter, instruction->if_stat.if_instruction);

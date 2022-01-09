@@ -158,7 +158,7 @@ void value_repr(RaelValue *value);
 void value_log(RaelValue *value);
 
 /* return the value's boolean representation, calls the value's `as_bool` method */
-bool value_as_bool(RaelValue *value);
+bool value_truthy(RaelValue *value);
 
 /* returns a boolean saying if the values are equal */
 bool values_eq(RaelValue *value, RaelValue *value2);

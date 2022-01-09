@@ -472,7 +472,7 @@ void value_log(RaelValue *value) {
 }
 
 /* is the value booleanly true? like Python's bool() operator */
-bool value_as_bool(RaelValue *const value) {
+bool value_truthy(RaelValue *const value) {
     RaelAsBoolFunc possible_as_bool = value->type->as_bool;
 
     if (possible_as_bool) {
