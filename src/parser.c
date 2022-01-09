@@ -1,16 +1,4 @@
-#include "parser.h"
-#include "lexer.h"
-#include "number.h"
-#include "stack.h"
-#include "value.h"
-#include "common.h"
-
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <stdarg.h>
+#include "rael.h"
 
 static struct Expr *parser_parse_expr(struct Parser* const parser);
 static struct Instruction *parser_parse_instr(struct Parser* const parser);

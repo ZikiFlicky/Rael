@@ -1,10 +1,11 @@
 #ifndef RAEL_VARMAP_H
 #define RAEL_VARMAP_H
 
-#include "common.h"
-
 #include <stddef.h>
 #include <stdbool.h>
+
+struct RaelValue;
+typedef struct RaelValue RaelValue;
 
 struct VariableMap {
     struct BucketNode {

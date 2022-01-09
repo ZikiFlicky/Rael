@@ -1,12 +1,4 @@
-#include "lexer.h"
-#include "common.h"
-
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <string.h>
-#include <assert.h>
+#include "rael.h"
 
 struct State lexer_dump_state(struct Lexer* const lexer) {
     struct State state;

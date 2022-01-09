@@ -1,9 +1,4 @@
-#include "../common.h"
-#include "../value.h"
-#include "../module.h"
-#include "../stack.h"
-#include "../string.h"
-#include "../number.h"
+#include "../rael.h"
 
 RaelValue *module_types_new(void) {
     RaelModuleValue *m;

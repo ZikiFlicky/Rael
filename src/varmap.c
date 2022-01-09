@@ -1,9 +1,4 @@
-#include "varmap.h"
-#include "value.h"
-
-#include <stddef.h>
-#include <assert.h>
-#include <string.h>
+#include "rael.h"
 
 void varmap_new(struct VariableMap *out) {    
     out->buckets = NULL;

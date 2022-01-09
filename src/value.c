@@ -1,15 +1,4 @@
-#include "value.h"
-#include "stack.h"
-#include "module.h"
-#include "string.h"
-#include "number.h"
-#include "common.h"
-#include "scope.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <assert.h>
-#include <string.h>
+#include "rael.h"
 
 struct Instruction;
 

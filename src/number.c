@@ -1,12 +1,4 @@
-#include "number.h"
-
-#include "value.h"
-#include "string.h"
-
-#include <math.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <string.h>
+#include "rael.h"
 
 bool number_validate(RaelValue *self) {
     return self->type == &RaelNumberType;

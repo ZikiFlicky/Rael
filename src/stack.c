@@ -1,8 +1,4 @@
-#include "stack.h"
-#include "value.h"
-
-#include <assert.h>
-#include <stdbool.h>
+#include "rael.h"
 
 static inline bool stack_validate(RaelValue *value) {
     return value->type == &RaelStackType;

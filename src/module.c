@@ -1,16 +1,7 @@
-#include "module.h"
-#include "value.h"
-#include "varmap.h"
-
-#include <stddef.h>
-#include <string.h>
-#include <math.h>
-#include <assert.h>
+#include "rael.h"
 
 RaelValue *module_math_new(void);
 RaelValue *module_types_new(void);
-
-struct Interpreter;
 
 RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params) {
     RaelCFuncValue *cfunc = RAEL_VALUE_NEW(RaelCFuncType, RaelCFuncValue);

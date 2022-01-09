@@ -1,9 +1,4 @@
-#include "scope.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdbool.h>
+#include "rael.h"
 
 void scope_construct(struct Scope* const scope, struct Scope* const parent_scope) {
     scope->parent = parent_scope;

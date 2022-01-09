@@ -1,7 +1,6 @@
 #ifndef RAEL_MODULE_H
 #define RAEL_MODULE_H
 
-#include "common.h"
 #include "value.h"
 #include "varmap.h"
 

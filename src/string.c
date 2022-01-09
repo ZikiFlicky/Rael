@@ -1,11 +1,4 @@
-#include "string.h"
-#include "common.h"
-#include "value.h"
-#include "number.h"
-#include "stack.h"
-
-#include <assert.h>
-#include <string.h>
+#include "rael.h"
 
 static inline bool string_validate(RaelValue *value) {
     return value->type == &RaelStringType;

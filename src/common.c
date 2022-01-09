@@ -1,10 +1,4 @@
-#include "common.h"
-#include "value.h"
-
-#include <string.h>
-#include <stdarg.h>
-#include <limits.h>
-#include <stdbool.h>
+#include "rael.h"
 
 RaelInt rael_int_abs(RaelInt i) {
     if (i < 0) {

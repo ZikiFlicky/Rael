@@ -1,10 +1,4 @@
-#include "../module.h"
-#include "../value.h"
-#include "../common.h"
-#include "../string.h"
-
-#include <math.h>
-#include <assert.h>
+#include "../rael.h"
 
 RaelValue *module_math_cos(RaelArgumentList *args) {
     RaelValue *number;

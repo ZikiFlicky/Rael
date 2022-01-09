@@ -1,18 +1,4 @@
-#include "common.h"
-#include "scope.h"
-#include "value.h"
-#include "number.h"
-#include "string.h"
-#include "module.h"
-#include "stack.h"
-
-#include <string.h>
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <math.h>
-#include <limits.h>
+#include "rael.h"
 
 typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
