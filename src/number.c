@@ -134,14 +134,26 @@ RaelValue *number_mod(RaelNumberValue *self, RaelValue *value) {
     if (number_validate(value)) {
         RaelNumberValue *number = (RaelNumberValue*)value;
 
+        // the double modulo calculations are there to get rid of the negative part
+        // in calculations like `-13 % 3`, which should give 2 but gives -1 instead
         if (self->is_float || number->is_float) {
+            RaelFloat lhs, rhs, res;
             if (number_to_float(number) == 0.0)
                 return BLAME_NEW_CSTR("Division by zero");
-            return number_newf(fmod(number_to_float(self), number_to_float(number)));
+            lhs = number_to_float(self);
+            rhs = number_to_float(number);
+            // calculate the result of the operation
+            res = fmod(fmod(lhs, rhs) + rhs, rhs);
+            return number_newf(res);
         } else {
+            RaelInt lhs, rhs, res;
             if (number->as_int == 0)
                 return BLAME_NEW_CSTR("Division by zero");
-            return number_newi(self->as_int % number->as_int);
+            lhs = self->as_int;
+            rhs = number->as_int;
+            // calculate the result of the operation
+            res = ((lhs % rhs) + rhs) % rhs;
+            return number_newi(res);
         }
     } else {
         return NULL; // invalid operation between types
