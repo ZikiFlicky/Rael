@@ -1,10 +1,8 @@
 #include "rael.h"
 
-struct Instruction;
-
-void block_run(struct Interpreter* const interpreter, struct Instruction **block, bool create_new_scope);
-void interpreter_push_scope(struct Interpreter* const interpreter, struct Scope *scope_addr);
-void interpreter_pop_scope(struct Interpreter* const interpreter);
+void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
+void interpreter_push_scope(RaelInterpreter* const interpreter, struct Scope *scope_addr);
+void interpreter_pop_scope(RaelInterpreter* const interpreter);
 
 bool type_eq(RaelTypeValue *self, RaelTypeValue *value) {
     // types are constant values that are only created, statically, once
@@ -24,7 +22,7 @@ RaelValue *type_cast(RaelTypeValue *self, RaelTypeValue *type) {
 }
 
 /* construct a new value from the type, if possible */
-RaelValue *type_call(RaelTypeValue *self, RaelArgumentList *args, struct Interpreter *interpreter) {
+RaelValue *type_call(RaelTypeValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     // if there is a constructor to the type, call it
     if (self->op_construct) {
         return self->op_construct(args, interpreter);
@@ -130,7 +128,7 @@ RaelValue RaelVoid = (RaelValue) {
     .reference_count = 1
 };
 
-RaelValue *routine_call(RaelRoutineValue *self, RaelArgumentList *args, struct Interpreter *interpreter) {
+RaelValue *routine_call(RaelRoutineValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     size_t amount_args, amount_params;
     struct Scope *prev_scope, routine_scope;
 
@@ -261,7 +259,7 @@ void range_repr(RaelRangeValue *self) {
     printf("%ld to %ld", self->start, self->end);
 }
 
-RaelValue *range_construct(RaelArgumentList *args, struct Interpreter *interpreter) {
+RaelValue *range_construct(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelInt start, end;
 
     (void)interpreter;
@@ -708,7 +706,7 @@ RaelValue *value_cast(RaelValue *value, RaelTypeValue *type) {
     }
 }
 
-RaelValue *value_call(RaelValue *value, RaelArgumentList *args, struct Interpreter *interpreter) {
+RaelValue *value_call(RaelValue *value, RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelCallerFunc possible_call = value->type->op_call;
 
     if (possible_call) {

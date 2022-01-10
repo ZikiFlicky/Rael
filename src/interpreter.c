@@ -4,16 +4,16 @@ typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
 // TODO: add interpreter_set_variable function
 
-static void interpreter_interpret_inst(struct Interpreter* const interpreter, struct Instruction* const instruction);
-static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* const expr, const bool can_explode);
-void block_run(struct Interpreter* const interpreter, struct Instruction **block, bool create_new_scope);
+static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
+static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
+void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
 
-void interpreter_push_scope(struct Interpreter* const interpreter, struct Scope *scope_addr) {
+void interpreter_push_scope(RaelInterpreter* const interpreter, struct Scope *scope_addr) {
     scope_construct(scope_addr, interpreter->scope);
     interpreter->scope = scope_addr;
 }
 
-void interpreter_pop_scope(struct Interpreter* const interpreter) {
+void interpreter_pop_scope(RaelInterpreter* const interpreter) {
     if (interpreter->scope) {
         struct Scope *parent = interpreter->scope->parent;
         scope_dealloc(interpreter->scope);
@@ -22,7 +22,7 @@ void interpreter_pop_scope(struct Interpreter* const interpreter) {
 }
 
 /* make the interpreter deallocate everything it stores */
-static void interpreter_destroy_all(struct Interpreter* const interpreter) {
+static void interpreter_destroy_all(RaelInterpreter* const interpreter) {
     // deallocate all of the scopes
     while (interpreter->scope) {
         interpreter_pop_scope(interpreter);
@@ -38,7 +38,7 @@ static void interpreter_destroy_all(struct Interpreter* const interpreter) {
         free(interpreter->stream_base);
 }
 
-void interpreter_error(struct Interpreter* const interpreter, struct State state, const char* const error_message, ...) {
+void interpreter_error(RaelInterpreter* const interpreter, struct State state, const char* const error_message, ...) {
     va_list va;
     va_start(va, error_message);
     rael_show_error_message(interpreter->filename, state, error_message, va);
@@ -47,7 +47,7 @@ void interpreter_error(struct Interpreter* const interpreter, struct State state
     exit(1);
 }
 
-static RaelValue *rael_readline(struct Interpreter* const interpreter, struct State state) {
+static RaelValue *rael_readline(RaelInterpreter* const interpreter, struct State state) {
     size_t allocated, idx = 0;
     char *string = malloc((allocated = 32) * sizeof(char));
     char c;
@@ -68,7 +68,7 @@ static RaelValue *rael_readline(struct Interpreter* const interpreter, struct St
     return string_new_pure(string, allocated, true);
 }
 
-static RaelValue *value_eval(struct Interpreter* const interpreter, struct ValueExpr *value) {
+static RaelValue *value_eval(RaelInterpreter* const interpreter, struct ValueExpr *value) {
     RaelValue *out_value;
 
     switch (value->type) {
@@ -155,7 +155,7 @@ static RaelValue *value_verify_uint(RaelValue *number, struct State number_state
     return blame;
 }
 
-static RaelValue *eval_stack_set(struct Interpreter* const interpreter, struct Expr *at_expr, struct Expr *value_expr) {
+static RaelValue *eval_stack_set(RaelInterpreter* const interpreter, struct Expr *at_expr, struct Expr *value_expr) {
     RaelValue *stack;
     RaelValue *idx;
     RaelValue *value;
@@ -189,7 +189,7 @@ static RaelValue *eval_stack_set(struct Interpreter* const interpreter, struct E
     return value;
 }
 
-static RaelValue *eval_at_operation_set(struct Interpreter* const interpreter, struct Expr *at_expr, struct Expr *value_expr,
+static RaelValue *eval_at_operation_set(RaelInterpreter* const interpreter, struct Expr *at_expr, struct Expr *value_expr,
                                         RaelBinaryOperationFunction operation, struct State operator_state) {
     RaelValue *stack;
     RaelValue *idx;
@@ -244,7 +244,7 @@ static RaelValue *eval_at_operation_set(struct Interpreter* const interpreter, s
     return result;
 }
 
-static RaelValue *eval_key_operation_set(struct Interpreter *interpreter, char *key, struct Expr *value_expr,
+static RaelValue *eval_key_operation_set(RaelInterpreter *interpreter, char *key, struct Expr *value_expr,
                                          RaelBinExprFunc operation, struct State expr_state) {
     RaelValue *value;
     RaelValue **lhs_ptr;
@@ -285,7 +285,7 @@ static RaelValue *eval_key_operation_set(struct Interpreter *interpreter, char *
  * the lhs of the get_member expression to be the result of the operation on it
  * and the result of the evaluation of the other expression
  */
-static RaelValue *eval_get_member_operation_set(struct Interpreter *interpreter, struct GetMemberExpr *get_member, struct Expr *value_expr,
+static RaelValue *eval_get_member_operation_set(RaelInterpreter *interpreter, struct GetMemberExpr *get_member, struct Expr *value_expr,
                                          RaelBinExprFunc operation, struct State expr_state) {
     RaelValue *value;
     RaelValue *get_member_lhs, **lhs_ptr;
@@ -324,7 +324,7 @@ static RaelValue *eval_get_member_operation_set(struct Interpreter *interpreter,
     return value;
 }
 
-static RaelValue *eval_set_operation_expr(struct Interpreter *interpreter, struct SetExpr *set_expr, struct State state,
+static RaelValue *eval_set_operation_expr(RaelInterpreter *interpreter, struct SetExpr *set_expr, struct State state,
                                           RaelBinExprFunc operation) {
     switch (set_expr->set_type) {
     case SetTypeAtExpr:
@@ -343,7 +343,7 @@ static RaelValue *eval_set_operation_expr(struct Interpreter *interpreter, struc
 }
 
 /* a match statement is basically a more complex switch statement */
-static RaelValue *expr_match_eval(struct Interpreter *interpreter, struct MatchExpr *match){
+static RaelValue *expr_match_eval(RaelInterpreter *interpreter, struct MatchExpr *match){
     RaelValue *match_against = expr_eval(interpreter, match->match_against, true);
     RaelValue *return_value;
     bool matched = false;
@@ -384,7 +384,7 @@ static RaelValue *expr_match_eval(struct Interpreter *interpreter, struct MatchE
     return return_value;
 }
 
-static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* const expr, const bool can_explode) {
+static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode) {
     RaelValue *lhs;
     RaelValue *rhs;
     RaelValue *single;
@@ -839,7 +839,7 @@ static RaelValue *expr_eval(struct Interpreter* const interpreter, struct Expr* 
     return value;
 }
 
-void block_run(struct Interpreter* const interpreter, struct Instruction **block, bool create_new_scope) {
+void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope) {
     struct Scope block_scope;
     if (create_new_scope)
         interpreter_push_scope(interpreter, &block_scope);
@@ -852,7 +852,7 @@ void block_run(struct Interpreter* const interpreter, struct Instruction **block
         interpreter_pop_scope(interpreter);
 }
 
-static void interpreter_interpret_loop(struct Interpreter *interpreter, struct LoopInstruction *loop) {
+static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct LoopInstruction *loop) {
     struct Scope loop_scope;
     switch (loop->type) {
     case LoopWhile: {
@@ -926,7 +926,7 @@ static void interpreter_interpret_loop(struct Interpreter *interpreter, struct L
     }
 }
 
-static void interpreter_interpret_inst(struct Interpreter* const interpreter, struct Instruction* const instruction) {
+static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction) {
     switch (instruction->type) {
     case InstructionTypeLog: {
         RaelValue *value;
@@ -1043,7 +1043,7 @@ static void interpreter_interpret_inst(struct Interpreter* const interpreter, st
     }
 }
 
-static void interpreter_set_argv(struct Interpreter *interpreter, char **argv, size_t argc) {
+static void interpreter_set_argv(RaelInterpreter *interpreter, char **argv, size_t argc) {
     RaelValue *argv_stack = stack_new(argc);
     for (size_t i = 0; i < argc; ++i) {
         RaelValue *arg = string_new_pure(argv[i], strlen(argv[i]), false);
@@ -1052,7 +1052,7 @@ static void interpreter_set_argv(struct Interpreter *interpreter, char **argv, s
     scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Argv"), argv_stack, true);
 }
 
-static void interpreter_set_filename(struct Interpreter *interpreter, char *filename) {
+static void interpreter_set_filename(RaelInterpreter *interpreter, char *filename) {
     RaelValue *value;
     if (filename) {
         value = string_new_pure(filename, strlen(filename), false);
@@ -1066,7 +1066,7 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, char *
                     const bool stream_on_heap, const bool warn_undefined) {
     struct Instruction *instruction;
     struct Scope bottom_scope;
-    struct Interpreter interp = {
+    RaelInterpreter interp = {
         .instructions = instructions,
         .interrupt = ProgramInterruptNone,
         .returned_value = NULL,

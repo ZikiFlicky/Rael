@@ -56,8 +56,8 @@ typedef RaelValue* (*RaelBinExprFunc)(RaelValue*, RaelValue*);
 typedef bool (*RaelBinCmpFunc)(RaelValue*, RaelValue*);
 typedef bool (*RaelAsBoolFunc)(RaelValue*);
 typedef void (*RaelSingleFunc)(RaelValue*);
-typedef RaelValue* (*RaelCallerFunc)(RaelValue*, RaelArgumentList*, struct Interpreter*);
-typedef RaelValue* (*RaelConstructorFunc)(RaelArgumentList*, struct Interpreter*);
+typedef RaelValue* (*RaelCallerFunc)(RaelValue*, RaelArgumentList*, RaelInterpreter*);
+typedef RaelValue* (*RaelConstructorFunc)(RaelArgumentList*, RaelInterpreter*);
 typedef RaelValue* (*RaelGetFunc)(RaelValue*, size_t);
 typedef RaelValue* (*RaelSliceFunc)(RaelValue*, size_t, size_t);
 typedef RaelValue* (*RaelCastFunc)(RaelValue*, RaelTypeValue*);
@@ -224,6 +224,6 @@ void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate
 RaelValue *value_slice(RaelValue *self, size_t start, size_t end);
 
 /* value(arg1, arg2, ...) */
-RaelValue *value_call(RaelValue *value, RaelArgumentList *args, struct Interpreter *interpreter);
+RaelValue *value_call(RaelValue *value, RaelArgumentList *args, RaelInterpreter *interpreter);
 
 #endif /* RAEL_VALUE_H */

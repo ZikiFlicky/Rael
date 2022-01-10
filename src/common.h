@@ -36,7 +36,7 @@ enum ProgramInterrupt {
     ProgramInterruptSkip
 };
 
-struct Interpreter {
+typedef struct RaelInterpreter {
     char *stream_base;
     char* const filename;
     const bool stream_on_heap;
@@ -48,7 +48,7 @@ struct Interpreter {
 
     // warnings
     bool warn_undefined;
-};
+} RaelInterpreter;
 
 struct State {
     char *stream_pos;

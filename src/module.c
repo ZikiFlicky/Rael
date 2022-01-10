@@ -15,7 +15,7 @@ void cfunc_delete(RaelCFuncValue *self) {
     free(self->name);
 }
 
-RaelValue *cfunc_call(RaelCFuncValue *self, RaelArgumentList *args, struct Interpreter *interpreter) {
+RaelValue *cfunc_call(RaelCFuncValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     (void)interpreter;
     if (arguments_amount(args) != self->amount_params)
         return NULL;
