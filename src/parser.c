@@ -233,78 +233,80 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
     if ((value = parser_parse_routine(parser))       ||
         (value = parser_parse_stack(parser))         ||
-        (value = parser_parse_number(parser))) {
+        (value = parser_parse_number(parser))) { // parse values with syntax
         expr = expr_create(ExprTypeValue);
         expr->as_value = value;
-        return expr;
-    }
+    } else { // if you couldn't parse anything up until here, try to parse other stuff
+        if (!lexer_tokenize(&parser->lexer))
+            return NULL;
 
-    if (!lexer_tokenize(&parser->lexer))
-        return NULL;
+        switch (parser->lexer.token.name) {
+        case TokenNameString: {
+            char *string = NULL;
+            size_t allocated = 0, length = 0;
 
-    switch (parser->lexer.token.name) {
-    case TokenNameString: {
-        char *string = NULL;
-        size_t allocated = 0, length = 0;
-
-        for (size_t i = 0; i < parser->lexer.token.length; ++i) {
-            char c;
-            if (parser->lexer.token.string[i] == '\\') {
-                // there isn't really a reason to have more than this
-                switch (parser->lexer.token.string[++i]) {
-                case 'n':
-                    c = '\n';
-                    break;
-                case 'r':
-                    c = '\r';
-                    break;
-                case 't':
-                    c = '\t';
-                    break;
-                case '\\':
-                    c = '\\';
-                    break;
-                default: // this works with \" too
+            for (size_t i = 0; i < parser->lexer.token.length; ++i) {
+                char c;
+                if (parser->lexer.token.string[i] == '\\') {
+                    // there isn't really a reason to have more than this
+                    switch (parser->lexer.token.string[++i]) {
+                    case 'n':
+                        c = '\n';
+                        break;
+                    case 'r':
+                        c = '\r';
+                        break;
+                    case 't':
+                        c = '\t';
+                        break;
+                    case '\\':
+                        c = '\\';
+                        break;
+                    default: // this works with \" too
+                        c = parser->lexer.token.string[i];
+                    }
+                } else {
                     c = parser->lexer.token.string[i];
                 }
-            } else {
-                c = parser->lexer.token.string[i];
+
+                if (allocated == 0) {
+                    string = malloc((allocated = 16) * sizeof(char));
+                } else if (length == allocated) {
+                    string = realloc(string, (allocated += 16) * sizeof(char));
+                }
+
+                string[length++] = c;
             }
 
-            if (allocated == 0) {
-                string = malloc((allocated = 16) * sizeof(char));
-            } else if (length == allocated) {
-                string = realloc(string, (allocated += 16) * sizeof(char));
-            }
+            // shrink size
+            if (allocated > 0)
+                string = realloc(string, length * sizeof(char));
 
-            string[length++] = c;
+            expr = expr_create(ExprTypeValue);
+            expr->as_value = value_expr_create(ValueTypeString);
+            expr->as_value->as_string = (struct ASTStringValue) {
+                .source = string,
+                .length = length
+            };
+
+            break;
         }
-
-        // shrink size
-        if (allocated > 0)
-            string = realloc(string, length * sizeof(char));
-
-        expr = expr_create(ExprTypeValue);
-        expr->as_value = value_expr_create(ValueTypeString);
-        expr->as_value->as_string = (struct ASTStringValue) {
-            .source = string,
-            .length = length
-        };
-
-        return expr;
+        case TokenNameKey:
+            expr = expr_create(ExprTypeKey);
+            expr->as_key = token_allocate_key(&parser->lexer.token);
+            break;
+        case TokenNameVoid:
+            expr = expr_create(ExprTypeValue);
+            expr->as_value = value_expr_create(ValueTypeVoid);
+            break;
+        default:
+            parser_load_state(parser, backtrack);
+            return NULL;
+        }
     }
-    case TokenNameKey:
-        expr = expr_create(ExprTypeKey);
-        expr->as_key = token_allocate_key(&parser->lexer.token);
-        return expr;
-    case TokenNameVoid:
-        expr = expr_create(ExprTypeValue);
-        expr->as_value = value_expr_create(ValueTypeVoid);
-        return expr;
-    default:
-        parser_load_state(parser, backtrack);
-        return NULL;
-    }
+
+    expr->state = backtrack;
+    return expr;
 }
 
 static struct Expr *parser_parse_match(struct Parser* const parser) {
@@ -313,7 +315,7 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
     struct MatchCase *match_cases; // an array of all of the with statements
     size_t amount = 0, allocated = 0; // array length and size counters
     struct Instruction **else_block = NULL; // the block of the else case
-    struct State backtrack;
+    struct State backtrack, full_backtrack;
     bool is_matching = true;
     bool old_can_return;
 
@@ -328,9 +330,10 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
     if (!(match_against = parser_parse_expr(parser)))
         parser_error(parser, "Expected expression");
 
-    // parse the '{'
     parser_maybe_expect_newline(parser);
-    backtrack = parser_dump_state(parser);
+    full_backtrack = backtrack = parser_dump_state(parser);
+
+    // parse the '{'
     if (!parser_match(parser, TokenNameLeftCur)) {
         expr_delete(match_against);
         parser_load_state(parser, backtrack);
@@ -432,6 +435,7 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
         .else_block = else_block
     };
     parser->can_return = old_can_return;
+    expr->state = full_backtrack;
     return expr;
 }
 
@@ -513,12 +517,49 @@ error:
     return NULL;
 }
 
+static struct Expr *parser_parse_paren_expr(struct Parser* const parser) {
+    struct State full_backtrack = parser_dump_state(parser);
+    struct State backtrack;
+    struct Expr *expr;
+
+    if (!parser_match(parser, TokenNameLeftParen)) {
+        return NULL;
+    }
+
+    backtrack = parser_dump_state(parser);
+
+    // if it couldn't parse an expression after the '('
+    if (!(expr = parser_parse_expr(parser))) {
+        parser_error(parser, "Expected an expression after left paren");
+    }
+
+    // expect a ')' after an expression, but if there isn't, it might be a set expression
+    if (!parser_match(parser, TokenNameRightParen)) {
+        struct State after_expr_state = parser_dump_state(parser);
+
+        // reset position to after left paren
+        parser_load_state(parser, backtrack);
+        expr_delete(expr);
+
+        if (!(expr = parser_parse_expr_set(parser)))
+            parser_state_error(parser, after_expr_state, "Unmatched '('");
+
+        if (!parser_match(parser, TokenNameRightParen))
+            parser_error(parser, "Unmatched '('");
+    }
+
+    expr->state = full_backtrack;
+    return expr;
+}
+
 /* suffix parsing */
 static struct Expr *parser_parse_suffix(struct Parser* const parser) {
     struct Expr *expr;
 
-    if (!(expr = parser_parse_literal_expr(parser)))
+    if (!(expr = parser_parse_paren_expr(parser)) &&
+        !(expr = parser_parse_literal_expr(parser))) {
         return NULL;
+    }
 
     for (;;) {
         struct State backtrack, start_backtrack;
@@ -616,29 +657,6 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             expr->as_single = prompt_value;
             break;
         }
-        case TokenNameLeftParen: {
-            struct State last_state = parser_dump_state(parser);
-
-            if (!(expr = parser_parse_expr(parser)))
-                parser_error(parser, "Expected an expression after left paren");
-
-            // expect a ')' after an expression, but if there isn't, it might be a set expression
-            if (!parser_match(parser, TokenNameRightParen)) {
-                struct State after_expr_state = parser_dump_state(parser);
-
-                // reset position to after left paren
-                parser_load_state(parser, last_state);
-                expr_delete(expr);
-
-                if (!(expr = parser_parse_expr_set(parser)))
-                    parser_state_error(parser, after_expr_state, "Unmatched '('");
-
-                if (!parser_match(parser, TokenNameRightParen))
-                    parser_error(parser, "Unmatched '('");
-            }
-
-            break;
-        }
         case TokenNameBlame:
             expr = expr_create(ExprTypeBlame);
             expr->as_single = parser_parse_expr_single(parser);
@@ -647,9 +665,9 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             parser_load_state(parser, backtrack);
             return NULL;
         }
+        expr->state = backtrack;
     }
 
-    expr->state = backtrack;
     return expr;
 }
 

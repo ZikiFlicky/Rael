@@ -1,0 +1,4 @@
+load :Math
+
+log (:Math):Cos
+log (1 + 1):Thing
