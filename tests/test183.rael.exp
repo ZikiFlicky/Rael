@@ -1,0 +1,3 @@
+Error [tests/test183.rael:1:18]: Expected a key
+| catch 1 / 0 with {
+|                  ^

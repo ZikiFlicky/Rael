@@ -1044,9 +1044,10 @@ static RaelExprList parser_parse_csv(struct Parser* const parser, const bool all
 }
 
 static struct Instruction *parser_parse_instr_catch(struct Parser* const parser) {
-    struct State backtrack = parser_dump_state(parser);
     struct Instruction *inst;
     struct CatchInstruction catch;
+    struct Token key_token;
+    bool store_value;
 
     if (!parser_match(parser, TokenNameCatch))
         return NULL;
@@ -1057,14 +1058,27 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
 
     parser_maybe_expect_newline(parser);
 
-    if (!parser_match(parser, TokenNameWith))
-        parser_state_error(parser, backtrack, "Expected 'with'");
+    if (parser_match(parser, TokenNameWith)) {
+        if (!parser_match(parser, TokenNameKey))
+            parser_error(parser, "Expected a key");
+        key_token = parser->lexer.token;
+        store_value = true;
+    } else {
+        store_value = false;
+    }
 
     if (!(catch.handle_block = parser_parse_block(parser))) {
         parser_error(parser, "Expected block");
     }
 
     parser_maybe_expect_newline(parser);
+
+    if (store_value) {
+        // add key to catch statement
+        catch.value_key = token_allocate_key(&key_token);
+    } else {
+        catch.value_key = NULL;
+    }
 
     inst = instruction_create(InstructionTypeCatch);
     inst->catch = catch;
@@ -1575,6 +1589,9 @@ void instruction_delete(struct Instruction* const inst) {
         if (inst->catch.handle_block) {
             block_delete(inst->catch.handle_block);
         }
+        // only if you tell it to catch, catch
+        if (inst->catch.value_key)
+            free(inst->catch.value_key);
         break;
     case InstructionTypeLoad:
         free(inst->load.module_name);

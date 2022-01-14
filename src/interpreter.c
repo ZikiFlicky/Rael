@@ -1018,11 +1018,23 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
         interpreter->interrupt = ProgramInterruptSkip;
         break;
     case InstructionTypeCatch: {
-        RaelValue *caught_value = expr_eval(interpreter, instruction->catch.catch_expr, false);
+        struct CatchInstruction catch = instruction->catch;
+        RaelValue *caught_value = expr_eval(interpreter, catch.catch_expr, false);
 
         // handle blame
         if (blame_validate(caught_value)) {
-            block_run(interpreter, instruction->catch.handle_block, true);
+            // if it is a catch with, set the message of the blame
+            if (catch.value_key) {
+                RaelValue *message = ((RaelBlameValue*)caught_value)->message;
+
+                // if there is no message, set a void
+                if (!message) {
+                    message = void_new();
+                }
+                // set the message as the key
+                scope_set(interpreter->scope, catch.value_key, message, false);
+            }
+            block_run(interpreter, catch.handle_block, true);
         }
 
         value_deref(caught_value);

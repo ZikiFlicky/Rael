@@ -8,6 +8,14 @@
     }
 }
 
-catch :Factorial(-1) with {
+catch :Factorial(-1) {
     log "factorial failed"
+}
+
+catch :Factorial(-1) with :a {
+    log :a
+}
+
+catch blame with :a {
+    log :a = Void
 }

@@ -1,0 +1,3 @@
+catch 1 / 0 with {
+    log "Please don't work"
+}

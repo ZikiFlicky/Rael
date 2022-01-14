@@ -1,3 +1,7 @@
-catch 1 / 0  with {
+catch 1 / 0 {
     log "Haha divided by zero!"
+}
+
+catch 1 / 0 with :message {
+    log :message
 }
