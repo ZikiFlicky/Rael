@@ -24,6 +24,21 @@ typedef struct RaelValue RaelValue;
 struct RaelTypeValue;
 typedef struct RaelTypeValue RaelTypeValue;
 
+/* Special type operation functions */
+typedef RaelValue* (*RaelBinExprFunc)(RaelValue*, RaelValue*);
+typedef bool (*RaelBinCmpFunc)(RaelValue*, RaelValue*);
+typedef bool (*RaelAsBoolFunc)(RaelValue*);
+typedef void (*RaelSingleFunc)(RaelValue*);
+typedef RaelValue* (*RaelCallerFunc)(RaelValue*, RaelArgumentList*, RaelInterpreter*);
+typedef RaelValue* (*RaelConstructorFunc)(RaelArgumentList*, RaelInterpreter*);
+typedef RaelValue* (*RaelGetFunc)(RaelValue*, size_t);
+typedef RaelValue* (*RaelSliceFunc)(RaelValue*, size_t, size_t);
+typedef RaelValue* (*RaelCastFunc)(RaelValue*, RaelTypeValue*);
+typedef RaelValue* (*RaelAtKeyFunc)(RaelValue*, char*);
+typedef RaelValue* (*RaelNegFunc)(RaelValue*);
+typedef size_t (*RaelLengthFunc)(RaelValue*);
+typedef RaelValue* (*RaelMethodFunc)(RaelValue*, RaelArgumentList*, RaelInterpreter*);
+
 /* the dynamic value abstraction layer */
 typedef struct RaelValue {
     RaelTypeValue *type;
@@ -51,19 +66,10 @@ typedef struct RaelRoutineValue {
     struct Instruction **block;
 } RaelRoutineValue;
 
-/* Special type operation functions */
-typedef RaelValue* (*RaelBinExprFunc)(RaelValue*, RaelValue*);
-typedef bool (*RaelBinCmpFunc)(RaelValue*, RaelValue*);
-typedef bool (*RaelAsBoolFunc)(RaelValue*);
-typedef void (*RaelSingleFunc)(RaelValue*);
-typedef RaelValue* (*RaelCallerFunc)(RaelValue*, RaelArgumentList*, RaelInterpreter*);
-typedef RaelValue* (*RaelConstructorFunc)(RaelArgumentList*, RaelInterpreter*);
-typedef RaelValue* (*RaelGetFunc)(RaelValue*, size_t);
-typedef RaelValue* (*RaelSliceFunc)(RaelValue*, size_t, size_t);
-typedef RaelValue* (*RaelCastFunc)(RaelValue*, RaelTypeValue*);
-typedef RaelValue* (*RaelAtKeyFunc)(RaelValue*, char*);
-typedef RaelValue* (*RaelNegFunc)(RaelValue*);
-typedef size_t (*RaelLengthFunc)(RaelValue*);
+typedef struct MethodDecl {
+    char *name;
+    RaelMethodFunc method;
+} MethodDecl;
 
 /* The Type value type */
 typedef struct RaelTypeValue {
@@ -115,6 +121,9 @@ typedef struct RaelTypeValue {
 
     /* Get length */
     RaelLengthFunc length;
+
+    /* Methods */
+    MethodDecl methods[];
 } RaelTypeValue;
 
 /* declare builtin types */

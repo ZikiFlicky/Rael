@@ -281,5 +281,7 @@ RaelTypeValue RaelStringType = {
     .at_index = (RaelGetFunc)string_get,
     .at_range = (RaelSliceFunc)string_slice,
 
-    .length = (RaelLengthFunc)string_length
+    .length = (RaelLengthFunc)string_length,
+
+    .methods = NULL
 };

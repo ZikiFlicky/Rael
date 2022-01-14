@@ -1,6 +1,6 @@
 module(:Math)
 3.1415926535897931
-cfunc(:Cos, 1) cfunc(:Sin, 1) cfunc(:Tan, 1) cfunc(:ASin, 1) cfunc(:ATan, 1) cfunc(:ACos, 1) cfunc(:Log10, 1) cfunc(:Log2, 1) cfunc(:Floor, 1) cfunc(:Ceil, 1)
+[cfunc 'Cos' for 1 arguments] [cfunc 'Sin' for 1 arguments] [cfunc 'Tan' for 1 arguments] [cfunc 'ASin' for 1 arguments] [cfunc 'ATan' for 1 arguments] [cfunc 'ACos' for 1 arguments] [cfunc 'Log10' for 1 arguments] [cfunc 'Log2' for 1 arguments] [cfunc 'Floor' for 1 arguments] [cfunc 'Ceil' for 1 arguments]
 2
 Void
 String Number 0 to 9

@@ -61,7 +61,9 @@ RaelTypeValue RaelTypeType = {
     .at_index = NULL,
     .at_range = NULL,
 
-    .length = NULL
+    .length = NULL,
+
+    .methods = NULL
 };
 
 RaelValue *void_cast(RaelValue *self, RaelTypeValue *type) {
@@ -120,7 +122,9 @@ RaelTypeValue RaelVoidType = {
     .at_index = NULL,
     .at_range = NULL,
 
-    .length = NULL
+    .length = NULL,
+
+    .methods = NULL
 };
 
 RaelValue RaelVoid = (RaelValue) {
@@ -213,7 +217,9 @@ RaelTypeValue RaelRoutineType = {
     .at_index = NULL,
     .at_range = NULL,
 
-    .length = NULL
+    .length = NULL,
+
+    .methods = NULL
 };
 
 RaelValue *range_new(RaelInt start, RaelInt end) {
@@ -335,7 +341,9 @@ RaelTypeValue RaelRangeType = {
     .at_index = (RaelGetFunc)range_get,
     .at_range = NULL,
 
-    .length = (RaelLengthFunc)range_length
+    .length = (RaelLengthFunc)range_length,
+
+    .methods = NULL
 };
 
 /* return true if the value is a blame */
@@ -406,7 +414,9 @@ RaelTypeValue RaelBlameType = {
     .at_index = NULL,
     .at_range = NULL,
 
-    .length = NULL
+    .length = NULL,
+
+    .methods = NULL
 };
 
 /* create a new RaelValue with RaelTypeValue and size `size` */
@@ -421,6 +431,16 @@ RaelValue *value_new(RaelTypeValue *type, size_t size) {
     value->reference_count = 1;
     // initialize members
     varmap_new(&value->keys);
+
+    // if there are methods defines, add them
+    if (type->methods) {
+        for (MethodDecl *m = type->methods; m->method; ++m) {
+            RaelValue *method = method_cfunc_new(value, m->name, m->method);
+
+            varmap_set(&value->keys, m->name, method, true, false);
+        }
+    }
+
     return value;
 }
 

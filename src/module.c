@@ -28,7 +28,7 @@ bool cfunc_eq(RaelCFuncValue *self, RaelCFuncValue *value) {
 }
 
 void cfunc_repr(RaelCFuncValue *self) {
-    printf("cfunc(:%s, %zu)", self->name, self->amount_params);
+    printf("[cfunc '%s' for %zu arguments]", self->name, self->amount_params);
 }
 
 RaelTypeValue RaelCFuncType = {
@@ -61,7 +61,69 @@ RaelTypeValue RaelCFuncType = {
     .at_index = NULL,
     .at_range = NULL,
 
-    .length = NULL
+    .length = NULL,
+
+    .methods = NULL
+};
+
+RaelValue *method_cfunc_new(RaelValue *method_self, char *name, RaelMethodFunc func) {
+    RaelCFuncMethodValue *method = RAEL_VALUE_NEW(RaelCFuncMethodType, RaelCFuncMethodValue);
+
+    value_ref(method_self);
+    method->method_self = method_self;
+    method->name = name;
+    method->func = func;
+
+    return (RaelValue*)method;
+}
+
+RaelValue *method_cfunc_call(RaelCFuncMethodValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    return self->func(self->method_self, args, interpreter);
+}
+
+void method_cfunc_delete(RaelCFuncMethodValue *self) {
+    value_deref(self->method_self);
+}
+
+void method_cfunc_repr(RaelCFuncMethodValue *self) {
+    printf("[cfunc method '%s' for type '", self->name);
+    value_repr((RaelValue*)self->method_self->type);
+    printf("']");
+}
+
+RaelTypeValue RaelCFuncMethodType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "CFuncMethod",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = NULL,
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
+
+    .op_neg = NULL,
+
+    .op_call = (RaelCallerFunc)method_cfunc_call,
+    .op_construct = NULL,
+
+    .as_bool = NULL,
+    .deallocator = (RaelSingleFunc)method_cfunc_delete,
+    .repr = (RaelSingleFunc)method_cfunc_repr,
+    .logger = NULL,
+
+    .cast = NULL,
+
+    .at_index = NULL,
+    .at_range = NULL,
+
+    .length = NULL,
+
+    .methods = NULL
 };
 
 RaelValue *module_new(char *name) {
@@ -113,7 +175,9 @@ RaelTypeValue RaelModuleType = {
     .at_index = NULL,
     .at_range = NULL,
 
-    .length = NULL
+    .length = NULL,
+
+    .methods = NULL
 };
 
 RaelValue *rael_get_module_by_name(char *module_name) {

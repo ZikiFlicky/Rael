@@ -383,5 +383,7 @@ RaelTypeValue RaelNumberType = {
     .at_index = NULL,
     .at_range = NULL,
 
-    .length = NULL
+    .length = NULL,
+
+    .methods = NULL
 };

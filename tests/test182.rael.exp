@@ -1,2 +1,2 @@
-cfunc(:Cos, 1)
+[cfunc 'Cos' for 1 arguments]
 Void
