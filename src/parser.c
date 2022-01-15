@@ -71,9 +71,9 @@ static void parser_error(struct Parser* const parser, char* error_message, ...) 
 
 static void parser_push(struct Parser* const parser, struct Instruction* const inst) {
     if (parser->allocated == 0) {
-        parser->instructions = malloc(((parser->allocated = 32)+1) * sizeof(struct Instruction*));
-    } else if (parser->idx == 32) {
-        parser->instructions = realloc(parser->instructions, (parser->allocated += 32)+1 * sizeof(struct Instruction*));
+        parser->instructions = malloc(((parser->allocated = 64)+1) * sizeof(struct Instruction*));
+    } else if (parser->idx == 64) {
+        parser->instructions = realloc(parser->instructions, ((parser->allocated += 64)+1) * sizeof(struct Instruction*));
     }
     parser->instructions[parser->idx++] = inst;
 }
