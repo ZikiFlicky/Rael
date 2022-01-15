@@ -1,0 +1,43 @@
+%% Test number methods
+
+log 65:toCharString()
+catch 65:toCharString(123) with :err {
+    log :err
+}
+
+catch 800:toCharString() with :err {
+    log :err
+}
+
+catch 65.2:toCharString() with :err {
+    log :err
+}
+
+log 4:signedMod(2) = 0
+log (-4):signedMod(2) = 0
+log 5:signedMod(3) = 2
+log (-5):signedMod(3) = -2
+log 10:signedMod(123) = 10
+log (-10):signedMod(123) = -10
+log (11.5):signedMod(5) = 1.5
+log (-11.5):signedMod(5) = -1.5
+log (11):signedMod(5.5) = 0
+log (-11):signedMod(5.5) = 0
+log 11.5:signedMod(5.5) = 0.5
+log (-11.5):signedMod(5.5) = -0.5
+
+catch (-5):signedMod(0) with :err {
+    log :err
+}
+
+catch (-5.2):signedMod(0) with :err {
+    log :err
+}
+
+catch (-5.2):signedMod() with :err {
+    log :err
+}
+
+catch 2:signedMod(1, 2, 3) with :err {
+    log :err
+}

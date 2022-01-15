@@ -28,27 +28,8 @@ RaelInt number_to_int(RaelNumberValue *self);
 
 bool number_is_whole(RaelNumberValue *self);
 
-RaelValue *number_add(RaelNumberValue *self, RaelValue *value);
-
-RaelValue *number_sub(RaelNumberValue *self, RaelValue *value);
-
-RaelValue *number_mul(RaelNumberValue *self, RaelValue *value);
-
-RaelValue *number_div(RaelNumberValue *self, RaelValue *value);
-
-RaelValue *number_mod(RaelNumberValue *self, RaelValue *value);
-
-RaelValue *number_neg(RaelNumberValue *self);
-
-bool number_eq(RaelNumberValue *self, RaelNumberValue *value);
-
-bool number_smaller(RaelNumberValue *self, RaelNumberValue *value);
-
-bool number_bigger(RaelNumberValue *self, RaelNumberValue *value);
-
-bool number_smaller_eq(RaelNumberValue *self, RaelNumberValue *value);
-
-bool number_bigger_eq(RaelNumberValue *self, RaelNumberValue *value);
+/* is number bigger than or equal to 0? */
+bool number_positive(RaelNumberValue *self);
 
 RaelValue *number_abs(RaelNumberValue *self);
 

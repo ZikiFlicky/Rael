@@ -280,6 +280,14 @@ RaelValue *number_ceil(RaelNumberValue *self) {
     return number_newi(n);
 }
 
+bool number_positive(RaelNumberValue *self) {
+    if (self->is_float) {
+        return self->as_float >= 0;
+    } else {
+        return self->as_int >= 0;
+    }
+}
+
 RaelValue *number_cast(RaelNumberValue *self, RaelTypeValue *type) {
     if (type == &RaelStringType) {
         // FIXME: make float conversions more accurate
@@ -353,6 +361,80 @@ void number_repr(RaelNumberValue *self) {
         printf("%ld", self->as_int);
 }
 
+/*
+ * modulo, but the normal C way of doing it:
+ * (-4):signedMod(3) = -1, instead of the much more straightforward
+ * -4 % 3 = 2
+ */
+RaelValue *number_method_signedMod(RaelNumberValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    RaelValue *arg1;
+
+    (void)interpreter;
+
+    if (arguments_amount(args) != 1) {
+        return BLAME_NEW_CSTR("Method takes only one argument");
+    }
+
+    // get the first argument
+    arg1 = arguments_get(args, 0);
+
+    if (number_validate(arg1)) {
+        RaelNumberValue *number = (RaelNumberValue*)arg1;
+
+        // if any of them is a float, do a float calculation,
+        // otherwise do a regular '%' operation
+        if (self->is_float || number->is_float) {
+            RaelFloat lhs, rhs, res;
+            if (number_to_float(number) == 0.0)
+                return BLAME_NEW_CSTR_ST("Division by zero", *arguments_state(args, 0));
+            lhs = number_to_float(self);
+            rhs = number_to_float(number);
+            // calculate the result of the operation
+            res = fmod(lhs, rhs);
+            return number_newf(res);
+        } else {
+            RaelInt lhs, rhs, res;
+            if (number->as_int == 0)
+                return BLAME_NEW_CSTR_ST("Division by zero", *arguments_state(args, 0));
+            lhs = self->as_int;
+            rhs = number->as_int;
+            // calculate the result of the operation
+            res = lhs % rhs;
+            return number_newi(res);
+        }
+    } else {
+        // didn't get a number as the second parameter
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+    }
+}
+
+/*
+ * The method no arguments and returns a new string with
+ * the number as it's only character.
+ * For example:
+ * 65:toCharString() = "A"
+ * 99:toCharString() = "c"
+ */
+RaelValue *number_method_toCharString(RaelNumberValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    int number;
+    char c;
+
+    (void)interpreter;
+    if (arguments_amount(args) > 0) {
+        return BLAME_NEW_CSTR("Too many arguments");
+    }
+    if (!number_is_whole(self)) {
+        return BLAME_NEW_CSTR("Expected self to be a whole number");
+    }
+    number = number_to_int(self);
+    if (number < CHAR_MIN || number > CHAR_MAX) {
+        return BLAME_NEW_CSTR("Number not in range of char");
+    }
+    // get char and return a new string from that char
+    c = (char)number;
+    return string_new_pure_cpy(&c, 1);
+}
+
 RaelTypeValue RaelNumberType = {
     RAEL_TYPE_DEF_INIT,
     .name = "Number",
@@ -387,5 +469,9 @@ RaelTypeValue RaelNumberType = {
 
     .length = NULL,
 
-    .methods = NULL
+    .methods = {
+        { "signedMod", (RaelMethodFunc)number_method_signedMod },
+        { "toCharString", (RaelMethodFunc)number_method_toCharString },
+        { NULL, NULL }
+    }
 };
