@@ -138,6 +138,12 @@ bool stack_as_bool(RaelStackValue *self) {
     return stack_length(self) > 0;
 }
 
+void stack_maybe_shrink(RaelStackValue *self) {
+    if (self->allocated - self->length >= 8) {
+        self->values = realloc(self->values, (self->allocated -= 8) * sizeof(RaelValue*));
+    }
+}
+
 /*
  * Remove a value from a specified place, return it, and shift the rest of the values in the stack back.
  * :a ?= { 1, 2, 3 }
@@ -153,10 +159,11 @@ static RaelValue *stack_method_pop(RaelStackValue *self, RaelArgumentList *args,
 
     switch (arguments_amount(args)) {
     case 0:
-        if (length > 0)
+        if (length > 0) {
             pop_index = length - 1;
-        else
-            pop_index = 0; // this won't work
+        } else {
+            return BLAME_NEW_CSTR("Can't pop from an empty stack");
+        }
         break;
     case 1: {
         RaelValue *arg1 = arguments_get(args, 0);
@@ -171,20 +178,19 @@ static RaelValue *stack_method_pop(RaelStackValue *self, RaelArgumentList *args,
         }
 
         pop_index = (size_t)number_to_int(number);
+
+        // verify the pop index is valid
+        if (pop_index >= length) {
+            return BLAME_NEW_CSTR_ST("Index too big", *arguments_state(args, 0));
+        }
         break;
     }
     default:
         return BLAME_NEW_CSTR("Too many arguments");
     }
 
-    // verify the pop index is valid
-    if (pop_index >= length) {
-        return BLAME_NEW_CSTR_ST("Index too big", *arguments_state(args, 0));
-    }
-
     // get the popped value
     popped = stack_get(self, pop_index);
-
 
     // move everything back
     for (size_t i = pop_index; i < length - 1; ++i) {
@@ -193,6 +199,7 @@ static RaelValue *stack_method_pop(RaelStackValue *self, RaelArgumentList *args,
 
     // dec length
     --self->length;
+    stack_maybe_shrink(self);
 
     // no need to deref/ref because we take the value from the stack and use it once
     return popped;
