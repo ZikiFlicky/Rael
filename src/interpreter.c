@@ -563,6 +563,7 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
                 struct State arg_state = arg_expr->state;
                 // add the argument
                 arguments_add(&args, arg_value, arg_state);
+                value_deref(arg_value);
             }
             arguments_finalize(&args); // finish
 
@@ -574,6 +575,7 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
             value = BLAME_NEW_CSTR("Tried to call a non-callable");
         }
 
+        // if the value is a blame, try to add a state to it
         if (blame_validate(value)) {
             blame_set_state((RaelBlameValue*)value, expr->state);
         }
@@ -704,9 +706,8 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
         }
         case SetTypeKey:
             value = expr_eval(interpreter, set.expr, true);
+            // this also adds a new reference
             scope_set(interpreter->scope, set.as_key, value, false);
-            // reference again because the value set is also the return value of the expression
-            value_ref(value);
             break;
         case SetTypeMember: {
             struct GetMemberExpr get_member = set.as_member->as_get_member;
@@ -716,11 +717,9 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
             // get the member's value
             value = expr_eval(interpreter, set.expr, true);
             // set the member
-            varmap_set(&lhs->keys, get_member.key, value, true, false);
+            value_set_key(lhs, get_member.key, value, false);
 
             value_deref(lhs);
-            // reference again because the member's value is also the expression's return value
-            value_ref(value);
             break;
         }
         default:
@@ -889,12 +888,22 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
             interpreter_error(interpreter, loop->iterate.expr->state, "Expected an iterable");
         }
 
-        // calculate length every time because stacks can always grow
+        // calculate length every time because values can always shrink/grow
         for (size_t i = 0; continue_loop && i < value_length(iterator); ++i) {
+            RaelValue *iteration_value;
+
+            // push the new scope and calculate the iterated value
             interpreter_push_scope(interpreter, &loop_scope);
-            scope_set_local(interpreter->scope, loop->iterate.key, value_get(iterator, i), false);
+            iteration_value = value_get(iterator, i);
+
+            // set the iteration value and deref, because the value is already referenced in scope_set_local
+            scope_set_local(interpreter->scope, loop->iterate.key, iteration_value, false);
+            value_deref(iteration_value);
+
+            // run the block of code
             block_run(interpreter, loop->block, false);
 
+            // check for program interrupts
             if (interpreter->interrupt == ProgramInterruptBreak) {
                 interpreter->interrupt = ProgramInterruptNone;
                 continue_loop = false;
@@ -928,9 +937,9 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
 
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction) {
     switch (instruction->type) {
-    case InstructionTypeLog: {
-        RaelValue *value;
+    case InstructionTypeLog:
         if (instruction->csv.amount_exprs > 0) {
+            RaelValue *value;
             value_log((value = expr_eval(interpreter, instruction->csv.exprs[0], true)));
             value_deref(value);
             for (size_t i = 1; i < instruction->csv.amount_exprs; ++i) {
@@ -941,7 +950,6 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
         }
         printf("\n");
         break;
-    }
     case InstructionTypeShow: {
         for (size_t i = 0; i < instruction->csv.amount_exprs; ++i) {
             RaelValue *value = expr_eval(interpreter, instruction->csv.exprs[i], true);
@@ -1027,12 +1035,16 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
             if (catch.value_key) {
                 RaelValue *message = ((RaelBlameValue*)caught_value)->message;
 
-                // if there is no message, set a void
-                if (!message) {
+                if (message) {
+                    value_ref(message);
+                } else {
+                    // if there is no message, set a void
                     message = void_new();
                 }
                 // set the message as the key
                 scope_set(interpreter->scope, catch.value_key, message, false);
+                // dereference the value because it's already being referenced in scope_set
+                value_deref(message);
             }
             block_run(interpreter, catch.handle_block, true);
         }
@@ -1048,6 +1060,8 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
             interpreter_error(interpreter, instruction->state, "Unknown module name");
         // set the module
         scope_set(interpreter->scope, instruction->load.module_name, module, false);
+        // deref because the value is referenced when set
+        value_deref(module);
         break;
     }
     default:
@@ -1062,6 +1076,8 @@ static void interpreter_set_argv(RaelInterpreter *interpreter, char **argv, size
         stack_push((RaelStackValue*)argv_stack, arg);
     }
     scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Argv"), argv_stack, true);
+    // remove local reference of argv_stack
+    value_deref(argv_stack);
 }
 
 static void interpreter_set_filename(RaelInterpreter *interpreter, char *filename) {
@@ -1072,6 +1088,8 @@ static void interpreter_set_filename(RaelInterpreter *interpreter, char *filenam
         value = void_new();
     }
     scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Filename"), value, true);
+    // remove local reference to the value
+    value_deref(value);
 }
 
 void rael_interpret(struct Instruction **instructions, char *stream_base, char *filename, char **argv, size_t argc,

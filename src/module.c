@@ -50,6 +50,8 @@ RaelTypeValue RaelCFuncType = {
 
     .op_call = (RaelCallerFunc)cfunc_call,
     .op_construct = NULL,
+    .op_ref = NULL,
+    .op_deref = NULL,
 
     .as_bool = NULL, // will just always be true
     .deallocator = (RaelSingleFunc)cfunc_delete,
@@ -69,7 +71,6 @@ RaelTypeValue RaelCFuncType = {
 RaelValue *method_cfunc_new(RaelValue *method_self, char *name, RaelMethodFunc func) {
     RaelCFuncMethodValue *method = RAEL_VALUE_NEW(RaelCFuncMethodType, RaelCFuncMethodValue);
 
-    value_ref(method_self);
     method->method_self = method_self;
     method->name = name;
     method->func = func;
@@ -81,14 +82,18 @@ RaelValue *method_cfunc_call(RaelCFuncMethodValue *self, RaelArgumentList *args,
     return self->func(self->method_self, args, interpreter);
 }
 
-void method_cfunc_delete(RaelCFuncMethodValue *self) {
-    value_deref(self->method_self);
-}
-
 void method_cfunc_repr(RaelCFuncMethodValue *self) {
     printf("[cfunc method '%s' for type '", self->name);
     value_repr((RaelValue*)self->method_self->type);
     printf("']");
+}
+
+void method_cfunc_ref(RaelCFuncMethodValue *self) {
+    value_ref(self->method_self);
+}
+
+void method_cfunc_deref(RaelCFuncMethodValue *self) {
+    value_deref(self->method_self);
 }
 
 RaelTypeValue RaelCFuncMethodType = {
@@ -110,9 +115,11 @@ RaelTypeValue RaelCFuncMethodType = {
 
     .op_call = (RaelCallerFunc)method_cfunc_call,
     .op_construct = NULL,
+    .op_ref = (RaelSingleFunc)method_cfunc_ref,
+    .op_deref = (RaelSingleFunc)method_cfunc_deref,
 
     .as_bool = NULL,
-    .deallocator = (RaelSingleFunc)method_cfunc_delete,
+    .deallocator = NULL,
     .repr = (RaelSingleFunc)method_cfunc_repr,
     .logger = NULL,
 
@@ -164,6 +171,8 @@ RaelTypeValue RaelModuleType = {
 
     .op_call = NULL,
     .op_construct = NULL,
+    .op_ref = NULL,
+    .op_deref = NULL,
 
     .as_bool = NULL, /* will always be true */
     .deallocator = (RaelSingleFunc)module_delete,

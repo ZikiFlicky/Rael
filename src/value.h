@@ -95,6 +95,10 @@ typedef struct RaelTypeValue {
     RaelCallerFunc op_call;
     /* Construct a new value with that type */
     RaelConstructorFunc op_construct;
+    /* Special operation to do on reference */
+    RaelSingleFunc op_ref;
+    /* Special operation to do on dereference if there are still references to the value */
+    RaelSingleFunc op_deref;
 
     /* Convert a value to its boolean representation */
     RaelAsBoolFunc as_bool; 

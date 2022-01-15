@@ -270,6 +270,8 @@ RaelTypeValue RaelStringType = {
 
     .op_call = NULL,
     .op_construct = NULL,
+    .op_ref = NULL,
+    .op_deref = NULL,
 
     .as_bool = (RaelAsBoolFunc)string_as_bool,
     .deallocator = (RaelSingleFunc)string_delete,

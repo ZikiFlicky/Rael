@@ -50,6 +50,8 @@ RaelTypeValue RaelTypeType = {
 
     .op_call = (RaelCallerFunc)type_call, /* calls the constructor of the type */
     .op_construct = NULL,
+    .op_ref = NULL,
+    .op_deref = NULL,
 
     .as_bool = NULL,
     .deallocator = NULL,
@@ -111,6 +113,8 @@ RaelTypeValue RaelVoidType = {
 
     .op_call = NULL,
     .op_construct = NULL,
+    .op_ref = NULL,
+    .op_deref = NULL,
 
     .as_bool = (RaelAsBoolFunc)void_as_bool,
     .deallocator = NULL,
@@ -206,6 +210,8 @@ RaelTypeValue RaelRoutineType = {
 
     .op_call = (RaelCallerFunc)routine_call,
     .op_construct = NULL,
+    .op_ref = NULL,
+    .op_deref = NULL,
 
     .as_bool = NULL,
     .deallocator = NULL,
@@ -330,6 +336,8 @@ RaelTypeValue RaelRangeType = {
 
     .op_call = NULL,
     .op_construct = (RaelConstructorFunc)range_construct,
+    .op_ref = NULL,
+    .op_deref = NULL,
 
     .as_bool = (RaelAsBoolFunc)range_as_bool,
     .deallocator = NULL,
@@ -403,6 +411,8 @@ RaelTypeValue RaelBlameType = {
 
     .op_call = NULL,
     .op_construct = NULL,
+    .op_ref = NULL,
+    .op_deref = NULL,
 
     .as_bool = NULL,
     .deallocator = (RaelSingleFunc)blame_delete,
@@ -436,8 +446,8 @@ RaelValue *value_new(RaelTypeValue *type, size_t size) {
     if (type->methods) {
         for (MethodDecl *m = type->methods; m->method; ++m) {
             RaelValue *method = method_cfunc_new(value, m->name, m->method);
-
             varmap_set(&value->keys, m->name, method, true, false);
+            value_deref(method);
         }
     }
 
@@ -445,10 +455,17 @@ RaelValue *value_new(RaelTypeValue *type, size_t size) {
 }
 
 void value_ref(RaelValue *value) {
+    RaelSingleFunc maybe_ref = value->type->op_ref;
     ++value->reference_count;
+    // call the reference function if there is one defined
+    if (maybe_ref) {
+        maybe_ref(value);
+    }
 }
 
 void value_deref(RaelValue *value) {
+    RaelSingleFunc maybe_deref = value->type->op_deref;
+
     --value->reference_count;
     if (value->reference_count == 0) {
         RaelSingleFunc possible_deallocator = value->type->deallocator;
@@ -464,6 +481,8 @@ void value_deref(RaelValue *value) {
         value_deref((RaelValue*)value->type);
         // remove the allocated space of the dynamic value in memory
         free(value);
+    } else if (maybe_deref) {
+        maybe_deref(value);
     }
 }
 
