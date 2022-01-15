@@ -1,0 +1,31 @@
+%% Test stack methods
+
+:stack ?= { 1, 2, 3, 4, 5, 6 }
+log :stack:pop()
+log sizeof(:stack), :stack
+log :stack:pop(1)
+log sizeof(:stack), :stack
+
+catch :stack:pop(100) with :err {
+    log :err
+}
+
+catch :stack:pop(-100) with :err {
+    log :err
+}
+
+catch :stack:pop(-100, 100) with :err {
+    log :err
+}
+
+:a ?= 10
+:stack2 ?= { 11, :a, 9, 8, 7, 6, 5, 4, 3, 2, 1 }
+log :stack2:findIndexOf(12)
+log :stack2:findIndexOf(10)
+log :stack2:findIndexOf(:a)
+log :stack2:findIndexOf(10, 1)
+log :stack2:findIndexOf(:a, 1)
+
+catch :stack2:findIndexOf(:a, 1, 2) with :err {
+    log :err
+}

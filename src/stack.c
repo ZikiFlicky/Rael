@@ -138,6 +138,114 @@ bool stack_as_bool(RaelStackValue *self) {
     return stack_length(self) > 0;
 }
 
+/*
+ * Remove a value from a specified place, return it, and shift the rest of the values in the stack back.
+ * :a ?= { 1, 2, 3 }
+ * :a:pop(1) = 2
+ * :a = { 1, 3 }
+ */
+static RaelValue *stack_method_pop(RaelStackValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    size_t pop_index;
+    size_t length = stack_length(self);
+    RaelValue *popped;
+
+    (void)interpreter;
+
+    switch (arguments_amount(args)) {
+    case 0:
+        if (length > 0)
+            pop_index = length - 1;
+        else
+            pop_index = 0; // this won't work
+        break;
+    case 1: {
+        RaelValue *arg1 = arguments_get(args, 0);
+        RaelNumberValue *number;
+
+        if (arg1->type != &RaelNumberType) {
+            return BLAME_NEW_CSTR_ST("Expected number", *arguments_state(args, 0));
+        }
+        number = (RaelNumberValue*)arg1;
+        if (!number_is_whole(number) || !number_positive(number)) {
+            return BLAME_NEW_CSTR_ST("Expected a positive whole number", *arguments_state(args, 0));
+        }
+
+        pop_index = (size_t)number_to_int(number);
+        break;
+    }
+    default:
+        return BLAME_NEW_CSTR("Too many arguments");
+    }
+
+    // verify the pop index is valid
+    if (pop_index >= length) {
+        return BLAME_NEW_CSTR_ST("Index too big", *arguments_state(args, 0));
+    }
+
+    // get the popped value
+    popped = stack_get(self, pop_index);
+
+
+    // move everything back
+    for (size_t i = pop_index; i < length - 1; ++i) {
+        stack_set(self, i, stack_get(self, i + 1));
+    }
+
+    // dec length
+    --self->length;
+
+    // no need to deref/ref because we take the value from the stack and use it once
+    return popped;
+}
+
+/*
+ * Get the index of the first occurance of the argument given.
+ * :a ?= { 1, 2, 3 }
+ * :a:findIndexOf(3) = 2
+ * :a:findIndexOf(87) = -1
+ * The second parameter is optional and if it is truthy (for example 1),
+ * it searches for a matching pointer instead of a matching value.
+ * :a:findIndexOf(2, 1) = -1
+ * :a:findIndexOf(:a at 2, 1) = 2
+ */
+static RaelValue *stack_method_findIndexOf(RaelStackValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    size_t length = stack_length(self);
+    RaelInt index = -1;
+    RaelValue *compared;
+    bool ptr_comparison;
+
+    (void)interpreter;
+
+    switch (arguments_amount(args)) {
+    case 1:
+        ptr_comparison = false;
+        break;
+    case 2:
+        ptr_comparison = value_truthy(arguments_get(args, 1));
+        break;
+    default:
+        return BLAME_NEW_CSTR("Expected 1 or 2 arguments");
+    }
+
+    // get value to compare to
+    compared = arguments_get(args, 0);
+
+    // loop and find a matching value
+    for (size_t i = 0; index == -1 && i < length; ++i) {
+        if (ptr_comparison) {
+            if (stack_get(self, i) == compared) {
+                index = (RaelInt)i;
+            }
+        } else {
+            if (values_eq(stack_get(self, i), compared)) {
+                index = (RaelInt)i;
+            }
+        }
+    }
+
+    return number_newi(index);
+}
+
 RaelTypeValue RaelStackType = {
     RAEL_TYPE_DEF_INIT,
     .name = "Stack",
@@ -172,5 +280,9 @@ RaelTypeValue RaelStackType = {
 
     .length = (RaelLengthFunc)stack_length,
 
-    .methods = NULL
+    .methods = {
+        { "pop", (RaelMethodFunc)stack_method_pop },
+        { "findIndexOf", (RaelMethodFunc)stack_method_findIndexOf },
+        { NULL, NULL }
+    }
 };
