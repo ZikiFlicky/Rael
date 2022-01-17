@@ -1,0 +1,99 @@
+RAEL
+RAEL123
+Too many arguments
+rael
+rael123
+Too many arguments
+{ 82, 97, 101, 108 }
+Too many arguments
+82
+97
+Expected a number
+Expected a positive number
+Index out of range
+Expected one argument
+Expected one argument
+0
+0
+1
+0
+0
+Too many arguments
+1
+0
+0
+0
+0
+Too many arguments
+0
+0
+1
+0
+Too many arguments
+{ "Ba", "na", "na" }
+{ "Ban", "ana", "ppl", "e" }
+{ "Bananapple" }
+{ "Bananapple" }
+Expected a number
+Expected a number bigger than 0
+Expected 1 argument
+Expected 1 argument
+{ "Banana", "Apple", "Cocoa", "Beans", "Orange" }
+{ "", ", Apple, Cocoa, Beans, Orange" }
+{ "Banana, Apple, Cocoa, Beans, ", "" }
+{ "", "" }
+{ "string" }
+Empty seperator not allowed
+Expected a string as argument
+Expected 1 argument
+Expected 1 argument
+1
+1
+-1
+-1
+-1
+-1
+0
+-1
+Expected a string
+Expected 1 argument
+Expected 1 argument
+1
+1
+1
+1
+0
+1
+1
+Expected a string
+Expected 1 argument
+Expected 1 argument
+,ael
+Repel
+Real
+Fi
+Bar and Bar2 are going to a restaurant
+Apples are just as good as Kiwis, and might even be better. Kiwis are still great though...
+Apples are just as good as Dragonfruits, and might even be better. Dragonfruits are still great though...
+Expected a string
+Expected 2 arguments
+Expected 2 arguments
+Expected 2 arguments
+3
+0
+0
+0
+7
+Expected a string
+Expected 1 argument
+Expected 1 argument
+
+Banana
+Banana, Apple
+Banana, Apple, Kiwi
+KiwiBananapple
+a, b, c
+Iterable does not produce strings
+Expected an iterable
+Expected 1 argument
+Expected 1 argument

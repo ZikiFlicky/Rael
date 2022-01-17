@@ -1,0 +1,186 @@
+%% Tests for String methods
+
+log "Rael":toUpper()
+log "Rael123":toUpper()
+catch "Rael":toUpper(2) with :err {
+    log :err
+}
+
+log "Rael":toLower()
+log "Rael123":toLower()
+catch "Rael":toUpper(2) with :err {
+    log :err
+}
+
+log "Rael":toCharStack()
+catch "Rael":toCharStack(1) with :err {
+    log :err
+}
+
+log "Rael":charAt(0)
+log "Rael":charAt(1)
+catch "Rael":charAt("R") with :err {
+    log :err
+}
+catch "Rael":charAt(-10) with :err {
+    log :err
+}
+catch "Rael":charAt(10) with :err {
+    log :err
+}
+catch "Rael":charAt() with :err {
+    log :err
+}
+catch "Rael":charAt(10, 10) with :err {
+    log :err
+}
+
+log "RAEL":isLower()
+log "Rael":isLower()
+log "rael":isLower()
+log "":isLower()
+log "123":isLower()
+catch "rael":isLower("rael") with :err {
+    log :err
+}
+
+log "RAEL":isUpper()
+log "Rael":isUpper()
+log "rael":isUpper()
+log "":isUpper()
+log "123":isUpper()
+catch "RAEL":isUpper("RAEL") with :err {
+    log :err
+}
+
+log "Rael":isDigit()
+log "Rael123":isDigit()
+log "123":isDigit()
+log "":isDigit()
+catch "123":isDigit("123") with :err {
+    log :err
+}
+
+log "Banana":chunkSplit(2)
+log "Bananapple":chunkSplit(3)
+log "Bananapple":chunkSplit(10)
+log "Bananapple":chunkSplit(15)
+catch "String":chunkSplit("tr") with :err {
+    log :err
+}
+catch "Bananapple":chunkSplit(0) with :err {
+    log :err
+}
+catch "Bananapple":chunkSplit() with :err {
+    log :err
+}
+catch "Bananapple":chunkSplit(1, 2, 3) with :err {
+    log :err
+}
+
+log "Banana, Apple, Cocoa, Beans, Orange":split(", ")
+log "Banana, Apple, Cocoa, Beans, Orange":split("Banana")
+log "Banana, Apple, Cocoa, Beans, Orange":split("Orange")
+log "string":split("string")
+log "string":split("string+")
+catch "string":split("") with :err {
+    log :err
+}
+catch "String":split(10) with :err {
+    log :err
+}
+catch "string":split() with :err {
+    log :err
+}
+catch "string":split(1, 2, 3) with :err {
+    log :err
+}
+
+log "string":findIndexOf("t")
+log "string":findIndexOf("tr")
+log "string":findIndexOf("8")
+log "string":findIndexOf("S")
+log "string":findIndexOf("Str")
+log "string":findIndexOf("tr8")
+log "string":findIndexOf("string")
+log "string":findIndexOf("string1")
+catch "String":findIndexOf(10) with :err {
+    log :err
+}
+catch "string":findIndexOf() with :err {
+    log :err
+}
+catch "string":findIndexOf("s", "t", "r") with :err {
+    log :err
+}
+
+log "str":contains("")
+log "str":contains("s")
+log "str":contains("st")
+log "str":contains("str")
+log "str":contains("stri")
+log "str":contains("t")
+log "str":contains("tr")
+catch "String":contains(10) with :err {
+    log :err
+}
+catch "str":contains() with :err {
+    log :err
+}
+catch "str":contains("t", "r") with :err {
+    log :err
+}
+
+log "Rael":replace("R", ",")
+log "Rael":replace("a", "ep")
+log "Rael":replace("ae", "ea")
+log "Foo":replace("oo", "i")
+log "Foo and Foo2 are going to a restaurant":replace("Foo", "Bar")
+log "Apples are just as good as Bananas, and might even be better. Bananas are still great though...":replace("Banana", "Kiwi")
+log "Apples are just as good as Bananas, and might even be better. Bananas are still great though...":replace("Banana", "Dragonfruit")
+catch "String":replace(10, 10) with :err {
+    log :err
+}
+catch "string":replace("str") with :err {
+    log :err
+}
+catch "string":replace() with :err {
+    log :err
+}
+catch "string":replace("str", "play", 1) with :err {
+    log :err
+}
+
+log "Apple, Banana, Apple, Banana, Kiwi, Orange, Apple":timesContains("Apple")
+log "":timesContains("Apple")
+log "Banana":timesContains("Apple")
+log "Banana":timesContains("Apples")
+log "String":timesContains("")
+catch "String":timesContains(10) with :err {
+    log :err
+}
+catch "String":timesContains() with :err {
+    log :err
+}
+catch "String":timesContains("Str", 1) with :err {
+    log :err
+}
+
+log ", ":seperate({})
+log ", ":seperate({ "Banana" })
+log ", ":seperate({ "Banana", "Apple" })
+log ", ":seperate({ "Banana", "Apple", "Kiwi" })
+log "":seperate({ "Kiwi", "Banana", "pple" })
+log ", ":seperate("abc")
+catch ", ":seperate(1 to 10) with :err {
+    log :err
+}
+catch "String":seperate(10) with :err {
+    log :err
+}
+catch "String":seperate() with :err {
+    log :err
+}
+catch " ":seperate({ "Who", "cares", "lol" }, 2) with :err {
+    log :err
+}

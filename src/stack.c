@@ -82,6 +82,8 @@ void stack_push(RaelStackValue *self, RaelValue *value) {
         values = malloc((allocated = 16) * sizeof(RaelValue*));
     else if (length >= allocated)
         values = realloc(values, (allocated += 16) * sizeof(RaelValue*));
+
+    value_ref(value);
     values[length++] = value;
 
     // update the stack
@@ -92,7 +94,6 @@ void stack_push(RaelStackValue *self, RaelValue *value) {
 
 // stack << value
 RaelValue *stack_red(RaelStackValue *self, RaelValue *value) {
-    value_ref(value);
     stack_push(self, value);
     value_ref((RaelValue*)self);
     return (RaelValue*)self;
@@ -102,7 +103,9 @@ void stack_delete(RaelStackValue *self) {
     for (size_t i = 0; i < self->length; ++i) {
         value_deref(self->values[i]);
     }
-    free(self->values);
+    if (self->allocated > 0) {
+        free(self->values);
+    }
 }
 
 void stack_repr(RaelStackValue *self) {

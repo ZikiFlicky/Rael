@@ -105,7 +105,10 @@ static RaelValue *value_eval(RaelInterpreter* const interpreter, struct ValueExp
 
         // push all of the values
         for (size_t i = 0; i < overhead; ++i) {
-            stack_push((RaelStackValue*)stack, expr_eval(interpreter, value->as_stack.entries.exprs[i], true));
+            RaelValue *entry = expr_eval(interpreter, value->as_stack.entries.exprs[i], true);
+            stack_push((RaelStackValue*)stack, entry);
+            // remove static reference
+            value_deref(entry);
         }
 
         out_value = stack;
@@ -1074,6 +1077,7 @@ static void interpreter_set_argv(RaelInterpreter *interpreter, char **argv, size
     for (size_t i = 0; i < argc; ++i) {
         RaelValue *arg = string_new_pure(argv[i], strlen(argv[i]), false);
         stack_push((RaelStackValue*)argv_stack, arg);
+        value_deref(arg);
     }
     scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Argv"), argv_stack, true);
     // remove local reference of argv_stack
