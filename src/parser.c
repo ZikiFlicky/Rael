@@ -8,6 +8,7 @@ static struct Expr *parser_parse_expr_at(struct Parser* const parser);
 static struct Expr *parser_parse_suffix(struct Parser* const parser);
 static void expr_delete(struct Expr* const expr);
 static void block_delete(struct Instruction **block);
+static void exprlist_delete(RaelExprList *list);
 
 static inline char *parser_get_filename(struct Parser* const parser) {
     return parser->lexer.filename;
@@ -124,8 +125,7 @@ static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
 
     if (!parser_match(parser, TokenNameRightCur)) {
         parser_load_state(parser, backtrack);
-        for (size_t i = 0; i < stack.amount_exprs; ++i)
-            expr_delete(stack.exprs[i]);
+        exprlist_delete(&stack);
         return NULL;
     }
 
@@ -998,38 +998,54 @@ end:
     return inst;
 }
 
-/* parse comma seperated expressions */
+/* parse comma seperated expressions (e1, e2, e3, e4, ...) */
 static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
-    struct Expr **exprs_ary, *expr;
+    struct RaelExprListEntry *entries;
+    struct Expr *expr;
+    struct State backtrack, full_backtrack = parser_dump_state(parser);
     size_t allocated, idx = 0;
 
     if (allow_newlines)
         parser_maybe_expect_newline(parser);
 
+    // load backtrack
+    backtrack = parser_dump_state(parser);
+
+    // if you couldn't parse anything, backtrace and return an empty RaelExprList
     if (!(expr = parser_parse_expr(parser))) {
+        parser_load_state(parser, full_backtrack);
         return (RaelExprList) {
             .amount_exprs = 0,
             .exprs = NULL
         };
     }
 
-    exprs_ary = malloc((allocated = 1) * sizeof(struct Expr*));
-    exprs_ary[idx++] = expr;
+    entries = malloc((allocated = 1) * sizeof(struct RaelExprListEntry));
+    entries[idx].expr = expr;
+    entries[idx].start_state = backtrack;
+    ++idx;
 
     for (;;) {
+        // allow a newline before a comma
         if (allow_newlines)
             parser_maybe_expect_newline(parser);
 
         if (!parser_match(parser, TokenNameComma))
             break;
 
+        // allow a newline after a comma
         if (allow_newlines)
             parser_maybe_expect_newline(parser);
+
+        backtrack = parser_dump_state(parser);
         if ((expr = parser_parse_expr(parser))) {
+            // push expression
             if (idx == allocated) {
-                exprs_ary = realloc(exprs_ary, (allocated += 4) * sizeof(struct Expr *));
+                entries = realloc(entries, (allocated += 4) * sizeof(struct RaelExprListEntry));
             }
-            exprs_ary[idx++] = expr;
+            entries[idx].expr = expr;
+            entries[idx].start_state = backtrack;
+            ++idx;
         } else {
             parser_error(parser, "Expected expression");
         }
@@ -1039,7 +1055,7 @@ static RaelExprList parser_parse_csv(struct Parser* const parser, const bool all
 
     return (RaelExprList) {
         .amount_exprs = idx,
-        .exprs = exprs_ary
+        .exprs = entries
     };
 }
 
@@ -1200,13 +1216,13 @@ static struct Instruction **parser_parse_block(struct Parser* const parser) {
             }
         }
         if (idx == allocated) {
-            block = realloc(block, ((allocated += 32)+1) * sizeof(struct Instruction *));
+            block = realloc(block, ((allocated += 32)+1) * sizeof(struct Instruction*));
         }
         block[idx++] = inst;
     }
 
     block[idx++] = NULL;
-    block = realloc(block, idx * sizeof(struct Instruction *));
+    block = realloc(block, idx * sizeof(struct Instruction*));
 
     return block;
 }
@@ -1399,7 +1415,13 @@ static void block_delete(struct Instruction **block) {
     free(block);
 }
 
-static void expr_delete(struct Expr* const expr);
+static void exprlist_delete(RaelExprList *list) {
+    for (size_t i = 0; i < list->amount_exprs; ++i) {
+        struct RaelExprListEntry *entry = &list->exprs[i];
+        expr_delete(entry->expr);
+    }
+    free(list->exprs);
+}
 
 static void value_expr_delete(struct ValueExpr* value) {
     switch (value->type) {
@@ -1418,10 +1440,7 @@ static void value_expr_delete(struct ValueExpr* value) {
         block_delete(value->as_routine.block);
         break;
     case ValueTypeStack:
-        for (size_t i = 0; i < value->as_stack.entries.amount_exprs; ++i) {
-            expr_delete(value->as_stack.entries.exprs[i]);
-        }
-        free(value->as_stack.entries.exprs);
+        exprlist_delete(&value->as_stack.entries);
         break;
     default:
         RAEL_UNREACHABLE();
@@ -1437,10 +1456,7 @@ static void expr_delete(struct Expr* const expr) {
     case ExprTypeCall: {
         struct CallExpr call = expr->as_call;
         expr_delete(call.callable_expr);
-        for (size_t i = 0; i < call.args.amount_exprs; ++i) {
-            expr_delete(call.args.exprs[i]);
-        }
-        free(call.args.exprs);
+        exprlist_delete(&call.args);
         break;
     }
     case ExprTypeKey:
@@ -1549,11 +1565,7 @@ void instruction_delete(struct Instruction* const inst) {
         break;
     case InstructionTypeLog:
     case InstructionTypeShow:
-        for (size_t i = 0; i < inst->csv.amount_exprs; ++i) {
-            expr_delete(inst->csv.exprs[i]);
-        }
-
-        free(inst->csv.exprs);
+        exprlist_delete(&inst->csv);
         break;
     case InstructionTypeLoop:
         switch (inst->loop.type) {

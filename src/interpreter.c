@@ -99,13 +99,17 @@ static RaelValue *value_eval(RaelInterpreter* const interpreter, struct ValueExp
         break;
     }
     case ValueTypeStack: {
-        size_t overhead = value->as_stack.entries.amount_exprs;
+        struct ASTStackValue *stack_expr = &value->as_stack;
+        RaelExprList *exprlist = &stack_expr->entries;
+        size_t overhead = exprlist->amount_exprs;
+        RaelValue *stack;
+
         // create a new stack with the exact amount of overhead you need for putting all of the values
-        RaelValue *stack = stack_new(overhead);
+        stack = stack_new(overhead);
 
         // push all of the values
         for (size_t i = 0; i < overhead; ++i) {
-            RaelValue *entry = expr_eval(interpreter, value->as_stack.entries.exprs[i], true);
+            RaelValue *entry = expr_eval(interpreter, exprlist->exprs[i].expr, true);
             stack_push((RaelStackValue*)stack, entry);
             // remove static reference
             value_deref(entry);
@@ -553,11 +557,15 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
         RaelArgumentList args;
 
         if (value_is_callable(callable)) {
+            RaelExprList *exprlist = &call.args;
+
             arguments_new(&args); // initialize args
-            for (size_t i = 0; i < call.args.amount_exprs; ++i) {
-                struct Expr *arg_expr = call.args.exprs[i];
-                RaelValue *arg_value = expr_eval(interpreter, arg_expr, true);
-                struct State arg_state = arg_expr->state;
+
+            for (size_t i = 0; i < exprlist->amount_exprs; ++i) {
+                struct RaelExprListEntry *entry = &exprlist->exprs[i];
+                RaelValue *arg_value = expr_eval(interpreter, entry->expr, true);
+                struct State arg_state = entry->start_state;
+
                 // add the argument
                 arguments_add(&args, arg_value, arg_state);
                 value_deref(arg_value);
@@ -937,11 +945,11 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
     case InstructionTypeLog:
         if (instruction->csv.amount_exprs > 0) {
             RaelValue *value;
-            value_log((value = expr_eval(interpreter, instruction->csv.exprs[0], true)));
+            value_log((value = expr_eval(interpreter, instruction->csv.exprs[0].expr, true)));
             value_deref(value);
             for (size_t i = 1; i < instruction->csv.amount_exprs; ++i) {
                 printf(" ");
-                value_log((value = expr_eval(interpreter, instruction->csv.exprs[i], true)));
+                value_log((value = expr_eval(interpreter, instruction->csv.exprs[i].expr, true)));
                 value_deref(value);
             }
         }
@@ -949,7 +957,7 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
         break;
     case InstructionTypeShow: {
         for (size_t i = 0; i < instruction->csv.amount_exprs; ++i) {
-            RaelValue *value = expr_eval(interpreter, instruction->csv.exprs[i], true);
+            RaelValue *value = expr_eval(interpreter, instruction->csv.exprs[i].expr, true);
             value_log(value);
             value_deref(value);
         }

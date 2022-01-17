@@ -13,7 +13,10 @@ struct Expr;
 
 typedef struct RaelExprList {
     size_t amount_exprs;
-    struct Expr **exprs;
+    struct RaelExprListEntry {
+        struct Expr *expr;
+        struct State start_state;
+    } *exprs;
 } RaelExprList;
 
 enum ValueExprType {
