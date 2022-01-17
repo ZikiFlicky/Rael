@@ -1405,7 +1405,6 @@ static void value_expr_delete(struct ValueExpr* value) {
     switch (value->type) {
     case ValueTypeVoid:
     case ValueTypeNumber:
-    case ValueTypeType:
         break;
     case ValueTypeString:
         if (value->as_string.length > 0)

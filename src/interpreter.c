@@ -117,12 +117,6 @@ static RaelValue *value_eval(RaelInterpreter* const interpreter, struct ValueExp
     case ValueTypeVoid:
         out_value = void_new();
         break;
-    case ValueTypeType: {
-        out_value = (RaelValue*)value->as_type;
-        // this is a new instance of the type, add a reference
-        value_ref(out_value);
-        break;
-    }
     default:
         RAEL_UNREACHABLE();
     }

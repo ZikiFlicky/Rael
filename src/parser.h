@@ -21,8 +21,7 @@ enum ValueExprType {
     ValueTypeNumber,
     ValueTypeString,
     ValueTypeRoutine,
-    ValueTypeStack,
-    ValueTypeType
+    ValueTypeStack
 };
 
 struct ASTStringValue {
