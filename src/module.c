@@ -142,6 +142,8 @@ RaelValue *module_new(char *name) {
 
 void module_set_key(RaelModuleValue *self, char *varname, RaelValue *value) {
     varmap_set(&((RaelValue*)self)->keys, varname, value, true, true);
+    // remove the added reference
+    value_deref(value);
 }
 
 static void module_delete(RaelModuleValue *self) {
