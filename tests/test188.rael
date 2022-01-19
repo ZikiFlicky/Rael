@@ -1,0 +1,9 @@
+load :Math
+log :Math:PI
+:Math:PI ?= 3
+log :Math:PI
+load :Math
+log :Math:PI
+:Math:Member ?= "Member"
+load :Math
+log :Math:Member + "s"

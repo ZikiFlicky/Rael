@@ -4,6 +4,10 @@ typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
 // TODO: add interpreter_set_variable function
 
+/* standard modules */
+RaelValue *module_math_new(void);
+RaelValue *module_types_new(void);
+
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
 static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
 void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
@@ -18,6 +22,35 @@ void interpreter_pop_scope(RaelInterpreter* const interpreter) {
         struct Scope *parent = interpreter->scope->parent;
         scope_dealloc(interpreter->scope);
         interpreter->scope = parent;
+    }
+}
+
+static RaelValue *interpreter_get_module_by_name(RaelInterpreter *interpreter, char *module_name) {
+    for (RaelModuleLoader *loader = interpreter->loaded_modules; loader->name; ++loader) {
+        if (strcmp(loader->name, module_name) == 0) {
+            RaelValue *module;
+            // if the value was already loaded
+            if (loader->module_cache) {
+                module = loader->module_cache;
+            } else {
+                module = loader->module_creator();
+                loader->module_cache = module;
+            }
+            value_ref(module);
+            return module;
+        }
+    }
+
+    // nothing found
+    return NULL;
+}
+
+static void interpreter_remove_modules(RaelInterpreter *interpreter) {
+    for (RaelModuleLoader *module = interpreter->loaded_modules; module->name; ++module) {
+        // if the module was loaded at least once
+        if (module->module_cache) {
+            value_deref(module->module_cache);
+        }
     }
 }
 
@@ -36,6 +69,8 @@ static void interpreter_destroy_all(RaelInterpreter* const interpreter) {
 
     if (interpreter->stream_on_heap)
         free(interpreter->stream_base);
+
+    interpreter_remove_modules(interpreter);
 }
 
 void interpreter_error(RaelInterpreter* const interpreter, struct State state, const char* const error_message, ...) {
@@ -1059,7 +1094,7 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
     }
     case InstructionTypeLoad: {
         // try to load module
-        RaelValue *module = rael_get_module_by_name(instruction->load.module_name);
+        RaelValue *module = interpreter_get_module_by_name(interpreter, instruction->load.module_name);
         // if you couldn't load the module, error
         if (!module)
             interpreter_error(interpreter, instruction->state, "Unknown module name");
@@ -1109,7 +1144,12 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, char *
         .stream_base = stream_base,
         .warn_undefined = warn_undefined,
         .stream_on_heap = stream_on_heap,
-        .filename = filename
+        .filename = filename,
+        .loaded_modules = (RaelModuleLoader[]) {
+            { "Types", module_types_new, NULL },
+            { "Math", module_math_new, NULL },
+            { NULL, NULL, NULL }
+        }
     };
 
     scope_construct(&bottom_scope, NULL);

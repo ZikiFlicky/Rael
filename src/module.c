@@ -1,8 +1,5 @@
 #include "rael.h"
 
-RaelValue *module_math_new(void);
-RaelValue *module_types_new(void);
-
 RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params) {
     RaelCFuncValue *cfunc = RAEL_VALUE_NEW(RaelCFuncType, RaelCFuncValue);
     cfunc->name = name;
@@ -190,13 +187,3 @@ RaelTypeValue RaelModuleType = {
 
     .methods = NULL
 };
-
-RaelValue *rael_get_module_by_name(char *module_name) {
-    if (strcmp(module_name, "Math") == 0) {
-        return module_math_new();
-    } else if (strcmp(module_name, "Types") == 0) {
-        return module_types_new();
-    } else {
-        return NULL;
-    }
-}

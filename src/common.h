@@ -21,6 +21,8 @@ typedef long RaelInt;
 typedef double RaelFloat;
 typedef struct RaelValue RaelValue;
 
+typedef RaelValue* (*RaelNewModuleFunc)(void);
+
 struct RaelHybridNumber {
     bool is_float;
     union {
@@ -36,6 +38,12 @@ enum ProgramInterrupt {
     ProgramInterruptSkip
 };
 
+typedef struct RaelModuleLoader {
+    char *name;
+    RaelNewModuleFunc module_creator;
+    RaelValue *module_cache;
+} RaelModuleLoader;
+
 typedef struct RaelInterpreter {
     char *stream_base;
     char* const filename;
@@ -45,6 +53,7 @@ typedef struct RaelInterpreter {
     struct Scope *scope;
     enum ProgramInterrupt interrupt;
     RaelValue *returned_value;
+    RaelModuleLoader *loaded_modules;
 
     // warnings
     bool warn_undefined;
