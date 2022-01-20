@@ -7,6 +7,7 @@ typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 /* standard modules */
 RaelValue *module_math_new(void);
 RaelValue *module_types_new(void);
+RaelValue *module_time_new(void);
 
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
 static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
@@ -1148,6 +1149,7 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, char *
         .loaded_modules = (RaelModuleLoader[]) {
             { "Types", module_types_new, NULL },
             { "Math", module_math_new, NULL },
+            { "Time", module_time_new, NULL },
             { NULL, NULL, NULL }
         }
     };
