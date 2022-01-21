@@ -13,8 +13,11 @@ void cfunc_delete(RaelCFuncValue *self) {
 }
 
 RaelValue *cfunc_call(RaelCFuncValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
-    if (arguments_amount(args) != self->amount_params)
-        return NULL;
+    size_t amount_args = arguments_amount(args);
+    if (amount_args < self->amount_params)
+        return BLAME_NEW_CSTR("Not enough arguments");
+    else if (amount_args > self->amount_params)
+        return BLAME_NEW_CSTR("Too many arguments");
 
     return self->func(args, interpreter);
 }
