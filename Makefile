@@ -9,7 +9,8 @@ NAME=rael
 RM=rm -f
 RMDIR=rm -rf
 
-OBJECTS=lexer.o parser.o value.o scope.o number.o interpreter.o main.o common.o string.o stack.o varmap.o module.o math.o types.o timemodule.o
+OBJECTS=lexer.o parser.o value.o scope.o number.o interpreter.o main.o common.o string.o stack.o varmap.o module.o \
+		mathmodule.o typesmodule.o timemodule.o
 
 .PHONY: clean all
 

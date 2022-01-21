@@ -20,8 +20,9 @@
 typedef long RaelInt;
 typedef double RaelFloat;
 typedef struct RaelValue RaelValue;
+typedef struct RaelInterpreter RaelInterpreter;
 
-typedef RaelValue* (*RaelNewModuleFunc)(void);
+typedef RaelValue* (*RaelNewModuleFunc)(RaelInterpreter *interpreter);
 
 struct RaelHybridNumber {
     bool is_float;

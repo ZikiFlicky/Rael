@@ -1,13 +1,15 @@
 #include "rael.h"
 
+#include <time.h>
+
 typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
 // TODO: add interpreter_set_variable function
 
 /* standard modules */
-RaelValue *module_math_new(void);
-RaelValue *module_types_new(void);
-RaelValue *module_time_new(void);
+RaelValue *module_math_new(RaelInterpreter *interpreter);
+RaelValue *module_types_new(RaelInterpreter *interpreter);
+RaelValue *module_time_new(RaelInterpreter *interpreter);
 
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
 static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
@@ -34,7 +36,7 @@ static RaelValue *interpreter_get_module_by_name(RaelInterpreter *interpreter, c
             if (loader->module_cache) {
                 module = loader->module_cache;
             } else {
-                module = loader->module_creator();
+                module = loader->module_creator(interpreter);
                 loader->module_cache = module;
             }
             value_ref(module);
