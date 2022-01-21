@@ -14,7 +14,7 @@ void type_repr(RaelTypeValue *self) {
 }
 
 RaelValue *type_cast(RaelTypeValue *self, RaelTypeValue *type) {
-    if (type == &RaelTypeType) {
+    if (type == &RaelStringType) {
         return string_new_pure(self->name, strlen(self->name), false);
     } else {
         return NULL;
