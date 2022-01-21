@@ -1,0 +1,133 @@
+%% very basic Conway's game of life implementation in Rael
+load :Time
+load :Types
+
+:max ?= routine(:1, :2) {
+    if :1 > :2 {
+        ^:1
+    } else {
+        ^:2
+    }
+}
+
+:min ?= routine(:1, :2) {
+    if :1 < :2 {
+        ^:1
+    } else {
+        ^:2
+    }
+}
+
+:getAmountNeighbors ?= routine(:y, :x) {
+    :amountNeighbors ?= 0
+    :startx ?= :max(:x - 1, 0)
+    :endx ?= :min(:x + 2, :xSize)
+    :starty ?= :max(:y - 1, 0)
+    :endy ?= :min(:y + 2, :ySize)
+
+    loop :y2 through :starty to :endy {
+        loop :x2 through :startx to :endx {
+            if !(:y2 = :y & :x2 = :x) {
+                :amountNeighbors += :grid at :y2 at :x2
+            }
+        }
+    }
+
+    ^:amountNeighbors
+}
+
+%% clear screen
+:cls ?= routine() {
+    log 27:toCharString() + "[2J"
+}
+
+%% log the grid
+:showGrid ?= routine() {
+    loop :horizontalCells through :grid {
+        loop :xCellIndex through 0 to :ySize {
+            if :xCellIndex != 0 {
+                show " "
+            }
+            if :horizontalCells at :xCellIndex {
+                show "■"
+            } else {
+                show "□"
+            }
+        }
+        log
+    }
+}
+
+:sleepTime ?= 0.42
+:xSize ?= 10
+:ySize ?= 10
+:grid ?= {}
+%% create grid
+loop :0 through 0 to :ySize {
+    :xGrid ?= {}
+    loop :1 through 0 to :xSize {
+        :xGrid << 0
+    }
+    :grid << :xGrid
+}
+
+%% ask to set points
+loop {
+    :point ?= getstring "Enter point to modify [x,y]: "
+
+    if :point = "" {
+        break
+    } else {
+        :points ?= :point:split(",")
+        if sizeof :points != 2 {
+            blame "Expected just one comma"
+        }
+        %% get x and y of new points
+        :x ?= ((:points at 0) to :Types:Number) - 1
+        :y ?= ((:points at 1) to :Types:Number) - 1
+        %% if the points are invalid, error
+        if :x < 0 | :x > :xSize | :y < 0 | :y > :ySize {
+            blame "Point out of range"
+        }
+        %% set grid at that point to the opposite
+        :grid at :y at :x ?= 1 - (:grid at :y at :x) 
+    }
+
+    %% show grid after every change
+    :cls()
+    :showGrid()
+}
+
+loop {
+    %% clear screen and show grid
+    :cls()
+    :showGrid()
+    :Time:Sleep(:sleepTime)
+
+    :newGrid ?= {}
+
+    %% create new grid with modified cells
+    loop :y through 0 to :ySize {
+        :newGridX ?= {}
+        loop :x through 0 to :xSize {
+            :amountNeighbors ?= :getAmountNeighbors(:y, :x)
+            %% choose the new cell value depending on the amount of neighbors
+            :cellValue ?= match :amountNeighbors {
+            with 3 {
+                ^1
+            }
+            with 2 {
+                ^:grid at :y at :x
+            }
+            else {
+                ^0
+            }
+            }
+            :newGridX << :cellValue
+        }
+        :newGrid << :newGridX
+    }
+
+    %% make the new grid the main grid
+    :grid ?= :newGrid
+}
