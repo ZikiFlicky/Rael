@@ -1,7 +1,8 @@
 #include "../rael.h"
 
-RaelValue *module_math_cos(RaelArgumentList *args) {
+RaelValue *module_math_cos(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -10,8 +11,9 @@ RaelValue *module_math_cos(RaelArgumentList *args) {
     return number_newf(cos(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_sin(RaelArgumentList *args) {
+RaelValue *module_math_sin(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -20,8 +22,9 @@ RaelValue *module_math_sin(RaelArgumentList *args) {
     return number_newf(sin(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_tan(RaelArgumentList *args) {
+RaelValue *module_math_tan(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -30,8 +33,9 @@ RaelValue *module_math_tan(RaelArgumentList *args) {
     return number_newf(tan(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_acos(RaelArgumentList *args) {
+RaelValue *module_math_acos(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -40,8 +44,9 @@ RaelValue *module_math_acos(RaelArgumentList *args) {
     return number_newf(acos(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_asin(RaelArgumentList *args) {
+RaelValue *module_math_asin(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -50,8 +55,9 @@ RaelValue *module_math_asin(RaelArgumentList *args) {
     return number_newf(asin(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_atan(RaelArgumentList *args) {
+RaelValue *module_math_atan(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -60,8 +66,9 @@ RaelValue *module_math_atan(RaelArgumentList *args) {
     return number_newf(atan(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_log10(RaelArgumentList *args) {
+RaelValue *module_math_log10(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -70,8 +77,9 @@ RaelValue *module_math_log10(RaelArgumentList *args) {
     return number_newf(log10(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_log2(RaelArgumentList *args) {
+RaelValue *module_math_log2(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -80,8 +88,9 @@ RaelValue *module_math_log2(RaelArgumentList *args) {
     return number_newf(log2(number_to_float((RaelNumberValue*)number)));
 }
 
-RaelValue *module_math_ceil(RaelArgumentList *args) {
+RaelValue *module_math_ceil(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -90,8 +99,9 @@ RaelValue *module_math_ceil(RaelArgumentList *args) {
     return (RaelValue*)number_ceil((RaelNumberValue*)number);
 }
 
-RaelValue *module_math_floor(RaelArgumentList *args) {
+RaelValue *module_math_floor(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -100,8 +110,9 @@ RaelValue *module_math_floor(RaelArgumentList *args) {
     return (RaelValue*)number_floor((RaelNumberValue*)number);
 }
 
-RaelValue *module_math_abs(RaelArgumentList *args) {
+RaelValue *module_math_abs(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
     if (number->type != &RaelNumberType) {
@@ -110,10 +121,11 @@ RaelValue *module_math_abs(RaelArgumentList *args) {
     return (RaelValue*)number_abs((RaelNumberValue*)number);
 }
 
-RaelValue *module_math_sqrt(RaelArgumentList *args) {
+RaelValue *module_math_sqrt(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;
     RaelFloat n;
 
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
     number = arguments_get(args, 0);
 
@@ -127,10 +139,11 @@ RaelValue *module_math_sqrt(RaelArgumentList *args) {
     return number_newf(sqrt(n));
 }
 
-RaelValue *module_math_pow(RaelArgumentList *args) {
+RaelValue *module_math_pow(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *base;
     RaelValue *power;
 
+    (void)interpreter;
     assert(arguments_amount(args) == 2);
     base = arguments_get(args, 0);
     power = arguments_get(args, 1);
@@ -147,9 +160,10 @@ RaelValue *module_math_pow(RaelArgumentList *args) {
     }
 }
 
-RaelValue *module_math_new(void) {
+RaelValue *module_math_new(RaelInterpreter *interpreter) {
     RaelModuleValue *m;
 
+    (void)interpreter;
     // create module value
     m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("Math"));
     // set all keys

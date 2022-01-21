@@ -13,11 +13,10 @@ void cfunc_delete(RaelCFuncValue *self) {
 }
 
 RaelValue *cfunc_call(RaelCFuncValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
-    (void)interpreter;
     if (arguments_amount(args) != self->amount_params)
         return NULL;
 
-    return self->func(args);
+    return self->func(args, interpreter);
 }
 
 bool cfunc_eq(RaelCFuncValue *self, RaelCFuncValue *value) {

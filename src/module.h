@@ -5,7 +5,7 @@
 #include "varmap.h"
 
 /* define custom C function pointers as RaelRawCFunc */
-typedef RaelValue* (*RaelRawCFunc)(RaelArgumentList*);
+typedef RaelValue* (*RaelRawCFunc)(RaelArgumentList*, RaelInterpreter*);
 
 typedef struct RaelCFuncValue {
     RAEL_VALUE_BASE;

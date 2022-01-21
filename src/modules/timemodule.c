@@ -14,11 +14,12 @@
 
 #include <time.h>
 
-RaelValue *module_time_GetEpoch(RaelArgumentList *args) {
+RaelValue *module_time_GetEpoch(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelFloat output;
     RaelFloat millis;
     struct timespec tm;
 
+    (void)interpreter;
     assert(arguments_amount(args) == 0);
 
     // get time into tm
@@ -33,12 +34,13 @@ RaelValue *module_time_GetEpoch(RaelArgumentList *args) {
     return number_newf(output);
 }
 
-RaelValue *module_time_Sleep(RaelArgumentList *args) {
+RaelValue *module_time_Sleep(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *arg1;
     RaelFloat sleeptime;
     RaelInt amount_sec, amount_millis;
     struct timespec tm;
 
+    (void)interpreter;
     assert(arguments_amount(args) == 1);
 
     arg1 = arguments_get(args, 0);
@@ -63,9 +65,10 @@ RaelValue *module_time_Sleep(RaelArgumentList *args) {
     return void_new();
 }
 
-RaelValue *module_time_new(void) {
+RaelValue *module_time_new(RaelInterpreter *interpreter) {
     RaelModuleValue *m;
 
+    (void)interpreter;
     m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("Time"));
     module_set_key(m, RAEL_HEAPSTR("GetEpoch"), cfunc_new(RAEL_HEAPSTR("GetEpoch"), module_time_GetEpoch, 0));
     module_set_key(m, RAEL_HEAPSTR("Sleep"), cfunc_new(RAEL_HEAPSTR("Sleep"), module_time_Sleep, 1));

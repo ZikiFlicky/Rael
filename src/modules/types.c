@@ -1,8 +1,9 @@
 #include "../rael.h"
 
-RaelValue *module_types_new(void) {
+RaelValue *module_types_new(RaelInterpreter *interpreter) {
     RaelModuleValue *m;
 
+    (void)interpreter;
     // create module value
     m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("Types"));
 
