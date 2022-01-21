@@ -235,6 +235,16 @@ RaelValue *range_new(RaelInt start, RaelInt end) {
     return (RaelValue*)range;
 }
 
+RaelInt range_at(RaelRangeValue *self, size_t idx) {
+    assert(idx < range_length(self));
+    // get the number, depending on the direction
+    if (self->end > self->start)
+        return self->start + (RaelInt)idx;
+    else
+        return self->start - (RaelInt)idx;
+
+}
+
 static inline bool range_validate(RaelValue *range) {
     return range->type == &RaelRangeType;
 }
@@ -248,19 +258,11 @@ bool range_as_bool(RaelRangeValue *self) {
 }
 
 RaelValue *range_get(RaelRangeValue *self, size_t idx) {
-    RaelInt number;
-
     if (idx >= range_length(self))
         return NULL;
 
-    // get the number, depending on the direction
-    if (self->end > self->start)
-        number = self->start + idx;
-    else
-        number = self->start - idx;
-
     // return the number
-    return number_newi(number);
+    return number_newi(range_at(self, idx));
 }
 
 bool range_eq(RaelRangeValue *self, RaelRangeValue *value) {
