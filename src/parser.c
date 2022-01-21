@@ -1075,8 +1075,10 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
     parser_maybe_expect_newline(parser);
 
     if (parser_match(parser, TokenNameWith)) {
-        if (!parser_match(parser, TokenNameKey))
+        if (!parser_match(parser, TokenNameKey)) {
+            expr_delete(catch.catch_expr);
             parser_error(parser, "Expected a key");
+        }
         key_token = parser->lexer.token;
         store_value = true;
     } else {
@@ -1084,7 +1086,31 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
     }
 
     if (!(catch.handle_block = parser_parse_block(parser))) {
+        expr_delete(catch.catch_expr);
         parser_error(parser, "Expected block");
+    }
+
+    parser_maybe_expect_newline(parser);
+
+    // if there is an else keyword
+    if (parser_match(parser, TokenNameElse)) {
+        struct Instruction **else_block;
+
+        // there can be a newline after else keyword
+        parser_maybe_expect_newline(parser);
+
+        // get block
+        else_block = parser_parse_block(parser);
+        if (!else_block) {
+            expr_delete(catch.catch_expr);
+            block_delete(catch.handle_block);
+            // FIXME: this leaks
+            parser_error(parser, "Expected block");
+        }
+        parser_maybe_expect_newline(parser);
+        catch.else_block = else_block;
+    } else {
+        catch.else_block = NULL;
     }
 
     parser_maybe_expect_newline(parser);
@@ -1597,8 +1623,11 @@ void instruction_delete(struct Instruction* const inst) {
         break;
     case InstructionTypeCatch:
         expr_delete(inst->catch.catch_expr);
-        if (inst->catch.handle_block) {
-            block_delete(inst->catch.handle_block);
+        block_delete(inst->catch.handle_block);
+
+        // if there is an else part to the catch statement
+        if (inst->catch.else_block) {
+            block_delete(inst->catch.else_block);
         }
         // only if you tell it to catch, catch
         if (inst->catch.value_key)

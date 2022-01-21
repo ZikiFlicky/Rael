@@ -193,6 +193,7 @@ struct LoopInstruction {
 struct CatchInstruction {
     struct Expr *catch_expr;
     struct Instruction **handle_block;
+    struct Instruction **else_block;
     char *value_key;
 };
 

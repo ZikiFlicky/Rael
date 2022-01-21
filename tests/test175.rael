@@ -5,3 +5,31 @@ catch 1 / 0 {
 catch 1 / 0 with :message {
     log :message
 }
+
+catch "Str" with :string {
+    log "How did we get here"
+}
+
+catch 1 / 0 {
+    log 1
+} else {
+    log 2
+}
+
+catch Void {
+    log 1
+} else {
+    log 2
+}
+
+catch "Not a blame" with :string {
+    log "How did we get here"
+} else {
+    log :string
+}
+
+catch 1 / 0 with :string {
+    log :string
+} else {
+    log "How did I get here"
+}

@@ -1091,6 +1091,11 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
                 value_deref(message);
             }
             block_run(interpreter, catch.handle_block, true);
+        } else if (catch.else_block) {
+            if (catch.value_key) {
+                scope_set(interpreter->scope, catch.value_key, caught_value, false);
+            }
+            block_run(interpreter, catch.else_block, true);
         }
 
         value_deref(caught_value);
