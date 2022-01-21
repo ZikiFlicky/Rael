@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <float.h>
 
 /* declare constants for Rael */
 #define RAEL_CONSTANT_PI 3.141592653589793
@@ -20,6 +21,10 @@
 typedef long RaelInt;
 typedef double RaelFloat;
 typedef struct RaelValue RaelValue;
+
+#define RAELINT_MAX LONG_MAX
+#define RAELFLOAT_MAX DBL_MAX
+
 typedef struct RaelInterpreter RaelInterpreter;
 
 typedef RaelValue* (*RaelNewModuleFunc)(RaelInterpreter *interpreter);
@@ -55,6 +60,7 @@ typedef struct RaelInterpreter {
     enum ProgramInterrupt interrupt;
     RaelValue *returned_value;
     RaelModuleLoader *loaded_modules;
+    unsigned int seed;
 
     // warnings
     bool warn_undefined;

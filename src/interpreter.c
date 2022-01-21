@@ -10,6 +10,7 @@ typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 RaelValue *module_math_new(RaelInterpreter *interpreter);
 RaelValue *module_types_new(RaelInterpreter *interpreter);
 RaelValue *module_time_new(RaelInterpreter *interpreter);
+RaelValue *module_random_new(RaelInterpreter *interpreter);
 
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
 static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
@@ -1136,10 +1137,17 @@ static void interpreter_set_filename(RaelInterpreter *interpreter, char *filenam
     value_deref(value);
 }
 
+static unsigned int generate_seed(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (unsigned int)ts.tv_sec % (unsigned int)ts.tv_nsec;
+}
+
 void rael_interpret(struct Instruction **instructions, char *stream_base, char *filename, char **argv, size_t argc,
                     const bool stream_on_heap, const bool warn_undefined) {
     struct Instruction *instruction;
     struct Scope bottom_scope;
+    unsigned int seed = generate_seed();
     RaelInterpreter interp = {
         .instructions = instructions,
         .interrupt = ProgramInterruptNone,
@@ -1152,9 +1160,14 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, char *
             { "Types", module_types_new, NULL },
             { "Math", module_math_new, NULL },
             { "Time", module_time_new, NULL },
+            { "Random", module_random_new, NULL },
             { NULL, NULL, NULL }
-        }
+        },
+        .seed = seed
     };
+
+    // seed the random number generator
+    srand(seed);
 
     scope_construct(&bottom_scope, NULL);
     interp.scope = &bottom_scope;
