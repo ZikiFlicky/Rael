@@ -15,6 +15,7 @@ RaelValue *module_types_new(RaelInterpreter *interpreter) {
     value_ref((RaelValue*)&RaelStackType);
     value_ref((RaelValue*)&RaelRoutineType);
     value_ref((RaelValue*)&RaelCFuncType);
+    value_ref((RaelValue*)&RaelCFuncMethodType);
     value_ref((RaelValue*)&RaelBlameType);
     value_ref((RaelValue*)&RaelRangeType);
     value_ref((RaelValue*)&RaelModuleType);
@@ -27,6 +28,7 @@ RaelValue *module_types_new(RaelInterpreter *interpreter) {
     module_set_key(m, RAEL_HEAPSTR("Stack"), (RaelValue*)&RaelStackType);
     module_set_key(m, RAEL_HEAPSTR("Routine"), (RaelValue*)&RaelRoutineType);
     module_set_key(m, RAEL_HEAPSTR("CFunc"), (RaelValue*)&RaelCFuncType);
+    module_set_key(m, RAEL_HEAPSTR("CFuncMethod"), (RaelValue*)&RaelCFuncMethodType);
     module_set_key(m, RAEL_HEAPSTR("Blame"), (RaelValue*)&RaelBlameType);
     module_set_key(m, RAEL_HEAPSTR("Range"), (RaelValue*)&RaelRangeType);
     module_set_key(m, RAEL_HEAPSTR("Module"), (RaelValue*)&RaelModuleType);
