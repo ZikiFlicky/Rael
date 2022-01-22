@@ -1,4 +1,4 @@
-#include "../rael.h"
+#include "rael.h"
 
 RaelValue *module_math_cos(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *number;

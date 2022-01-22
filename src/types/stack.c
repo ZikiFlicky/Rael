@@ -1,8 +1,5 @@
 #include "rael.h"
-
-static inline bool stack_validate(RaelValue *value) {
-    return value->type == &RaelStackType;
-}
+#include "value.h"
 
 RaelValue *stack_new(size_t overhead) {
     RaelStackValue *stack = RAEL_VALUE_NEW(RaelStackType, RaelStackValue);
@@ -290,7 +287,7 @@ RaelTypeValue RaelStackType = {
 
     .length = (RaelLengthFunc)stack_length,
 
-    .methods = {
+    .methods = (MethodDecl[]) {
         { "pop", (RaelMethodFunc)stack_method_pop },
         { "findIndexOf", (RaelMethodFunc)stack_method_findIndexOf },
         { NULL, NULL }

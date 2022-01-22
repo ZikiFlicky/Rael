@@ -469,7 +469,7 @@ RaelTypeValue RaelNumberType = {
 
     .length = NULL,
 
-    .methods = {
+    .methods = (MethodDecl[]) {
         { "signedMod", (RaelMethodFunc)number_method_signedMod },
         { "toCharString", (RaelMethodFunc)number_method_toCharString },
         { NULL, NULL }

@@ -1,9 +1,5 @@
 #include "rael.h"
 
-static inline bool string_validate(RaelValue *value) {
-    return value->type == &RaelStringType;
-}
-
 RaelValue *string_new_pure(char *source, size_t length, bool can_free) {
     RaelStringValue *string = RAEL_VALUE_NEW(RaelStringType, RaelStringValue);
     string->type = StringTypePure;
@@ -878,7 +874,7 @@ RaelTypeValue RaelStringType = {
 
     .length = (RaelLengthFunc)string_length,
 
-    .methods = {
+    .methods = (MethodDecl[]) {
         { "toLower", (RaelMethodFunc)string_method_toLower },
         { "toUpper", (RaelMethodFunc)string_method_toUpper },
         { "toCharStack", (RaelMethodFunc)string_method_toCharStack },

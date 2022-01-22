@@ -1,4 +1,4 @@
-#include "../rael.h"
+#include "rael.h"
 
 static RaelInt get_random() {
     const size_t times_generate = sizeof(RaelInt) / sizeof(RAND_MAX);

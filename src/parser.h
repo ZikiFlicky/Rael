@@ -3,9 +3,6 @@
 
 #include "common.h"
 #include "lexer.h"
-#include "value.h"
-#include "number.h"
-#include "string.h"
 
 #include <stdbool.h>
 
@@ -49,7 +46,6 @@ struct ValueExpr {
         struct ASTStringValue as_string;
         struct ASTRoutineValue as_routine;
         struct ASTStackValue as_stack;
-        RaelTypeValue *as_type;
     };
 };
 

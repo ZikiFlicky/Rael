@@ -1,4 +1,4 @@
-#include "../rael.h"
+#include "rael.h"
 
 RaelValue *module_types_new(RaelInterpreter *interpreter) {
     RaelModuleValue *m;

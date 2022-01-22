@@ -2,15 +2,10 @@
 #define RAEL_VALUE_H
 
 #include "varmap.h"
+#include "common.h"
 
 #include <stddef.h>
 
-typedef struct RaelValue RaelValue;
-
-/* return a RaelValue of type blame, storing a RaelValue of type string with the value of `string` */
-#define BLAME_NEW_CSTR(string) ((RaelValue*)blame_new((RaelValue*)RAEL_STRING_FROM_CSTR((string)), NULL))
-/* return a RaelValue of type blame, storing a RaelValue of type string with the value of `string` and the state `state` */
-#define BLAME_NEW_CSTR_ST(string, state) ((RaelValue*)blame_new((RaelValue*)RAEL_STRING_FROM_CSTR((string)), &(state)))
 /* create a value from a `RaelTypeValue` and a C type that inherits from RaelValue */
 #define RAEL_VALUE_NEW(value_type, c_type) ((c_type*)value_new(&value_type, sizeof(c_type)))
 /* header to put on top of custom rael runtime values which lets the values inherit from RaelValue */
@@ -45,26 +40,6 @@ typedef struct RaelValue {
     size_t reference_count;
     struct VariableMap keys;
 } RaelValue;
-
-typedef struct RaelRangeValue {
-    RAEL_VALUE_BASE;
-    RaelInt start, end;
-} RaelRangeValue;
-
-typedef struct RaelBlameValue {
-    RAEL_VALUE_BASE;
-    bool state_defined;
-    RaelValue *message;
-    struct State original_place;
-} RaelBlameValue;
-
-typedef struct RaelRoutineValue {
-    RAEL_VALUE_BASE;
-    struct Scope *scope;
-    char **parameters;
-    size_t amount_parameters;
-    struct Instruction **block;
-} RaelRoutineValue;
 
 typedef struct MethodDecl {
     char *name;
@@ -127,43 +102,18 @@ typedef struct RaelTypeValue {
     RaelLengthFunc length;
 
     /* Methods */
-    MethodDecl methods[];
+    MethodDecl *methods;
 } RaelTypeValue;
 
-/* declare builtin types */
+/* declare some builtin types */
 extern RaelTypeValue RaelTypeType;
 extern RaelTypeValue RaelVoidType;
-extern RaelTypeValue RaelRangeType;
-extern RaelTypeValue RaelRoutineType;
-extern RaelTypeValue RaelBlameType;
 
 /* declare constants */
 extern RaelValue RaelVoid; /* Rael's Void */
 
 /* return RaelVoid pointer and add a reference to it */
 RaelValue *void_new(void);
-
-/* create a new range from two whole numbers */
-RaelValue *range_new(RaelInt start, RaelInt end);
-
-/* get the length of the range */
-size_t range_length(RaelRangeValue *range);
-
-/*
- * Get the value of the range at the index given.
- * Notice that the function asserts that the index isn't too big,
- * so you'll have to check the index and the length before calling.
- */
-RaelInt range_at(RaelRangeValue *self, size_t idx);
-
-/* create a new blame from a message and a state  */
-RaelValue *blame_new(RaelValue *message, struct State *state);
-
-/* if there isn't a state defined in the blame, set it to the new state */
-void blame_set_state(RaelBlameValue *value, struct State state);
-
-/* check if the value is a blame */
-bool blame_validate(RaelValue *value);
 
 /* create a new uninitialized value from a RaelTypeValue and a size */
 RaelValue *value_new(RaelTypeValue *type, size_t size);

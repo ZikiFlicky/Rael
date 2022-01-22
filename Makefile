@@ -1,6 +1,6 @@
 CC=gcc
 LINK=-lm
-CFLAGS=-Wall -Wextra -std=c99 -Wno-missing-braces
+CFLAGS=-Wall -Wextra -std=c99 -Wno-missing-braces -Isrc/
 
 SRCDIR=src
 MKDIR=mkdir -p
@@ -9,7 +9,7 @@ NAME=rael
 RM=rm -f
 RMDIR=rm -rf
 
-OBJECTS=lexer.o parser.o value.o scope.o number.o interpreter.o main.o common.o string.o stack.o varmap.o module.o \
+OBJECTS=lexer.o parser.o interpreter.o value.o number.o main.o common.o string.o stack.o module.o range.o blame.o routine.o cfuncs.o varmap.o scope.o \
 		mathmodule.o typesmodule.o timemodule.o randommodule.o
 
 .PHONY: clean all
@@ -26,6 +26,9 @@ $(BUILDDIR)/$(NAME): $(OBJECTS)
 	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
 
 %.o: src/modules/%.c $(BUILDDIR)
+	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
+
+%.o: src/types/%.c $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
 
 clean:

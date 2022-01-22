@@ -1,4 +1,4 @@
-#include "../rael.h"
+#include "rael.h"
 
 RaelValue *module_time_GetEpoch(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelFloat output;
