@@ -659,6 +659,8 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
         } else {
             value = BLAME_NEW_CSTR_ST("Expected Number or Range", expr->rhs->state);
         }
+        value_deref(lhs);
+        value_deref(rhs);
         break;
     case ExprTypeTo:
         lhs = expr_eval(interpreter, expr->lhs, true);
