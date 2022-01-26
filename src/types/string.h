@@ -38,6 +38,8 @@ RaelValue *string_new_substr(char *source, size_t length, RaelStringValue *refer
 
 void string_delete(RaelStringValue *self);
 
+char *string_to_cstr(RaelStringValue *self);
+
 size_t string_length(RaelStringValue *self);
 
 RaelValue *string_get(RaelStringValue *self, size_t idx);

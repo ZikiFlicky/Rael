@@ -1,5 +1,9 @@
 #include "rael.h"
 
+#include "string.h"
+
+#include <string.h>
+
 RaelValue *string_new_pure(char *source, size_t length, bool can_free) {
     RaelStringValue *string = RAEL_VALUE_NEW(RaelStringType, RaelStringValue);
     string->type = StringTypePure;
@@ -36,6 +40,13 @@ RaelValue *string_new_pure_cpy(char *source, size_t length) {
 
 static RaelValue *string_new_empty(void) {
     return string_new_pure(NULL, 0, true);
+}
+
+char *string_to_cstr(RaelStringValue *self) {
+    char *cstr = malloc(self->length + 1);
+    strncpy(cstr, self->source, self->length);
+    cstr[self->length] = '\0';
+    return cstr;
 }
 
 /* get length of a string */
