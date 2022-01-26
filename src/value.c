@@ -296,14 +296,14 @@ void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate
 }
 
 RaelValue *value_slice(RaelValue *self, size_t start, size_t end) {
-    RaelSliceFunc possible_at_range;
-    size_t value_len = value_length(self);
+    RaelSliceFunc possible_at_range = self->type->at_range;
 
-    if (start > end || start > value_len  || end > value_len) {
-        return BLAME_NEW_CSTR("Invalid slicing");
-    }
-    possible_at_range = self->type->at_range;
     if (possible_at_range) {
+        size_t value_len = value_length(self);
+
+        if (start > end || start > value_len  || end > value_len) {
+            return BLAME_NEW_CSTR("Invalid slicing");
+        }
         return possible_at_range(self, start, end);
     } else {
         return NULL; // can't slice value
