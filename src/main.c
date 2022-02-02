@@ -6,8 +6,9 @@
 #include <string.h>
 #include <assert.h>
 
-void rael_interpret(struct Instruction **instructions, char *stream_base, char* const filename, char **argv, size_t argc,
-                    const bool stream_on_heap, const bool warn_undefined);
+void rael_interpret(struct Instruction **instructions, char *stream_base, const bool stream_on_heap,
+                    char* const exec_path, char *filename, char **argv, size_t argc, const bool warn_undefined);
+
 static void print_help(void) {
     puts("Welcome to the Rael programming language!");
     puts("usage: rael [--help | -h] | [[--string | -s] string | file] [--warn-undefined]");
@@ -39,6 +40,7 @@ int main(int argc, char **argv) {
     char **program_argv;
     size_t program_argc;
     bool warn_undefined = false, on_heap = false;
+    struct Instruction **parsed;
 
     if (argc <= 1) {
         print_help();
@@ -88,7 +90,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    rael_interpret(rael_parse(filename, stream, on_heap), stream, filename, program_argv, program_argc, on_heap, warn_undefined);
+    parsed = rael_parse(filename, stream, on_heap);
+    rael_interpret(parsed, stream, on_heap, argv[0], filename, program_argv, program_argc, warn_undefined);
 
     return 0;
 }

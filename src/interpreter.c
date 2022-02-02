@@ -11,6 +11,7 @@ RaelValue *module_math_new(RaelInterpreter *interpreter);
 RaelValue *module_types_new(RaelInterpreter *interpreter);
 RaelValue *module_time_new(RaelInterpreter *interpreter);
 RaelValue *module_random_new(RaelInterpreter *interpreter);
+RaelValue *module_system_new(RaelInterpreter *interpreter);
 
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
 static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
@@ -1120,57 +1121,40 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
     }
 }
 
-static void interpreter_set_argv(RaelInterpreter *interpreter, char **argv, size_t argc) {
-    RaelValue *argv_stack = stack_new(argc);
-    for (size_t i = 0; i < argc; ++i) {
-        RaelValue *arg = string_new_pure(argv[i], strlen(argv[i]), false);
-        stack_push((RaelStackValue*)argv_stack, arg);
-        value_deref(arg);
-    }
-    scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Argv"), argv_stack, true);
-    // remove local reference of argv_stack
-    value_deref(argv_stack);
-}
-
-static void interpreter_set_filename(RaelInterpreter *interpreter, char *filename) {
-    RaelValue *value;
-    if (filename) {
-        value = string_new_pure(filename, strlen(filename), false);
-    } else {
-        value = void_new();
-    }
-    scope_set_local(interpreter->scope, RAEL_HEAPSTR("_Filename"), value, true);
-    // remove local reference to the value
-    value_deref(value);
-}
-
 static unsigned int generate_seed(void) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     return (unsigned int)ts.tv_sec % (unsigned int)ts.tv_nsec;
 }
 
-void rael_interpret(struct Instruction **instructions, char *stream_base, char *filename, char **argv, size_t argc,
-                    const bool stream_on_heap, const bool warn_undefined) {
+void rael_interpret(struct Instruction **instructions, char *stream_base, const bool stream_on_heap,
+                    char* const exec_path, char *filename, char **argv, size_t argc, const bool warn_undefined) {
     struct Instruction *instruction;
     struct Scope bottom_scope;
     unsigned int seed = generate_seed();
     RaelInterpreter interp = {
-        .instructions = instructions,
-        .interrupt = ProgramInterruptNone,
-        .returned_value = NULL,
         .stream_base = stream_base,
-        .warn_undefined = warn_undefined,
         .stream_on_heap = stream_on_heap,
         .filename = filename,
+        .exec_path = exec_path,
+        .argv = argv,
+        .argc = argc,
+
+        .instructions = instructions,
+
+        .interrupt = ProgramInterruptNone,
+        .returned_value = NULL,
         .loaded_modules = (RaelModuleLoader[]) {
             { "Types", module_types_new, NULL },
             { "Math", module_math_new, NULL },
             { "Time", module_time_new, NULL },
             { "Random", module_random_new, NULL },
+            { "System", module_system_new, NULL },
             { NULL, NULL, NULL }
         },
-        .seed = seed
+        .seed = seed,
+
+        .warn_undefined = warn_undefined
     };
 
     // seed the random number generator
@@ -1178,10 +1162,6 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, char *
 
     scope_construct(&bottom_scope, NULL);
     interp.scope = &bottom_scope;
-    // set _Argv
-    interpreter_set_argv(&interp, argv, argc);
-    // set _Filename
-    interpreter_set_filename(&interp, filename);
     for (interp.idx = 0; (instruction = interp.instructions[interp.idx]); ++interp.idx) {
         interpreter_interpret_inst(&interp, instruction);
     }

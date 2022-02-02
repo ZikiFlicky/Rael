@@ -52,13 +52,19 @@ typedef struct RaelModuleLoader {
 
 typedef struct RaelInterpreter {
     char *stream_base;
-    char* const filename;
     const bool stream_on_heap;
+    char* const filename;
+    char* const exec_path;
+    char **argv;
+    size_t argc;
+
     struct Instruction **instructions;
     size_t idx;
+
     struct Scope *scope;
     enum ProgramInterrupt interrupt;
     RaelValue *returned_value;
+
     RaelModuleLoader *loaded_modules;
     unsigned int seed;
 

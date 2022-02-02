@@ -1,2 +1,5 @@
-log :_Filename
-log :_Argv
+load :System
+
+log :System:RaelPath
+log :System:ProgramFilename
+log :System:ProgramArgv
