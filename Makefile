@@ -12,9 +12,12 @@ RMDIR=rm -rf
 OBJECTS=lexer.o parser.o interpreter.o value.o number.o main.o common.o string.o stack.o module.o range.o blame.o routine.o cfuncs.o varmap.o scope.o \
 		mathmodule.o typesmodule.o timemodule.o randommodule.o systemmodule.o
 
-.PHONY: clean all
+.PHONY: clean all debug
 
 all: clean $(BUILDDIR)/$(NAME)
+
+debug: CFLAGS+=-g
+debug: all
 
 $(BUILDDIR):
 	$(MKDIR) $@
