@@ -18,8 +18,9 @@ at the top to whatever you like.
 
 Note: the language was only tested on Linux (Ubuntu 20.04, to be exact).
 
-The language doesn't use Linux/unix specific libraries in the actual language's code, but it does use
-build tools that are unix specific. With a bit of effort it could be ported to other platforms, too.
+The language's code currently uses some Posix libraries and functions and doesn't currently support OSes without Posix support.
+
+In the future I may or may not port it to Windows.
 
 For build problems and questions regarding the language, please open an issue on this GitHub page.
 
