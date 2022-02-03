@@ -36,20 +36,26 @@ static bool lexer_clean(struct Lexer* const lexer) {
     bool cleaned = false;
     for (;;) {
         if (is_whitespace(lexer->stream[0])) {
-            cleaned = true;
             ++lexer->stream;
             ++lexer->column;
         } else if (lexer->stream[0] == '%' && lexer->stream[1] == '%') { // handle comments :^)
-            cleaned = true;
             lexer->stream += 2;
             lexer->column += 2;
             while (lexer->stream[0] != '\n' && lexer->stream[0] != '\0') {
                 ++lexer->stream;
                 ++lexer->column;
             }
+        } else if (lexer->stream[0] == '\\') {
+            if (lexer->stream[1] != '\n') {
+                lexer_error(lexer, "Expected a newline afterwards '\\'");
+            }
+            lexer->stream += 2;
+            ++lexer->line;
+            lexer->column = 1;
         } else {
             break;
         }
+        cleaned = true;
     }
     return cleaned;
 }
