@@ -851,7 +851,7 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
     case ExprTypeGetMember:
         lhs = expr_eval(interpreter, expr->as_get_member.lhs, true);
         // get key from value
-        value = value_get_key(lhs, expr->as_get_member.key);
+        value = value_get_key(lhs, expr->as_get_member.key, interpreter);
         value_deref(lhs);
         break;
     default:

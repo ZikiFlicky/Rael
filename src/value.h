@@ -188,7 +188,7 @@ RaelValue *value_neg(RaelValue *value);
 RaelValue *value_cast(RaelValue *value, RaelTypeValue *type);
 
 /* value:key */
-RaelValue *value_get_key(RaelValue *self, char *key);
+RaelValue *value_get_key(RaelValue *self, char *key, RaelInterpreter *interpreter);
 
 /* value:key ?= */
 void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate_key_on_free);

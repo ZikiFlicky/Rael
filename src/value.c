@@ -277,7 +277,7 @@ RaelValue *value_get(RaelValue *self, size_t idx) {
 }
 
 /* :Value:Key */
-RaelValue *value_get_key(RaelValue *self, char *key) {
+RaelValue *value_get_key(RaelValue *self, char *key, RaelInterpreter *interpreter) {
     // get value at that key
     RaelValue *value = varmap_get(&self->keys, key);
 
@@ -286,7 +286,9 @@ RaelValue *value_get_key(RaelValue *self, char *key) {
         return value;
     }
 
-    // TODO: display a warning here if there is a warning flag enabled
+    if (interpreter->warn_undefined) {
+        rael_show_warning_key(key);
+    }
 
     return void_new();
 }
