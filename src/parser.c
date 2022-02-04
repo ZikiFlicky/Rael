@@ -226,71 +226,80 @@ static struct ValueExpr *parser_parse_routine(struct Parser* const parser) {
     return value;
 }
 
+static struct ValueExpr *parser_parse_string(struct Parser* const parser) {
+    struct ValueExpr *value;
+    char *string = NULL;
+    size_t allocated = 0, length = 0;
+
+    // expect a string
+    if (!parser_match(parser, TokenNameString)) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < parser->lexer.token.length; ++i) {
+        char c;
+        if (parser->lexer.token.string[i] == '\\') {
+            // there isn't really a reason to have more than this
+            switch (parser->lexer.token.string[++i]) {
+            case '\n':
+                continue;
+            case 'n':
+                c = '\n';
+                break;
+            case 'r':
+                c = '\r';
+                break;
+            case 't':
+                c = '\t';
+                break;
+            case '\\':
+                c = '\\';
+                break;
+            default: // this works with \" too
+                c = parser->lexer.token.string[i];
+            }
+        } else {
+            c = parser->lexer.token.string[i];
+        }
+
+        if (allocated == 0) {
+            string = malloc((allocated = 16) * sizeof(char));
+        } else if (length == allocated) {
+            string = realloc(string, (allocated += 16) * sizeof(char));
+        }
+
+        string[length++] = c;
+    }
+
+    // shrink size
+    if (allocated > 0)
+        string = realloc(string, length * sizeof(char));
+
+    value = value_expr_create(ValueTypeString);
+    value->as_string = (struct ASTStringValue) {
+        .source = string,
+        .length = length
+    };
+
+    return value;
+}
+
 static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     struct Expr *expr;
     struct State backtrack = parser_dump_state(parser);
     struct ValueExpr *value;
 
-    if ((value = parser_parse_routine(parser))       ||
-        (value = parser_parse_stack(parser))         ||
-        (value = parser_parse_number(parser))) { // parse values with syntax
+    if ((value = parser_parse_routine(parser)) ||
+        (value = parser_parse_stack(parser))   ||
+        (value = parser_parse_number(parser))  ||
+        (value = parser_parse_string(parser))) {
         expr = expr_create(ExprTypeValue);
         expr->as_value = value;
-    } else { // if you couldn't parse anything up until here, try to parse other stuff
+    } else { // if you couldn't parse any other literal expression up until here, try to parse other stuff
         if (!lexer_tokenize(&parser->lexer))
             return NULL;
 
         switch (parser->lexer.token.name) {
-        case TokenNameString: {
-            char *string = NULL;
-            size_t allocated = 0, length = 0;
-
-            for (size_t i = 0; i < parser->lexer.token.length; ++i) {
-                char c;
-                if (parser->lexer.token.string[i] == '\\') {
-                    // there isn't really a reason to have more than this
-                    switch (parser->lexer.token.string[++i]) {
-                    case 'n':
-                        c = '\n';
-                        break;
-                    case 'r':
-                        c = '\r';
-                        break;
-                    case 't':
-                        c = '\t';
-                        break;
-                    case '\\':
-                        c = '\\';
-                        break;
-                    default: // this works with \" too
-                        c = parser->lexer.token.string[i];
-                    }
-                } else {
-                    c = parser->lexer.token.string[i];
-                }
-
-                if (allocated == 0) {
-                    string = malloc((allocated = 16) * sizeof(char));
-                } else if (length == allocated) {
-                    string = realloc(string, (allocated += 16) * sizeof(char));
-                }
-
-                string[length++] = c;
-            }
-
-            // shrink size
-            if (allocated > 0)
-                string = realloc(string, length * sizeof(char));
-
-            expr = expr_create(ExprTypeValue);
-            expr->as_value = value_expr_create(ValueTypeString);
-            expr->as_value->as_string = (struct ASTStringValue) {
-                .source = string,
-                .length = length
-            };
-
-            break;
-        }
         case TokenNameKey:
             expr = expr_create(ExprTypeKey);
             expr->as_key = token_allocate_key(&parser->lexer.token);

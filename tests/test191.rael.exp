@@ -1,0 +1,4 @@
+abcdef 6
+Error [tests/test191.rael:5:1]: This checks if the line counter changed
+| blame "This checks if the line counter changed"
+| ^

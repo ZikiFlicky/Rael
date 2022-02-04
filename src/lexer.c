@@ -142,10 +142,15 @@ bool lexer_tokenize(struct Lexer* const lexer) {
                     ++lexer->token.length;
                     ++lexer->stream;
                     ++lexer->column;
+                } else if (lexer->stream[1] == '\n') {
+                    ++lexer->token.length;
+                    ++lexer->stream;
+                    ++lexer->line;
+                    lexer->column = 1;
                 }
-            }
-            if (lexer->stream[0] == '\n' || lexer->stream[0] == '\0')
+            } else if (lexer->stream[0] == '\n' || lexer->stream[0] == '\0') {
                 lexer_error(lexer, "Unexpected end-of-line");
+            }
             ++lexer->token.length;
             ++lexer->stream;
             ++lexer->column;

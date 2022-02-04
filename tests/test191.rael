@@ -1,0 +1,5 @@
+:a ?= "abc\
+def"
+log :a, sizeof :a
+
+blame "This checks if the line counter changed"

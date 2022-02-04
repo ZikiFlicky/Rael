@@ -1,0 +1,3 @@
+Error [tests/test192.rael:1:13]: Unexpected end-of-line
+| :a ?= "abc\ 
+|             ^
