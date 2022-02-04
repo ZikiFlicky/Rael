@@ -10,13 +10,21 @@ RaelValue *range_new(RaelInt start, RaelInt end) {
 }
 
 RaelInt range_at(RaelRangeValue *self, size_t idx) {
-    assert(idx < range_length(self));
+    assert(idx <= range_length(self));
     // get the number, depending on the direction
     if (self->end > self->start)
         return self->start + (RaelInt)idx;
     else
         return self->start - (RaelInt)idx;
 
+}
+
+RaelValue *range_slice(RaelRangeValue *self, size_t start, size_t end) {
+    if (end > range_length(self)) {
+        return BLAME_NEW_CSTR("Range slicing out of bounds");
+    }
+    return range_new(range_at(self, start),
+                     range_at(self, end));
 }
 
 size_t range_length(RaelRangeValue *range) {
@@ -119,7 +127,7 @@ RaelTypeValue RaelRangeType = {
     .cast = NULL,
 
     .at_index = (RaelGetFunc)range_get,
-    .at_range = NULL,
+    .at_range = (RaelSliceFunc)range_slice,
 
     .length = (RaelLengthFunc)range_length,
 
