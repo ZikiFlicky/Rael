@@ -47,7 +47,7 @@ static bool lexer_clean(struct Lexer* const lexer) {
             }
         } else if (lexer->stream[0] == '\\') {
             if (lexer->stream[1] != '\n') {
-                lexer_error(lexer, "Expected a newline afterwards '\\'");
+                lexer_error(lexer, "Expected a newline after '\\'");
             }
             lexer->stream += 2;
             ++lexer->line;

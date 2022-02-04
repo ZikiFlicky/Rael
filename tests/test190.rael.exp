@@ -1,0 +1,3 @@
+Error [tests/test190.rael:2:11]: Expected a newline after '\'
+|     2 + 1 \ 
+|           ^
