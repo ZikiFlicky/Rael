@@ -231,31 +231,6 @@ RaelValue *file_construct(RaelArgumentList *args, RaelInterpreter *interpreter) 
     return (RaelValue*)file;
 }
 
-// RaelValue *file_method_open(RaelFileValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
-//     (void)interpreter;
-
-//     if (arguments_amount(args) > 0) {
-//         return BLAME_NEW_CSTR("Too many arguments");
-//     }
-//     if (self->is_open) {
-//         return BLAME_NEW_CSTR("File was already opened");
-//     }
-//     // if the file was opened and closed at least once, you can reopen the file
-//     if (self->stream) {
-//         // TODO:
-//         RAEL_UNREACHABLE();
-//     } else {
-//         // make 'r' replacable
-//         FILE *stream = fopen(self->internal_name, "r");
-//         if (!stream) {
-//             return BLAME_NEW_CSTR_ST("Couldn't find file of such name", *arguments_state(args, 0));
-//         }
-//         self->stream = stream;
-//         self->is_open = true;
-//     }
-//     return void_new();
-// }
-
 RaelValue *file_method_read(RaelFileValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     size_t amount_args, read_amount;
     char *buff;
