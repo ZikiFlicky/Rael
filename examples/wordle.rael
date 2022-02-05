@@ -1,0 +1,88 @@
+%% A terminal Wordle clone written in Rael
+load :File
+load :Random
+load :Types
+
+:AmountTurns ?= 6
+
+:f ?= :File:FileStream("examples/words.txt", :File:OpenRead)
+:allWords ?= :f:read():split("\n")
+:f:close()
+:chosenWord ?= :allWords at :Random:RandomRange(0 to sizeof(:allWords))
+:possibleChars ?= {}
+loop :i through 0 to 26 {
+    :possibleChars << 0
+}
+
+%% Declare :entered
+:entered ?= ""
+
+loop :0 through 0 to :AmountTurns {
+    :coloredChars ?= {} 
+    loop :i through 0 to sizeof(:possibleChars) {
+        :c ?= ("a":charAt(0) + :i):toCharString()
+        :color ?= match :possibleChars at :i {
+        with 0 {
+            ^"0"
+        }
+        with 1 {
+            ^"90;1"
+        }
+        with 2 {
+            ^"33;1"
+        }
+        with 3 {
+            ^"32;1"
+        }
+        else {
+            blame "UNREACHABLE"
+        }
+        }
+        :coloredChars << 27:toCharString() + "[" + :color + "m" + :c + 27:toCharString() + "[0m"
+    }
+    log "Characters:", ", ":separate(:coloredChars)
+
+    %% Get a 5-letter word
+    :msg ?= ((:0 + 1) to :Types:String) + "/" + (:AmountTurns to :Types:String) + ": Enter a valid 5-letter word: "
+    :entered ?= getstring(:msg):toLower()
+    if sizeof(:entered) != 5 | :allWords:findIndexOf(:entered) = -1 {
+        loop sizeof(:entered) != 5 | :allWords:findIndexOf(:entered) = -1 {
+            log "Please enter a valid 5-letter word"
+            :entered ?= getstring(:msg):toLower()
+        }
+    }
+
+    %% Check characters
+    loop :i through 0 to 5 {
+        :c ?= :entered at :i
+        :asciiRel ?= :c:charAt(0) - "a":charAt(0)
+        :charChangeValue ?= 0
+
+        show 27:toCharString() + "["
+        if :c = :chosenWord at :i {
+            :charChangeValue ?= 3
+            show "32;1"
+        } else if :chosenWord:contains(:c) {
+            :charChangeValue ?= 2
+            show "33;1"
+        } else {
+            :charChangeValue ?= 1
+            show "90;1"
+        }
+        show "m", :c, 27:toCharString() + "[0m"
+        %% change state of char
+        if :charChangeValue > (:possibleChars at :asciiRel) {
+            :possibleChars at :asciiRel ?= :charChangeValue
+        }
+    }
+    log
+    if :entered = :chosenWord
+        break
+}
+
+show "The word was \"", :chosenWord, "\". "
+if :entered = :chosenWord {
+    log "Well done!"
+} else {
+    log "Good luck next time!"
+}
