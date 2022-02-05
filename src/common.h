@@ -118,7 +118,7 @@ bool rael_int_in_range_of_char(RaelInt number);
 #define RAEL_HEAPSTR(str) (rael_allocate_cstr(str, sizeof(str)/sizeof(char)-1))
 
 /* create a RaelArguments */
-void arguments_new(RaelArgumentList *out);
+void arguments_new(RaelArgumentList *out, size_t overhead);
 
 /* add an argument */
 void arguments_add(RaelArgumentList *args, RaelValue *value, struct State state);

@@ -57,8 +57,8 @@ RaelTypeValue RaelBlameType = {
 
     .op_neg = NULL,
 
-    .op_call = NULL,
-    .op_construct = NULL,
+    .callable_info = NULL,
+    .constructor_info = NULL,
     .op_ref = NULL,
     .op_deref = NULL,
 

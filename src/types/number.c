@@ -370,11 +370,6 @@ RaelValue *number_method_signedMod(RaelNumberValue *self, RaelArgumentList *args
     RaelValue *arg1;
 
     (void)interpreter;
-
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Method takes only one argument");
-    }
-
     // get the first argument
     arg1 = arguments_get(args, 0);
 
@@ -419,10 +414,8 @@ RaelValue *number_method_toCharString(RaelNumberValue *self, RaelArgumentList *a
     int number;
     char c;
 
+    (void)args;
     (void)interpreter;
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
     if (!number_is_whole(self)) {
         return BLAME_NEW_CSTR("Expected self to be a whole number");
     }
@@ -452,8 +445,8 @@ RaelTypeValue RaelNumberType = {
 
     .op_neg = (RaelNegFunc)number_neg,
 
-    .op_call = NULL,
-    .op_construct = NULL,
+    .callable_info = NULL,
+    .constructor_info = NULL,
     .op_ref = NULL,
     .op_deref = NULL,
 
@@ -470,8 +463,8 @@ RaelTypeValue RaelNumberType = {
     .length = NULL,
 
     .methods = (MethodDecl[]) {
-        { "signedMod", (RaelMethodFunc)number_method_signedMod },
-        { "toCharString", (RaelMethodFunc)number_method_toCharString },
-        { NULL, NULL }
+        RAEL_CMETHOD("signedMod", number_method_signedMod, 1, 1),
+        RAEL_CMETHOD("toCharString", number_method_toCharString, 0, 0),
+        RAEL_CMETHOD_TERMINATOR
     }
 };

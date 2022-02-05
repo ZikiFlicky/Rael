@@ -12,9 +12,6 @@ typedef struct RaelModuleValue {
     char *name;
 } RaelModuleValue;
 
-/* create a RaelValue with the type of MethodFunc */
-RaelValue *method_cfunc_new(RaelValue *method_self, char *name, RaelMethodFunc func);
-
 /* return a new initialized RaelModuleValue */
 RaelValue *module_new(char *name);
 

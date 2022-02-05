@@ -56,7 +56,8 @@ RaelValue *range_construct(RaelArgumentList *args, RaelInterpreter *interpreter)
 
     (void)interpreter;
 
-    if (args->amount_arguments == 1) {
+    switch (arguments_amount(args)) {
+    case 1: {
         RaelValue *arg1 = arguments_get(args, 0);
 
         // verify the argument is a whole number
@@ -68,7 +69,9 @@ RaelValue *range_construct(RaelArgumentList *args, RaelInterpreter *interpreter)
         }
         start = 0;
         end = number_to_int((RaelNumberValue*)arg1);
-    } else if (args->amount_arguments == 2) {
+        break;
+    }
+    case 2: {
         RaelValue *arg1 = arguments_get(args, 0),
                   *arg2 = arguments_get(args, 1);
 
@@ -91,11 +94,20 @@ RaelValue *range_construct(RaelArgumentList *args, RaelInterpreter *interpreter)
         }
         start = number_to_int((RaelNumberValue*)arg1);
         end = number_to_int((RaelNumberValue*)arg2);
-    } else {
-        return BLAME_NEW_CSTR("Expected 1 or 2 arguments");
+        break;
+    }
+    default:
+        RAEL_UNREACHABLE();
     }
     return range_new(start, end);
 }
+
+static RaelConstructorInfo range_constructor_info = {
+    (RaelConstructorFunc)range_construct,
+    true,
+    1,
+    2
+};
 
 RaelTypeValue RaelRangeType = {
     RAEL_TYPE_DEF_INIT,
@@ -114,8 +126,8 @@ RaelTypeValue RaelRangeType = {
 
     .op_neg = NULL,
 
-    .op_call = NULL,
-    .op_construct = (RaelConstructorFunc)range_construct,
+    .callable_info = NULL,
+    .constructor_info = &range_constructor_info,
     .op_ref = NULL,
     .op_deref = NULL,
 

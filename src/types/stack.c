@@ -270,8 +270,8 @@ RaelTypeValue RaelStackType = {
 
     .op_neg = NULL,
 
-    .op_call = NULL,
-    .op_construct = NULL,
+    .callable_info = NULL,
+    .constructor_info = NULL,
     .op_ref = NULL,
     .op_deref = NULL,
 
@@ -288,8 +288,8 @@ RaelTypeValue RaelStackType = {
     .length = (RaelLengthFunc)stack_length,
 
     .methods = (MethodDecl[]) {
-        { "pop", (RaelMethodFunc)stack_method_pop },
-        { "findIndexOf", (RaelMethodFunc)stack_method_findIndexOf },
-        { NULL, NULL }
+        RAEL_CMETHOD("pop", stack_method_pop, 0, 1),
+        RAEL_CMETHOD("findIndexOf", stack_method_findIndexOf, 1, 2),
+        RAEL_CMETHOD_TERMINATOR
     }
 };

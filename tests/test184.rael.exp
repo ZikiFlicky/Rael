@@ -1,5 +1,5 @@
 A
-Too many arguments
+Unexpected amount of arguments
 Number not in range of char
 Expected self to be a whole number
 1
@@ -16,5 +16,5 @@ Expected self to be a whole number
 1
 Division by zero
 Division by zero
-Method takes only one argument
-Method takes only one argument
+Unexpected amount of arguments
+Unexpected amount of arguments

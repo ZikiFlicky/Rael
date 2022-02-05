@@ -61,6 +61,16 @@ void routine_repr(RaelRoutineValue *self) {
     printf(")");
 }
 
+bool routine_can_take(RaelRoutineValue *self, size_t amount) {
+    return amount == self->amount_parameters;
+}
+
+static RaelCallableInfo routine_callable_info = {
+    (RaelCallerFunc)routine_call,
+    (RaelCanTakeFunc)routine_can_take,
+    true
+};
+
 RaelTypeValue RaelRoutineType = {
     RAEL_TYPE_DEF_INIT,
     .name = "Routine",
@@ -78,8 +88,8 @@ RaelTypeValue RaelRoutineType = {
 
     .op_neg = NULL,
 
-    .op_call = (RaelCallerFunc)routine_call,
-    .op_construct = NULL,
+    .callable_info = &routine_callable_info,
+    .constructor_info = NULL,
     .op_ref = NULL,
     .op_deref = NULL,
 

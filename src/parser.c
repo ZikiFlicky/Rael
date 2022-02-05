@@ -1007,7 +1007,7 @@ end:
     return inst;
 }
 
-/* parse comma seperated expressions (e1, e2, e3, e4, ...) */
+/* parse comma separated expressions (e1, e2, e3, e4, ...) */
 static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
     struct RaelExprListEntry *entries;
     struct Expr *expr;

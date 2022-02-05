@@ -166,21 +166,21 @@ catch "String":timesContains("Str", 1) with :err {
     log :err
 }
 
-log ", ":seperate({})
-log ", ":seperate({ "Banana" })
-log ", ":seperate({ "Banana", "Apple" })
-log ", ":seperate({ "Banana", "Apple", "Kiwi" })
-log "":seperate({ "Kiwi", "Banana", "pple" })
-log ", ":seperate("abc")
-catch ", ":seperate(1 to 10) with :err {
+log ", ":separate({})
+log ", ":separate({ "Banana" })
+log ", ":separate({ "Banana", "Apple" })
+log ", ":separate({ "Banana", "Apple", "Kiwi" })
+log "":separate({ "Kiwi", "Banana", "pple" })
+log ", ":separate("abc")
+catch ", ":separate(1 to 10) with :err {
     log :err
 }
-catch "String":seperate(10) with :err {
+catch "String":separate(10) with :err {
     log :err
 }
-catch "String":seperate() with :err {
+catch "String":separate() with :err {
     log :err
 }
-catch " ":seperate({ "Who", "cares", "lol" }, 2) with :err {
+catch " ":separate({ "Who", "cares", "lol" }, 2) with :err {
     log :err
 }

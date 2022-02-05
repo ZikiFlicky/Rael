@@ -17,15 +17,37 @@ RaelValue *type_cast(RaelTypeValue *self, RaelTypeValue *type) {
     }
 }
 
+bool type_can_take(RaelTypeValue *self, size_t amount) {
+    assert(self->constructor_info);
+
+    if (!self->constructor_info->limits_args)
+        return true;
+    return amount >= self->constructor_info->min_args &&
+           amount <= self->constructor_info->max_args;
+}
+
 /* construct a new value from the type, if possible */
 RaelValue *type_call(RaelTypeValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     // if there is a constructor to the type, call it
-    if (self->op_construct) {
-        return self->op_construct(args, interpreter);
+    if (self->constructor_info) {
+        if (!type_can_take(self, arguments_amount(args)))
+            return BLAME_NEW_CSTR("Unexpected amount of arguments");
+        return self->constructor_info->op_construct(args, interpreter);
     } else {
         return BLAME_NEW_CSTR("Tried to construct a non-constructable type");
     }
 }
+
+static RaelCallableInfo type_callable_info = {
+    (RaelCallerFunc)type_call,
+    (RaelCanTakeFunc)type_can_take,
+    /*
+     * Tells the interpreter not to check the amount of arguments,
+     * because we first check if we can construct the type,
+     * *then* the amount of arguments
+     */
+    false
+};
 
 RaelTypeValue RaelTypeType = {
     RAEL_TYPE_DEF_INIT,
@@ -44,8 +66,9 @@ RaelTypeValue RaelTypeType = {
 
     .op_neg = NULL,
 
-    .op_call = (RaelCallerFunc)type_call, /* calls the constructor of the type */
-    .op_construct = NULL,
+    /* Defines the type as a callable and the callable-specific functions */
+    .callable_info = &type_callable_info,
+    .constructor_info = NULL,
     .op_ref = NULL,
     .op_deref = NULL,
 
@@ -107,8 +130,8 @@ RaelTypeValue RaelVoidType = {
 
     .op_neg = NULL,
 
-    .op_call = NULL,
-    .op_construct = NULL,
+    .callable_info = NULL,
+    .constructor_info = NULL,
     .op_ref = NULL,
     .op_deref = NULL,
 
@@ -137,7 +160,7 @@ RaelValue *value_new(RaelTypeValue *type, size_t size) {
     RaelValue *value;
     assert(size >= sizeof(RaelValue));
 
-    // rereference the type because it's going to be used for the type
+    // re-reference the type because it's going to be used for the type
     value_ref((RaelValue*)type);
     value = malloc(size);
     value->type = type;
@@ -148,7 +171,7 @@ RaelValue *value_new(RaelTypeValue *type, size_t size) {
     // if there are methods defines, add them
     if (type->methods) {
         for (MethodDecl *m = type->methods; m->method; ++m) {
-            RaelValue *method = method_cfunc_new(value, m->name, m->method);
+            RaelValue *method = method_cfunc_new(value, m);
             varmap_set(&value->keys, m->name, method, true, false);
             value_deref(method);
         }
@@ -451,18 +474,25 @@ RaelValue *value_cast(RaelValue *value, RaelTypeValue *type) {
 }
 
 RaelValue *value_call(RaelValue *value, RaelArgumentList *args, RaelInterpreter *interpreter) {
-    RaelCallerFunc possible_call = value->type->op_call;
+    RaelCallerFunc possible_call;
+    RaelValue *return_value;
 
-    if (possible_call) {
-        RaelValue *return_value = possible_call(value, args, interpreter);
-        // if there was no return value, return a Void
-        if (!return_value) {
-            return_value = void_new();
-        }
-        return return_value;
-    } else {
-        return NULL; // non-callable
-    }
+    if (!value_is_callable(value))
+        return NULL;
+
+    possible_call = value->type->callable_info->op_call;
+    assert(possible_call);
+    // verify the callable can take that many arguments
+    if (value->type->callable_info->check_arguments && !callable_can_take(value, arguments_amount(args)))
+        return BLAME_NEW_CSTR("Unexpected amount of arguments");
+
+    return_value = possible_call(value, args, interpreter);
+
+    // if a NULL was returned, make it a Void
+    if (!return_value)
+        return_value = void_new();
+
+    return return_value;
 }
 
 RaelValue *value_neg(RaelValue *value) {
@@ -481,5 +511,17 @@ bool value_is_iterable(RaelValue *value) {
 }
 
 bool value_is_callable(RaelValue *value) {
-    return value->type->op_call != NULL;
+    return value->type->callable_info != NULL;
+}
+
+bool callable_can_take(RaelValue *callable, size_t amount) {
+    RaelCanTakeFunc can_take;
+
+    assert(value_is_callable(callable));
+    can_take = callable->type->callable_info->op_can_take;
+    // if the function is not defined
+    if (!can_take) {
+        return true;
+    }
+    return can_take(callable, amount);
 }

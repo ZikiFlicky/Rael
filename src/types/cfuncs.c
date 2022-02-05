@@ -32,6 +32,16 @@ void cfunc_repr(RaelCFuncValue *self) {
     printf("[cfunc '%s' for %zu arguments]", self->name, self->amount_params);
 }
 
+bool cfunc_can_take(RaelCFuncValue *self, size_t amount) {
+    return amount == self->amount_params;
+}
+
+static RaelCallableInfo cfunc_callable_info = {
+    (RaelCallerFunc)cfunc_call,
+    (RaelCanTakeFunc)cfunc_can_take,
+    true
+};
+
 RaelTypeValue RaelCFuncType = {
     RAEL_TYPE_DEF_INIT,
     .name = "CFunc",
@@ -49,8 +59,8 @@ RaelTypeValue RaelCFuncType = {
 
     .op_neg = NULL,
 
-    .op_call = (RaelCallerFunc)cfunc_call,
-    .op_construct = NULL,
+    .callable_info = &cfunc_callable_info,
+    .constructor_info = NULL,
     .op_ref = NULL,
     .op_deref = NULL,
 
@@ -69,14 +79,28 @@ RaelTypeValue RaelCFuncType = {
     .methods = NULL
 };
 
-RaelValue *method_cfunc_new(RaelValue *method_self, char *name, RaelMethodFunc func) {
+RaelValue *method_cfunc_new(RaelValue *method_self, MethodDecl *decl) {
     RaelCFuncMethodValue *method = RAEL_VALUE_NEW(RaelCFuncMethodType, RaelCFuncMethodValue);
 
     method->method_self = method_self;
-    method->name = name;
-    method->func = func;
+    method->name = decl->name;
+    method->func = decl->method;
+    if (decl->limits_args) {
+        method->limit_arguments = true;
+        method->minimum_arguments = decl->minimum_args;
+        method->maximum_arguments = decl->maximum_args;
+    } else {
+        method->limit_arguments = false;
+    }
 
     return (RaelValue*)method;
+}
+
+bool method_cfunc_can_take(RaelCFuncMethodValue *self, size_t amount) {
+    if (!self->limit_arguments) {
+        return true;
+    }
+    return amount <= self->maximum_arguments && amount >= self->minimum_arguments;
 }
 
 RaelValue *method_cfunc_call(RaelCFuncMethodValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
@@ -97,6 +121,12 @@ void method_cfunc_deref(RaelCFuncMethodValue *self) {
     value_deref(self->method_self);
 }
 
+static RaelCallableInfo cfunc_method_callable_info = {
+    (RaelCallerFunc)method_cfunc_call,
+    (RaelCanTakeFunc)method_cfunc_can_take,
+    true
+};
+
 RaelTypeValue RaelCFuncMethodType = {
     RAEL_TYPE_DEF_INIT,
     .name = "CFuncMethod",
@@ -114,8 +144,8 @@ RaelTypeValue RaelCFuncMethodType = {
 
     .op_neg = NULL,
 
-    .op_call = (RaelCallerFunc)method_cfunc_call,
-    .op_construct = NULL,
+    .callable_info = &cfunc_method_callable_info,
+    .constructor_info = NULL,
     .op_ref = (RaelSingleFunc)method_cfunc_ref,
     .op_deref = (RaelSingleFunc)method_cfunc_deref,
 

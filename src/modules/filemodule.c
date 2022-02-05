@@ -168,7 +168,7 @@ RaelValue *file_construct(RaelArgumentList *args, RaelInterpreter *interpreter) 
       defines_open_type = true;
       break;
     default:
-        return BLAME_NEW_CSTR("Expected 1 or 2 arguments");
+        RAEL_UNREACHABLE();
     }
     // get the first argument
     arg1 = arguments_get(args, 0);
@@ -305,7 +305,7 @@ RaelValue *file_method_read(RaelFileValue *self, RaelArgumentList *args, RaelInt
         break;
     }
     default:
-        return BLAME_NEW_CSTR("Too many arguments");
+        RAEL_UNREACHABLE();
     }
 
     buff = malloc(read_amount * sizeof(char));
@@ -319,11 +319,6 @@ RaelValue *file_method_write(RaelFileValue *self, RaelArgumentList *args, RaelIn
     RaelStringValue *string;
 
     (void)interpreter;
-
-    // get first argument
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected 1 argument");
-    }
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType) {
         return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
@@ -354,9 +349,6 @@ RaelValue *file_method_append(RaelFileValue *self, RaelArgumentList *args, RaelI
     RaelStringValue *string;
 
     (void)interpreter;
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected 1 argument");
-    }
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType) {
         return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
@@ -378,20 +370,14 @@ RaelValue *file_method_append(RaelFileValue *self, RaelArgumentList *args, RaelI
 }
 
 RaelValue *file_method_remainingLength(RaelFileValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    (void)args;
     (void)interpreter;
-
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
-
     return number_newi((RaelInt)(file_remaining_length(self)));
 }
 
 RaelValue *file_method_getPosition(RaelFileValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    (void)args;
     (void)interpreter;
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
     return number_newi((RaelInt)ftell(self->stream));
 }
 
@@ -407,24 +393,18 @@ static bool fileposition_validate(RaelInt n) {
 }
 
 RaelValue *file_method_setPosition(RaelFileValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
-    size_t amount_args;
     RaelValue *arg1;
     RaelInt position;
     enum FileSetPositionType relpos;
 
     (void)interpreter;
-    amount_args = arguments_amount(args);
-    if (amount_args != 1 && amount_args != 2) {
-        return BLAME_NEW_CSTR("Expected 1 or 2 arguments");
-    }
-
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelNumberType || !number_is_whole((RaelNumberValue*)arg1)) {
         return BLAME_NEW_CSTR_ST("Expected a whole number", *arguments_state(args, 0));
     }
     position = number_to_int((RaelNumberValue*)arg1);
 
-    switch (amount_args) {
+    switch (arguments_amount(args)) {
     case 1:
         relpos = FileSetPositionStart;
         break;
@@ -452,15 +432,20 @@ RaelValue *file_method_setPosition(RaelFileValue *self, RaelArgumentList *args, 
 }
 
 RaelValue *file_method_close(RaelFileValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    (void)args;
     (void)interpreter;
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
     if (!file_close(self)) {
         return BLAME_NEW_CSTR("Can't close file because it is not open");
     }
     return void_new();
 }
+
+static RaelConstructorInfo file_constructor_info = {
+    (RaelConstructorFunc)file_construct,
+    true,
+    1,
+    2
+};
 
 RaelTypeValue RaelFileType = {
     RAEL_TYPE_DEF_INIT,
@@ -479,8 +464,8 @@ RaelTypeValue RaelFileType = {
 
     .op_neg = NULL,
 
-    .op_call = NULL,
-    .op_construct = (RaelConstructorFunc)file_construct,
+    .callable_info = NULL,
+    .constructor_info = &file_constructor_info,
     .op_ref = NULL,
     .op_deref = NULL,
 
@@ -497,14 +482,14 @@ RaelTypeValue RaelFileType = {
     .length = NULL,
 
     .methods = (MethodDecl[]) {
-        { "close", (RaelMethodFunc)file_method_close },
-        { "read", (RaelMethodFunc)file_method_read },
-        { "write", (RaelMethodFunc)file_method_write },
-        { "append", (RaelMethodFunc)file_method_append },
-        { "remainingLength", (RaelMethodFunc)file_method_remainingLength },
-        { "getPosition", (RaelMethodFunc)file_method_getPosition },
-        { "setPosition", (RaelMethodFunc)file_method_setPosition },
-        { NULL, NULL }
+        RAEL_CMETHOD("close", file_method_close, 0, 0),
+        RAEL_CMETHOD("read", file_method_read, 0, 1),
+        RAEL_CMETHOD("write", file_method_write, 1, 1 ),
+        RAEL_CMETHOD("append", file_method_append, 1, 1),
+        RAEL_CMETHOD("remainingLength", file_method_remainingLength, 0, 0),
+        RAEL_CMETHOD("getPosition", file_method_getPosition, 0, 0),
+        RAEL_CMETHOD("setPosition", file_method_setPosition, 1, 1),
+        RAEL_CMETHOD_TERMINATOR
     }
 };
 

@@ -79,10 +79,14 @@ bool rael_int_in_range_of_char(RaelInt number) {
     }
 }
 
-void arguments_new(RaelArgumentList *out) {
-    out->amount_allocated = 0;
+void arguments_new(RaelArgumentList *out, size_t overhead) {
+    if (overhead == 0) {
+        out->arguments = NULL;
+    } else {
+        out->arguments = malloc(overhead * sizeof(RaelArgument));
+    }
+    out->amount_allocated = overhead;
     out->amount_arguments = 0;
-    out->arguments = NULL;
 }
 
 void arguments_add(RaelArgumentList *args, RaelValue *value, struct State state) {

@@ -301,7 +301,7 @@ static RaelInt string_find(RaelStringValue *self, RaelStringValue *search_string
 }
 
 /*
- * Proabably temporary function until I have a stringbuilder.
+ * Probably temporary function until I have a stringbuilder.
  * Copies a string to the end of self.
  */
 static void string_extend(RaelStringValue *self, char *source, size_t length) {
@@ -331,12 +331,8 @@ RaelValue *string_method_toLower(RaelStringValue *self, RaelArgumentList *args, 
     size_t length;
     char *source;
 
+    (void)args;
     (void)interpreter;
-
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR_ST("Too many arguments", *arguments_state(args, 0));
-    }
-
     length = string_length(self);
     source = malloc(length * sizeof(char));
 
@@ -354,12 +350,8 @@ RaelValue *string_method_toUpper(RaelStringValue *self, RaelArgumentList *args, 
     size_t length;
     char *source;
 
+    (void)args;
     (void)interpreter;
-
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
-
     length = string_length(self);
     source = malloc(length * sizeof(char));
 
@@ -377,12 +369,8 @@ RaelValue *string_method_toCharStack(RaelStringValue *self, RaelArgumentList *ar
     size_t length;
     RaelStackValue *stack;
 
+    (void)args;
     (void)interpreter;
-
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
-
     length = string_length(self);
     stack = (RaelStackValue*)stack_new(length);
 
@@ -405,11 +393,6 @@ RaelValue *string_method_charAt(RaelStringValue *self, RaelArgumentList *args, R
     char c;
 
     (void)interpreter;
-
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected one argument");
-    }
-
     arg1 = arguments_get(args, 0);
 
     if (arg1->type != &RaelNumberType) {
@@ -445,12 +428,8 @@ RaelValue *string_method_isLower(RaelStringValue *self, RaelArgumentList *args, 
     bool has_lower = false, has_non_lower = false;
     size_t length;
 
+    (void)args;
     (void)interpreter;
-
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
-
     length = string_length(self);
 
     for (size_t i = 0; !has_non_lower && i < length; ++i) {
@@ -471,12 +450,8 @@ RaelValue *string_method_isUpper(RaelStringValue *self, RaelArgumentList *args, 
     bool has_upper = false, has_non_upper = false;
     size_t length;
 
+    (void)args;
     (void)interpreter;
-
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
-
     length = string_length(self);
 
     for (size_t i = 0; !has_non_upper && i < length; ++i) {
@@ -497,12 +472,8 @@ RaelValue *string_method_isDigit(RaelStringValue *self, RaelArgumentList *args, 
     bool has_digit = false, has_non_digit = false;
     size_t length;
 
+    (void)args;
     (void)interpreter;
-
-    if (arguments_amount(args) > 0) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
-
     length = string_length(self);
 
     for (size_t i = 0; !has_non_digit && i < length; ++i) {
@@ -528,11 +499,6 @@ RaelValue *string_method_chunkSplit(RaelStringValue *self, RaelArgumentList *arg
     RaelStackValue *stack;
 
     (void)interpreter;
-
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected 1 argument");
-    }
-
     arg1 = arguments_get(args, 0);
     
     if (arg1->type != &RaelNumberType) {
@@ -571,7 +537,7 @@ RaelValue *string_method_chunkSplit(RaelStringValue *self, RaelArgumentList *arg
 
 /*
  * Given a splitter string, self is split into a stack of the substrings between
- * the each splitter occurance to the next.
+ * the each splitter concurrance to the next.
  * "Apple, Banana, Orange":split(", ") = { "Apple", "Banana", "Orange" }
  */
 RaelValue *string_method_split(RaelStringValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
@@ -582,11 +548,6 @@ RaelValue *string_method_split(RaelStringValue *self, RaelArgumentList *args, Ra
     size_t last_index = 0;
 
     (void)interpreter;
-
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected 1 argument");
-    }
-
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType) {
         return BLAME_NEW_CSTR("Expected a string as argument");
@@ -599,7 +560,7 @@ RaelValue *string_method_split(RaelStringValue *self, RaelArgumentList *args, Ra
     splitter_length = string_length(splitter);
 
     if (splitter_length == 0) {
-        return BLAME_NEW_CSTR_ST("Empty seperator not allowed", *arguments_state(args, 0));
+        return BLAME_NEW_CSTR_ST("Empty separator not allowed", *arguments_state(args, 0));
     }
 
     stack = (RaelStackValue*)stack_new(0);
@@ -609,7 +570,7 @@ RaelValue *string_method_split(RaelStringValue *self, RaelArgumentList *args, Ra
         while (last_index < length - splitter_length + 1) {
             RaelInt match = string_find(self, splitter, last_index);
 
-            // if the seperator is not found again, break
+            // if the separator is not found again, break
             if (match == -1) {
                 break;
             } else {
@@ -635,7 +596,7 @@ RaelValue *string_method_split(RaelStringValue *self, RaelArgumentList *args, Ra
 }
 
 /*
- * Returns the index of the first occurance of the string argument in self.
+ * Returns the index of the first occurrence of the string argument in self.
  * "Banana":findIndexOf("na") = 2
  */
 RaelValue *string_method_findIndexOf(RaelStringValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
@@ -644,11 +605,6 @@ RaelValue *string_method_findIndexOf(RaelStringValue *self, RaelArgumentList *ar
     RaelInt index;
 
     (void)interpreter;
-
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected 1 argument");
-    }
-
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType) {
         return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
@@ -672,11 +628,6 @@ RaelValue *string_method_contains(RaelStringValue *self, RaelArgumentList *args,
     bool contains;
 
     (void)interpreter;
-
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected 1 argument");
-    }
-
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType) {
         return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
@@ -701,11 +652,6 @@ RaelValue *string_method_replace(RaelStringValue *self, RaelArgumentList *args, 
     size_t length, search_length, replace_length, last_index = 0;
     
     (void)interpreter;
-
-    if (arguments_amount(args) != 2) {
-        return BLAME_NEW_CSTR("Expected 2 arguments");
-    }
-
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType) {
         return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
@@ -727,10 +673,10 @@ RaelValue *string_method_replace(RaelStringValue *self, RaelArgumentList *args, 
     replace_length = string_length(replace_string);
 
     while (last_index < length - search_length + 1) {
-        // try to find the next occurance to replace
+        // try to find the next occurrance to replace
         RaelInt index = string_find(self, search_string, last_index);
 
-        // if there is no future occurance
+        // if there is no future occurrance
         if (index == -1) {
             break;
         } else {
@@ -761,11 +707,6 @@ RaelValue *string_method_timesContains(RaelStringValue *self, RaelArgumentList *
     RaelInt times_contained = 0;
 
     (void)interpreter;
-
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected 1 argument");
-    }
-
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType) {
         return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
@@ -778,35 +719,30 @@ RaelValue *string_method_timesContains(RaelStringValue *self, RaelArgumentList *
     search_length = string_length(search_string);
 
     while (search_index < length - search_length + 1) {
-        RaelInt next_occurance = string_find(self, search_string, search_index);
+        RaelInt next_occurrance = string_find(self, search_string, search_index);
 
-        // no next occurance
-        if (next_occurance == -1) {
+        // no next occurrance
+        if (next_occurrance == -1) {
             break;
         } else {
             ++times_contained;
-            search_index = (size_t)next_occurance + (search_length == 0 ? 1 : search_length);
+            search_index = (size_t)next_occurrance + (search_length == 0 ? 1 : search_length);
         }
     }
     return number_newi(times_contained);
 }
 
 /*
- * Create a new string from a string iterator, seperating it with self.
- * ", ":seperate({ "Banana", "Apple", "Beans" }) = "Banana, Apple, Beans"
+ * Create a new string from a string iterator, separating it with self.
+ * ", ":separate({ "Banana", "Apple", "Beans" }) = "Banana, Apple, Beans"
  */
-RaelValue *string_method_seperate(RaelStringValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *string_method_separate(RaelStringValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *arg1;
     RaelStackValue *strings;
     size_t amount_strings, length;
     RaelStringValue *new_string;
 
     (void)interpreter;
-
-    if (arguments_amount(args) != 1) {
-        return BLAME_NEW_CSTR("Expected 1 argument");
-    }
-
     arg1 = arguments_get(args, 0);
 
     if (!value_is_iterable(arg1)) {
@@ -830,7 +766,7 @@ RaelValue *string_method_seperate(RaelStringValue *self, RaelArgumentList *args,
     }
 
     amount_strings = stack_length(strings);
-    // get length of seperator
+    // get length of separator
     length = string_length(self);
     // create the string that will be filled
     new_string = (RaelStringValue*)string_new_empty();
@@ -868,8 +804,8 @@ RaelTypeValue RaelStringType = {
 
     .op_neg = NULL,
 
-    .op_call = NULL,
-    .op_construct = NULL,
+    .callable_info = NULL,
+    .constructor_info = NULL,
     .op_ref = NULL,
     .op_deref = NULL,
 
@@ -886,20 +822,20 @@ RaelTypeValue RaelStringType = {
     .length = (RaelLengthFunc)string_length,
 
     .methods = (MethodDecl[]) {
-        { "toLower", (RaelMethodFunc)string_method_toLower },
-        { "toUpper", (RaelMethodFunc)string_method_toUpper },
-        { "toCharStack", (RaelMethodFunc)string_method_toCharStack },
-        { "charAt", (RaelMethodFunc)string_method_charAt },
-        { "isLower", (RaelMethodFunc)string_method_isLower },
-        { "isUpper", (RaelMethodFunc)string_method_isUpper },
-        { "isDigit", (RaelMethodFunc)string_method_isDigit },
-        { "chunkSplit", (RaelMethodFunc)string_method_chunkSplit },
-        { "split", (RaelMethodFunc)string_method_split },
-        { "findIndexOf", (RaelMethodFunc)string_method_findIndexOf },
-        { "contains", (RaelMethodFunc)string_method_contains },
-        { "replace", (RaelMethodFunc)string_method_replace },
-        { "timesContains", (RaelMethodFunc)string_method_timesContains },
-        { "seperate", (RaelMethodFunc)string_method_seperate },
-        { NULL, NULL }
+        RAEL_CMETHOD("toLower", string_method_toLower, 0, 0),
+        RAEL_CMETHOD("toUpper", string_method_toUpper, 0, 0),
+        RAEL_CMETHOD("toCharStack", string_method_toCharStack, 0, 0),
+        RAEL_CMETHOD("charAt", string_method_charAt, 1, 1),
+        RAEL_CMETHOD("isLower", string_method_isLower, 0, 0),
+        RAEL_CMETHOD("isUpper", string_method_isUpper, 0, 0),
+        RAEL_CMETHOD("isDigit", string_method_isDigit, 0, 0),
+        RAEL_CMETHOD("chunkSplit", string_method_chunkSplit, 1, 1),
+        RAEL_CMETHOD("split", string_method_split, 1, 1),
+        RAEL_CMETHOD("findIndexOf", string_method_findIndexOf, 1, 1),
+        RAEL_CMETHOD("contains", string_method_contains, 1, 1),
+        RAEL_CMETHOD("replace", string_method_replace, 2, 2),
+        RAEL_CMETHOD("timesContains", string_method_timesContains, 1, 1),
+        RAEL_CMETHOD("separate", string_method_separate, 1, 1),
+        RAEL_CMETHOD_TERMINATOR
     }
 };

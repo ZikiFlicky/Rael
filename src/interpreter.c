@@ -600,7 +600,8 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
         if (value_is_callable(callable)) {
             RaelExprList *exprlist = &call.args;
 
-            arguments_new(&args); // initialize args
+            // initialize args with a good overhead
+            arguments_new(&args, exprlist->amount_exprs);
 
             for (size_t i = 0; i < exprlist->amount_exprs; ++i) {
                 struct RaelExprListEntry *entry = &exprlist->exprs[i];

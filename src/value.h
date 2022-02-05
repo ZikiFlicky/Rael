@@ -33,6 +33,7 @@ typedef RaelValue* (*RaelAtKeyFunc)(RaelValue*, char*);
 typedef RaelValue* (*RaelNegFunc)(RaelValue*);
 typedef size_t (*RaelLengthFunc)(RaelValue*);
 typedef RaelValue* (*RaelMethodFunc)(RaelValue*, RaelArgumentList*, RaelInterpreter*);
+typedef bool (*RaelCanTakeFunc)(RaelValue*, size_t);
 
 /* the dynamic value abstraction layer */
 typedef struct RaelValue {
@@ -41,10 +42,30 @@ typedef struct RaelValue {
     struct VariableMap keys;
 } RaelValue;
 
+typedef struct RaelCallableInfo {
+    RaelCallerFunc op_call;
+    RaelCanTakeFunc op_can_take;
+    /* Marks if op_can_take should be called before running op_call */
+    bool check_arguments;
+} RaelCallableInfo;
+
+typedef struct RaelConstructorInfo {
+    /* Returns true if you can construct */
+    RaelConstructorFunc op_construct;
+    bool limits_args;
+    size_t min_args, max_args;
+} RaelConstructorInfo;
+
 typedef struct MethodDecl {
     char *name;
     RaelMethodFunc method;
+    bool limits_args;
+    size_t minimum_args, maximum_args;
 } MethodDecl;
+
+#define RAEL_CMETHOD(name, func, min_args, max_args) { (name), (RaelMethodFunc)(func), true, (min_args), (max_args) }
+#define RAEL_CMETHOD_UNRESTRICTED(name, func) { (name), (RaelMethodFunc)(func), false, 0, 0 }
+#define RAEL_CMETHOD_TERMINATOR { NULL, NULL, false, 0, 0 }
 
 /* The Type value type */
 typedef struct RaelTypeValue {
@@ -66,10 +87,10 @@ typedef struct RaelTypeValue {
 
     RaelNegFunc op_neg; /* -value */
 
-    /* Call the value */
-    RaelCallerFunc op_call;
-    /* Construct a new value with that type */
-    RaelConstructorFunc op_construct;
+    /* Information about the callability of the value. NULL if the value isn't callable */
+    RaelCallableInfo *callable_info;
+    /* Information about the constructor. NULL if there is no constructor */
+    RaelConstructorInfo *constructor_info;
     /* Special operation to do on reference */
     RaelSingleFunc op_ref;
     /* Special operation to do on dereference if there are still references to the value */
@@ -141,6 +162,9 @@ bool value_is_iterable(RaelValue *value);
 
 /* returns a boolean saying if the value is callable */
 bool value_is_callable(RaelValue *value);
+
+/* returns true if the callable can take `amount` arguments */
+bool callable_can_take(RaelValue *callable, size_t amount);
 
 /* get the length of the value. calls the value's `length` method */
 size_t value_length(RaelValue *value);

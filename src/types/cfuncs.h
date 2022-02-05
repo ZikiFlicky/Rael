@@ -27,9 +27,15 @@ typedef struct RaelCFuncMethodValue {
     RaelValue *method_self;
     RaelMethodFunc func;
     char *name;
+    bool limit_arguments;
+    // if limit_arguments is true the following members are going to be accessed
+    size_t minimum_arguments, maximum_arguments; // includes maximum_arguments when checking
 } RaelCFuncMethodValue;
 
 /* create a RaelValue with the type of CFunc */
 RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params);
+
+/* construct a RaelValue of type MethodFunc */
+RaelValue *method_cfunc_new(RaelValue *method_self, MethodDecl *decl);
 
 #endif /* RAEL_CFUNCS_H */
