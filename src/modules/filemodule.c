@@ -87,7 +87,6 @@ static size_t file_remaining_length(RaelFileValue *self) {
     length = (size_t)ftell(self->stream);
     // jump back to the original position
     fseek(self->stream, current_idx, SEEK_SET);
-    printf("current: %zu, length: %zu\n", current_idx, length);
 
     return length - current_idx;
 }
@@ -424,7 +423,7 @@ static RaelConstructorInfo file_constructor_info = {
 
 RaelTypeValue RaelFileType = {
     RAEL_TYPE_DEF_INIT,
-    .name = "FileReader",
+    .name = "FileStream",
     .op_add = NULL,
     .op_sub = NULL,
     .op_mul = NULL,
@@ -477,7 +476,7 @@ RaelValue *module_file_new(RaelInterpreter *interpreter) {
 
     value_ref((RaelValue*)&RaelFileType);
 
-    module_set_key(m, RAEL_HEAPSTR("FileReader"), (RaelValue*)&RaelFileType);
+    module_set_key(m, RAEL_HEAPSTR("FileStream"), (RaelValue*)&RaelFileType);
     module_set_key(m, RAEL_HEAPSTR("OpenRead"), number_newi((RaelInt)FileOpenRead));
     module_set_key(m, RAEL_HEAPSTR("OpenWrite"), number_newi((RaelInt)FileOpenWrite));
     module_set_key(m, RAEL_HEAPSTR("OpenReadWrite"), number_newi((RaelInt)FileOpenReadWrite));
