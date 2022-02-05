@@ -40,13 +40,8 @@ RaelValue *type_call(RaelTypeValue *self, RaelArgumentList *args, RaelInterprete
 
 static RaelCallableInfo type_callable_info = {
     (RaelCallerFunc)type_call,
-    (RaelCanTakeFunc)type_can_take,
-    /*
-     * Tells the interpreter not to check the amount of arguments,
-     * because we first check if we can construct the type,
-     * *then* the amount of arguments
-     */
-    false
+    /* The can_take check is performed in type_call */
+    NULL
 };
 
 RaelTypeValue RaelTypeType = {
@@ -483,7 +478,9 @@ RaelValue *value_call(RaelValue *value, RaelArgumentList *args, RaelInterpreter 
     possible_call = value->type->callable_info->op_call;
     assert(possible_call);
     // verify the callable can take that many arguments
-    if (value->type->callable_info->check_arguments && !callable_can_take(value, arguments_amount(args)))
+    // printf("%s\n", value->type->name);
+    // printf(value->type->callable_info->check_arguments ? "true\n" : "false\n");
+    if (!callable_can_take(value, arguments_amount(args)))
         return BLAME_NEW_CSTR("Unexpected amount of arguments");
 
     return_value = possible_call(value, args, interpreter);

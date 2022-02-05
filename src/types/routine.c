@@ -67,8 +67,7 @@ bool routine_can_take(RaelRoutineValue *self, size_t amount) {
 
 static RaelCallableInfo routine_callable_info = {
     (RaelCallerFunc)routine_call,
-    (RaelCanTakeFunc)routine_can_take,
-    true
+    (RaelCanTakeFunc)routine_can_take
 };
 
 RaelTypeValue RaelRoutineType = {

@@ -43,10 +43,10 @@ typedef struct RaelValue {
 } RaelValue;
 
 typedef struct RaelCallableInfo {
+    /* Must be defined */
     RaelCallerFunc op_call;
+    /* If is NULL, we infer that we can just call the function */
     RaelCanTakeFunc op_can_take;
-    /* Marks if op_can_take should be called before running op_call */
-    bool check_arguments;
 } RaelCallableInfo;
 
 typedef struct RaelConstructorInfo {

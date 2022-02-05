@@ -38,8 +38,7 @@ bool cfunc_can_take(RaelCFuncValue *self, size_t amount) {
 
 static RaelCallableInfo cfunc_callable_info = {
     (RaelCallerFunc)cfunc_call,
-    (RaelCanTakeFunc)cfunc_can_take,
-    true
+    (RaelCanTakeFunc)cfunc_can_take
 };
 
 RaelTypeValue RaelCFuncType = {
@@ -123,8 +122,7 @@ void method_cfunc_deref(RaelCFuncMethodValue *self) {
 
 static RaelCallableInfo cfunc_method_callable_info = {
     (RaelCallerFunc)method_cfunc_call,
-    (RaelCanTakeFunc)method_cfunc_can_take,
-    true
+    (RaelCanTakeFunc)method_cfunc_can_take
 };
 
 RaelTypeValue RaelCFuncMethodType = {
