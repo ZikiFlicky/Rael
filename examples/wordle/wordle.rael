@@ -5,7 +5,7 @@ load :Types
 
 :AmountTurns ?= 6
 
-:f ?= :File:FileStream("examples/words.txt", :File:OpenRead)
+:f ?= :File:FileStream("examples/wordle/words.txt", :File:OpenRead)
 :allWords ?= :f:read():split("\n")
 :f:close()
 :chosenWord ?= :allWords at :Random:RandomRange(0 to sizeof(:allWords))
