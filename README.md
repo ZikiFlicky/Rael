@@ -36,3 +36,5 @@ To run a file, `build/rael filename.rael`
 Examples can be found in the examples directory.
 
 They can be run like this: `build/rael examples/beer.rael`
+
+![The Rael programming language logo|400x400](rael_logo.png)
