@@ -40,7 +40,7 @@ RaelValue *type_call(RaelTypeValue *self, RaelArgumentList *args, RaelInterprete
 
 static RaelCallableInfo type_callable_info = {
     (RaelCallerFunc)type_call,
-    /* The can_take check is performed in type_call */
+    /* The can_take check is performed in type_call, so we don't define it here */
     NULL
 };
 

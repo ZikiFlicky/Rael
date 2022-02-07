@@ -1,0 +1,88 @@
+load :Functional
+load :Math
+load :Types
+
+log :Functional:Map(routine(:1) {
+    log :1
+    ^:Math:Floor(:Math:Sqrt(:1))
+}, { 1, 9, 25 })
+log :Functional:Map(:Math:Floor, { 1.3, 3.7, 22.0 })
+log :Functional:Map("BANANAS":findIndexOf, { "A", "B", "S" })
+log :Functional:Map(:Types:Range, 1 to 10)
+catch :Functional:Map(:Types:String, 1 to 10) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+catch :Functional:Map(1, 1 to 10) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+catch :Functional:Map(routine(:a, :b) {
+    ^:a * 2
+}, { 1, 2, 3, 4 }) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+catch :Functional:Map(:Math:Floor, 1) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+
+log :Functional:Filter(routine(:1) {
+    log :1
+    ^:Math:Sqrt(:1) % 2 = 0
+}, { 4, 9, 25, 64 })
+log :Functional:Filter(:Math:Floor, { 0.2, 0.1, 2, 0.99, 0, -2 })
+log :Functional:Filter("BANANAS":contains, "ABC")
+catch :Functional:Filter(:Types:String, 1 to 10) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+catch :Functional:Filter(1, { 1, 2, 3 }) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+catch :Functional:Filter(routine(:a, :b) {
+    ^:a * 2
+}, { 1, 2, 3, 4 }) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+catch :Functional:Map(:Math:Floor, 1) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+
+log :Functional:Reduce(routine(:a, :b) {
+    ^:a + :b
+}, 1 to 5)
+log :Functional:Reduce(routine(:a, :b) {
+    ^:a * :b
+}, { 5, 2, 8 })
+catch :Functional:Reduce(1, { 12, 3, 4 }) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+catch :Functional:Reduce(routine(:1) {
+    ^:1 + 1
+}, { 1, 2, 3 }) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
+catch :Functional:Reduce(routine(:1, :2) {
+    ^blame "Error"
+}, { 1, 2, 3 }) with :err {
+    log :err
+} else {
+    log "failed to catch"
+}
