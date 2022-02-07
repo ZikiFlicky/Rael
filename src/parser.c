@@ -1096,7 +1096,11 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
 
     if (!(catch.handle_block = parser_parse_block(parser))) {
         expr_delete(catch.catch_expr);
-        parser_error(parser, "Expected block");
+        if (store_value) {
+            parser_error(parser, "Expected block");
+        } else {
+            parser_error(parser, "Expected a 'with' or a block");
+        }
     }
 
     parser_maybe_expect_newline(parser);
