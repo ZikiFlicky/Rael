@@ -267,17 +267,23 @@ RaelValue *number_abs(RaelNumberValue *self) {
 }
 
 RaelValue *number_floor(RaelNumberValue *self) {
-    return number_newi(number_to_int(self));
+    if (number_is_whole(self)) {
+        // why duplicate if the number stays the same?
+        value_ref((RaelValue*)self);
+        return (RaelValue*)self;
+    } else {
+        return number_newi((RaelInt)floor(number_to_float(self)));
+    }
 }
 
 RaelValue *number_ceil(RaelNumberValue *self) {
-    RaelInt n;
-
-    n = number_to_int(self);
-    // if the number is not whole, round up (add 1)
-    if (!number_is_whole(self))
-        ++n;
-    return number_newi(n);
+    if (number_is_whole(self)) {
+        // why duplicate if the number stays the same?
+        value_ref((RaelValue*)self);
+        return (RaelValue*)self;
+    } else {
+        return number_newi((RaelInt)ceil(number_to_float(self)));
+    }
 }
 
 bool number_positive(RaelNumberValue *self) {
