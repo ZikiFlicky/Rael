@@ -2,11 +2,29 @@
 
 #include "cfuncs.h"
 
-RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params) {
+/* Returns a new CFunc value that takes between min_args and max_args */
+RaelValue *cfunc_ranged_new(char *name, RaelRawCFunc func, size_t min_args, size_t max_args) {
     RaelCFuncValue *cfunc = RAEL_VALUE_NEW(RaelCFuncType, RaelCFuncValue);
     cfunc->name = name;
     cfunc->func = func;
-    cfunc->amount_params = amount_params;
+    cfunc->have_max = true;
+    cfunc->min_args = min_args;
+    cfunc->max_args = max_args;
+    return (RaelValue*)cfunc;
+}
+
+/* Returns a new CFunc value that takes just one amount of args */
+RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_args) {
+    return cfunc_ranged_new(name, func, amount_args, amount_args);
+}
+
+/* Returns a new CFunc value that takes min_args or more arguments (most functions) */
+RaelValue *cfunc_unlimited_new(char *name, RaelRawCFunc func, size_t min_args) {
+    RaelCFuncValue *cfunc = RAEL_VALUE_NEW(RaelCFuncType, RaelCFuncValue);
+    cfunc->name = name;
+    cfunc->func = func;
+    cfunc->have_max = false;
+    cfunc->min_args = min_args;
     return (RaelValue*)cfunc;
 }
 
@@ -15,12 +33,6 @@ void cfunc_delete(RaelCFuncValue *self) {
 }
 
 RaelValue *cfunc_call(RaelCFuncValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
-    size_t amount_args = arguments_amount(args);
-    if (amount_args < self->amount_params)
-        return BLAME_NEW_CSTR("Not enough arguments");
-    else if (amount_args > self->amount_params)
-        return BLAME_NEW_CSTR("Too many arguments");
-
     return self->func(args, interpreter);
 }
 
@@ -29,11 +41,23 @@ bool cfunc_eq(RaelCFuncValue *self, RaelCFuncValue *value) {
 }
 
 void cfunc_repr(RaelCFuncValue *self) {
-    printf("[cfunc '%s' for %zu arguments]", self->name, self->amount_params);
+    if (self->have_max) {
+        if (self->min_args == self->max_args) {
+            printf("[cfunc '%s' for %zu arguments]", self->name, self->min_args);
+        } else {
+            printf("[cfunc '%s' for %zu-%zu arguments]", self->name, self->min_args, self->max_args);
+        }
+    } else {
+        printf("[cfunc '%s' for %zu or more arguments]", self->name, self->min_args);
+    }
 }
 
 bool cfunc_can_take(RaelCFuncValue *self, size_t amount) {
-    return amount == self->amount_params;
+    if (self->have_max) {
+        return amount >= self->min_args && amount <= self->max_args;
+    } else {
+        return amount >= self->min_args;
+    }
 }
 
 static RaelCallableInfo cfunc_callable_info = {

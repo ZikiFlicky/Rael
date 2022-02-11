@@ -19,7 +19,8 @@ typedef struct RaelCFuncValue {
     RAEL_VALUE_BASE;
     char *name;
     RaelRawCFunc func;
-    size_t amount_params;
+    bool have_max;
+    size_t min_args, max_args;
 } RaelCFuncValue;
 
 typedef struct RaelCFuncMethodValue {
@@ -32,8 +33,14 @@ typedef struct RaelCFuncMethodValue {
     size_t minimum_arguments, maximum_arguments; // includes maximum_arguments when checking
 } RaelCFuncMethodValue;
 
-/* create a RaelValue with the type of CFunc */
+/* Returns a new CFunc value that takes between min_args and max_args */
+RaelValue *cfunc_ranged_new(char *name, RaelRawCFunc func, size_t min_args, size_t max_args);
+
+/* Returns a new CFunc value that takes just one amount of args */
 RaelValue *cfunc_new(char *name, RaelRawCFunc func, size_t amount_params);
+
+/* Returns a new CFunc value that takes min_args or more arguments (most functions) */
+RaelValue *cfunc_unlimited_new(char *name, RaelRawCFunc func, size_t min_args);
 
 /* construct a RaelValue of type MethodFunc */
 RaelValue *method_cfunc_new(RaelValue *method_self, MethodDecl *decl);
