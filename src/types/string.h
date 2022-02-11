@@ -14,7 +14,7 @@ struct RaelStringValue;
 
 typedef struct RaelStringValue RaelStringValue;
 
-typedef struct RaelStringValue {
+struct RaelStringValue {
     RAEL_VALUE_BASE;
     enum {
         StringTypePure,
@@ -26,7 +26,7 @@ typedef struct RaelStringValue {
         bool can_be_freed;
         RaelStringValue *reference_string;
     };
-} RaelStringValue;
+};
 
 extern RaelTypeValue RaelStringType;
 
