@@ -7,17 +7,8 @@ void interpreter_push_scope(RaelInterpreter* const interpreter, struct Scope *sc
 void interpreter_pop_scope(RaelInterpreter* const interpreter);
 
 RaelValue *routine_call(RaelRoutineValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
-    size_t amount_args, amount_params;
     struct Scope *prev_scope, routine_scope;
-
-    amount_args = arguments_amount(args);
-    amount_params = self->amount_parameters;
-
-    if (amount_args < amount_params) {
-        return BLAME_NEW_CSTR("Too few arguments");
-    } else if (amount_args > amount_params) {
-        return BLAME_NEW_CSTR("Too many arguments");
-    }
+    size_t amount_params = self->amount_parameters;
 
     // store last scopes
     prev_scope = interpreter->scope;
@@ -61,13 +52,19 @@ void routine_repr(RaelRoutineValue *self) {
     printf(")");
 }
 
-bool routine_can_take(RaelRoutineValue *self, size_t amount) {
-    return amount == self->amount_parameters;
+RaelInt routine_validate_args(RaelRoutineValue *self, size_t amount) {
+    if (amount < self->amount_parameters) {
+        return -1;
+    } else if (amount > self->amount_parameters) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 static RaelCallableInfo routine_callable_info = {
     (RaelCallerFunc)routine_call,
-    (RaelCanTakeFunc)routine_can_take
+    (RaelCanTakeFunc)routine_validate_args
 };
 
 RaelTypeValue RaelRoutineType = {

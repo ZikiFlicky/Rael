@@ -10,7 +10,7 @@ RaelValue *module_functional_map(RaelArgumentList *args, RaelInterpreter *interp
     if (!value_is_callable(callable)) {
         return BLAME_NEW_CSTR_ST("Expected a callable", *arguments_state(args, 0));
     }
-    if (!callable_can_take(callable, 1)) {
+    if (callable_validate_args(callable, 1) != 0) {
         return BLAME_NEW_CSTR_ST("Expected the callable to take 1 argument",
                                  *arguments_state(args, 0));
     }
@@ -62,7 +62,7 @@ RaelValue *module_functional_filter(RaelArgumentList *args, RaelInterpreter *int
     if (!value_is_callable(callable)) {
         return BLAME_NEW_CSTR_ST("Expected a callable", *arguments_state(args, 0));
     }
-    if (!callable_can_take(callable, 1)) {
+    if (callable_validate_args(callable, 1) != 0) {
         return BLAME_NEW_CSTR_ST("Expected the callable to take 1 argument",
                                  *arguments_state(args, 0));
     }
@@ -115,7 +115,7 @@ RaelValue *module_functional_reduce(RaelArgumentList *args, RaelInterpreter *int
     if (!value_is_callable(callable)) {
         return BLAME_NEW_CSTR_ST("Expected a callable", *arguments_state(args, 0));
     }
-    if (!callable_can_take(callable, 2)) {
+    if (callable_validate_args(callable, 2) != 0) {
         return BLAME_NEW_CSTR_ST("Expected the callable to take 2 argument",
                                  *arguments_state(args, 0));
     }

@@ -1,5 +1,5 @@
 A
-Unexpected amount of arguments
+Too many arguments
 Number not in range of char
 Expected self to be a whole number
 1
@@ -16,5 +16,5 @@ Expected self to be a whole number
 1
 Division by zero
 Division by zero
-Unexpected amount of arguments
-Unexpected amount of arguments
+Not enough arguments
+Too many arguments

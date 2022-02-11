@@ -186,7 +186,7 @@ static RaelValue *stack_method_pop(RaelStackValue *self, RaelArgumentList *args,
         break;
     }
     default:
-        return BLAME_NEW_CSTR("Too many arguments");
+        RAEL_UNREACHABLE();
     }
 
     // get the popped value

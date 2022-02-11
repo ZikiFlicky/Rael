@@ -33,7 +33,7 @@ typedef RaelValue* (*RaelAtKeyFunc)(RaelValue*, char*);
 typedef RaelValue* (*RaelNegFunc)(RaelValue*);
 typedef size_t (*RaelLengthFunc)(RaelValue*);
 typedef RaelValue* (*RaelMethodFunc)(RaelValue*, RaelArgumentList*, RaelInterpreter*);
-typedef bool (*RaelCanTakeFunc)(RaelValue*, size_t);
+typedef RaelInt (*RaelCanTakeFunc)(RaelValue*, size_t);
 
 /* the dynamic value abstraction layer */
 typedef struct RaelValue {
@@ -46,7 +46,7 @@ typedef struct RaelCallableInfo {
     /* Must be defined */
     RaelCallerFunc op_call;
     /* If is NULL, we infer that we can just call the function */
-    RaelCanTakeFunc op_can_take;
+    RaelCanTakeFunc op_validate_args;
 } RaelCallableInfo;
 
 typedef struct RaelConstructorInfo {
@@ -163,8 +163,11 @@ bool value_is_iterable(RaelValue *value);
 /* returns a boolean saying if the value is callable */
 bool value_is_callable(RaelValue *value);
 
-/* returns true if the callable can take `amount` arguments */
-bool callable_can_take(RaelValue *callable, size_t amount);
+/* returns -1 if you haven't entered enough arguments, 1 if you've entered too many, and 0 otherwise */
+RaelInt callable_validate_args(RaelValue *callable, size_t amount);
+
+/* returns a matching blame to whatever is returned from callable_validate_args */
+RaelValue *callable_blame_from_validation(RaelInt validation);
 
 /* get the length of the value. calls the value's `length` method */
 size_t value_length(RaelValue *value);

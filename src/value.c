@@ -17,21 +17,26 @@ RaelValue *type_cast(RaelTypeValue *self, RaelTypeValue *type) {
     }
 }
 
-bool type_can_take(RaelTypeValue *self, size_t amount) {
+RaelInt type_validate_args(RaelTypeValue *self, size_t amount) {
     assert(self->constructor_info);
 
     if (!self->constructor_info->limits_args)
-        return true;
-    return amount >= self->constructor_info->min_args &&
-           amount <= self->constructor_info->max_args;
+        return 0;
+    else if (amount < self->constructor_info->min_args)
+        return -1;
+    else if (amount > self->constructor_info->max_args)
+        return 1;
+    else
+        return 0;
 }
 
 /* construct a new value from the type, if possible */
 RaelValue *type_call(RaelTypeValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     // if there is a constructor to the type, call it
     if (self->constructor_info) {
-        if (!type_can_take(self, arguments_amount(args)))
-            return BLAME_NEW_CSTR("Unexpected amount of arguments");
+        RaelInt validation_id = type_validate_args(self, arguments_amount(args));
+        if (validation_id != 0)
+            return callable_blame_from_validation(validation_id);
         return self->constructor_info->op_construct(args, interpreter);
     } else {
         return BLAME_NEW_CSTR("Tried to construct a non-constructable type");
@@ -40,7 +45,7 @@ RaelValue *type_call(RaelTypeValue *self, RaelArgumentList *args, RaelInterprete
 
 static RaelCallableInfo type_callable_info = {
     (RaelCallerFunc)type_call,
-    /* The can_take check is performed in type_call, so we don't define it here */
+    /* The validate_args check is performed in type_call, so we don't define it here */
     NULL
 };
 
@@ -471,6 +476,7 @@ RaelValue *value_cast(RaelValue *value, RaelTypeValue *type) {
 RaelValue *value_call(RaelValue *value, RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelCallerFunc possible_call;
     RaelValue *return_value;
+    RaelInt validation_id;
 
     if (!value_is_callable(value))
         return NULL;
@@ -478,10 +484,9 @@ RaelValue *value_call(RaelValue *value, RaelArgumentList *args, RaelInterpreter 
     possible_call = value->type->callable_info->op_call;
     assert(possible_call);
     // verify the callable can take that many arguments
-    // printf("%s\n", value->type->name);
-    // printf(value->type->callable_info->check_arguments ? "true\n" : "false\n");
-    if (!callable_can_take(value, arguments_amount(args)))
-        return BLAME_NEW_CSTR("Unexpected amount of arguments");
+    validation_id = callable_validate_args(value, arguments_amount(args));
+    if (validation_id != 0)
+        return callable_blame_from_validation(validation_id);
 
     return_value = possible_call(value, args, interpreter);
 
@@ -511,14 +516,31 @@ bool value_is_callable(RaelValue *value) {
     return value->type->callable_info != NULL;
 }
 
-bool callable_can_take(RaelValue *callable, size_t amount) {
-    RaelCanTakeFunc can_take;
+/*
+ * This function returns an integer that represents whether we can take `amount` arguments,
+ * and if we don't, why can't we take that many arguments:
+ * -1 = not enough arguments
+ * 0 = can take that
+ * 1 = too many arguments
+ */
+RaelInt callable_validate_args(RaelValue *callable, size_t amount) {
+    RaelCanTakeFunc validate_args;
 
     assert(value_is_callable(callable));
-    can_take = callable->type->callable_info->op_can_take;
+    validate_args = callable->type->callable_info->op_validate_args;
     // if the function is not defined
-    if (!can_take) {
-        return true;
+    if (!validate_args)
+        return 0;
+    return validate_args(callable, amount);
+}
+
+/* return a matching blame to the given RaelInt */
+RaelValue *callable_blame_from_validation(RaelInt validation) {
+    if (validation == -1)
+        return BLAME_NEW_CSTR("Not enough arguments");
+    else if (validation == 1) {
+        return BLAME_NEW_CSTR("Too many arguments");
+    } else {
+        RAEL_UNREACHABLE();
     }
-    return can_take(callable, amount);
 }

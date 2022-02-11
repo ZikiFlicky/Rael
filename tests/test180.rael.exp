@@ -1,3 +1,3 @@
-Error [tests/test180.rael:2:17]: Unexpected amount of arguments
+Error [tests/test180.rael:2:17]: Not enough arguments
 | log :Types:Range()
 |                 ^

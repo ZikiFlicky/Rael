@@ -52,17 +52,23 @@ void cfunc_repr(RaelCFuncValue *self) {
     }
 }
 
-bool cfunc_can_take(RaelCFuncValue *self, size_t amount) {
+RaelInt cfunc_validate_args(RaelCFuncValue *self, size_t amount) {
+    if (amount < self->min_args)
+        return -1;
     if (self->have_max) {
-        return amount >= self->min_args && amount <= self->max_args;
+        if (amount > self->max_args) {
+            return 1;
+        } else {
+            return 0;
+        }
     } else {
-        return amount >= self->min_args;
+        return 0;
     }
 }
 
 static RaelCallableInfo cfunc_callable_info = {
     (RaelCallerFunc)cfunc_call,
-    (RaelCanTakeFunc)cfunc_can_take
+    (RaelCanTakeFunc)cfunc_validate_args
 };
 
 RaelTypeValue RaelCFuncType = {
@@ -119,11 +125,15 @@ RaelValue *method_cfunc_new(RaelValue *method_self, MethodDecl *decl) {
     return (RaelValue*)method;
 }
 
-bool method_cfunc_can_take(RaelCFuncMethodValue *self, size_t amount) {
-    if (!self->limit_arguments) {
-        return true;
-    }
-    return amount <= self->maximum_arguments && amount >= self->minimum_arguments;
+RaelInt method_cfunc_validate_args(RaelCFuncMethodValue *self, size_t amount) {
+    if (!self->limit_arguments)
+        return 0;
+    else if (amount < self->minimum_arguments)
+        return -1;
+    else if (amount > self->maximum_arguments)
+        return 1;
+    else
+        return 0;
 }
 
 RaelValue *method_cfunc_call(RaelCFuncMethodValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
@@ -146,7 +156,7 @@ void method_cfunc_deref(RaelCFuncMethodValue *self) {
 
 static RaelCallableInfo cfunc_method_callable_info = {
     (RaelCallerFunc)method_cfunc_call,
-    (RaelCanTakeFunc)method_cfunc_can_take
+    (RaelCanTakeFunc)method_cfunc_validate_args
 };
 
 RaelTypeValue RaelCFuncMethodType = {
