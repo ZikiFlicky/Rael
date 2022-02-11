@@ -410,7 +410,7 @@ RaelValue *number_method_signedMod(RaelNumberValue *self, RaelArgumentList *args
 }
 
 /*
- * The method no arguments and returns a new string with
+ * The method takes no arguments and returns a new string with
  * the number as it's only character.
  * For example:
  * 65:toCharString() = "A"
