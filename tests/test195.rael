@@ -1,0 +1,45 @@
+load :Bin
+
+catch :Bin:Or(100) with :err {
+    log :err
+}
+catch :Bin:And(100) with :err {
+    log :err
+}
+catch :Bin:Xor(100) with :err {
+    log :err
+}
+catch :Bin:Nand(100) with :err {
+    log :err
+}
+catch :Bin:Nor(100) with :err {
+    log :err
+}
+catch :Bin:Xnor(100) with :err {
+    log :err
+}
+catch :Bin:Not() with :err {
+    log :err
+}
+catch :Bin:Not(100, 2) with :err {
+    log :err
+}
+log :Bin:Or(1, 2)
+log :Bin:Or(1, 2, 16)
+
+log :Bin:And(3, 7)
+log :Bin:And(100, 20, 8)
+
+log :Bin:Xor(3, 7)
+log :Bin:Xor(100, 100, 42)
+
+log :Bin:Nor(1, 2)
+log :Bin:Nor(1, 2, 16)
+
+log :Bin:Nand(3, 7)
+log :Bin:Nand(100, 20, 8)
+
+log :Bin:Xnor(3, 7)
+log :Bin:Xnor(100, 100, 42)
+
+log :Bin:Not(100)

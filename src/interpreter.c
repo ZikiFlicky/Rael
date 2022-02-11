@@ -14,6 +14,7 @@ RaelValue *module_random_new(RaelInterpreter *interpreter);
 RaelValue *module_system_new(RaelInterpreter *interpreter);
 RaelValue *module_file_new(RaelInterpreter *interpreter);
 RaelValue *module_functional_new(RaelInterpreter *interpreter);
+RaelValue *module_bin_new(RaelInterpreter *interpreter);
 
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
 static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
@@ -1155,6 +1156,7 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, const 
             { "System", module_system_new, NULL },
             { "File", module_file_new, NULL },
             { "Functional", module_functional_new, NULL },
+            { "Bin", module_bin_new, NULL },
             { NULL, NULL, NULL }
         },
         .seed = seed,
