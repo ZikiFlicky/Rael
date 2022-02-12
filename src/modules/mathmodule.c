@@ -139,25 +139,63 @@ RaelValue *module_math_sqrt(RaelArgumentList *args, RaelInterpreter *interpreter
     return number_newf(sqrt(n));
 }
 
-RaelValue *module_math_pow(RaelArgumentList *args, RaelInterpreter *interpreter) {
-    RaelValue *base;
-    RaelValue *power;
+static RaelValue *run_binary_func(RaelArgumentList *args, RaelInterpreter *interpreter,
+                                        RaelNumberValue *(*bin_func)(RaelNumberValue*, RaelNumberValue*)) {
+    RaelValue *arg;
+    RaelNumberValue *number1, *number2;
 
     (void)interpreter;
     assert(arguments_amount(args) == 2);
-    base = arguments_get(args, 0);
-    power = arguments_get(args, 1);
-    if (base->type != &RaelNumberType) {
+    arg = arguments_get(args, 0);
+    if (arg->type != &RaelNumberType)
         return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
-    } else if (power->type != &RaelNumberType) {
-        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 1));
-    } else {
-        RaelFloat n_base = number_to_float((RaelNumberValue*)base),
-                  n_power = number_to_float((RaelNumberValue*)power);
-        RaelFloat result = pow(n_base, n_power);
+    number1 = (RaelNumberValue*)arg;
 
-        return number_newf(result);
+    arg = arguments_get(args, 1);
+    if (arg->type != &RaelNumberType)
+        return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 1));
+    number2 = (RaelNumberValue*)arg;
+
+    return (RaelValue*)bin_func(number1, number2);
+}
+
+static RaelNumberValue *max_func(RaelNumberValue *number1, RaelNumberValue *number2) {
+    if (number_to_float(number1) > number_to_float(number2)) {
+        value_ref((RaelValue*)number1);
+        return number1;
+    } else {
+        value_ref((RaelValue*)number2);
+        return number2;
     }
+}
+
+static RaelNumberValue *min_func(RaelNumberValue *number1, RaelNumberValue *number2) {
+    if (number_to_float(number1) < number_to_float(number2)) {
+        value_ref((RaelValue*)number1);
+        return number1;
+    } else {
+        value_ref((RaelValue*)number2);
+        return number2;
+    }
+}
+
+static RaelNumberValue *pow_func(RaelNumberValue *base, RaelNumberValue *power) {
+    RaelFloat n_base = number_to_float(base),
+            n_power = number_to_float(power);
+    return (RaelNumberValue*)number_newi(pow(n_base, n_power));
+
+}
+
+RaelValue *module_math_max(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    return run_binary_func(args, interpreter, max_func);
+}
+
+RaelValue *module_math_min(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    return run_binary_func(args, interpreter, min_func);
+}
+
+RaelValue *module_math_pow(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    return run_binary_func(args, interpreter, pow_func);
 }
 
 RaelValue *module_math_new(RaelInterpreter *interpreter) {
@@ -180,6 +218,8 @@ RaelValue *module_math_new(RaelInterpreter *interpreter) {
     module_set_key(m, RAEL_HEAPSTR("Sqrt"), cfunc_new(RAEL_HEAPSTR("Sqrt"), module_math_sqrt, 1));
     module_set_key(m, RAEL_HEAPSTR("Pow"), cfunc_new(RAEL_HEAPSTR("Pow"), module_math_pow, 2));
     module_set_key(m, RAEL_HEAPSTR("Abs"), cfunc_new(RAEL_HEAPSTR("Abs"), module_math_abs, 1));
+    module_set_key(m, RAEL_HEAPSTR("Max"), cfunc_new(RAEL_HEAPSTR("Max"), module_math_max, 2));
+    module_set_key(m, RAEL_HEAPSTR("Min"), cfunc_new(RAEL_HEAPSTR("Min"), module_math_min, 2));
     module_set_key(m, RAEL_HEAPSTR("PI"), number_newf(RAEL_CONSTANT_PI));
     module_set_key(m, RAEL_HEAPSTR("2PI"), number_newf(RAEL_CONSTANT_2PI));
     module_set_key(m, RAEL_HEAPSTR("E"), number_newf(RAEL_CONSTANT_E));
