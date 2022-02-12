@@ -1,0 +1,12 @@
+:i ?= 0
+loop :c through "monkey", :i < 4 {
+    show :c
+    :i += 1
+}
+log
+
+:i ?= 0
+loop :c through "monkey", :i < 1000 {
+    show :c
+}
+log

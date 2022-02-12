@@ -1369,8 +1369,16 @@ static struct Instruction *parser_parse_loop(struct Parser* const parser) {
 
             loop.type = LoopThrough;
             loop.iterate.key = token_allocate_key(&key_token);
+            if (parser_match(parser, TokenNameComma)) {
+                if (!(loop.iterate.secondary_condition = parser_parse_expr(parser))) {
+                    parser_error(parser, "Expected an expression after comma in loop");
+                }
+            } else {
+                loop.iterate.secondary_condition = NULL;
+            }
         } else {
             parser_load_state(parser, backtrack);
+            // FIXME: is this really true?
             // we already know there is a key, it must parse at least a key,
             // if not a full expression
             loop.while_condition = parser_parse_expr(parser);
@@ -1606,14 +1614,18 @@ void instruction_delete(struct Instruction* const inst) {
     case InstructionTypeShow:
         exprlist_delete(&inst->csv);
         break;
-    case InstructionTypeLoop:
-        switch (inst->loop.type) {
+    case InstructionTypeLoop: {
+        struct LoopInstruction *loop = &inst->loop;
+        switch (loop->type) {
         case LoopWhile:
-            expr_delete(inst->loop.while_condition);
+            expr_delete(loop->while_condition);
             break;
         case LoopThrough:
-            free(inst->loop.iterate.key);
-            expr_delete(inst->loop.iterate.expr);
+            free(loop->iterate.key);
+            expr_delete(loop->iterate.expr);
+            if (loop->iterate.secondary_condition) {
+                expr_delete(loop->iterate.secondary_condition);
+            }
             break;
         case LoopForever:
             break;
@@ -1621,8 +1633,9 @@ void instruction_delete(struct Instruction* const inst) {
             RAEL_UNREACHABLE();
         }
 
-        block_delete(inst->loop.block);
+        block_delete(loop->block);
         break;
+    }
     case InstructionTypePureExpr:
         expr_delete(inst->pure);
         break;

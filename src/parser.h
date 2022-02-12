@@ -181,6 +181,7 @@ struct LoopInstruction {
         struct {
             char *key;
             struct Expr *expr;
+            struct Expr *secondary_condition;
         } iterate;
     };
     struct Instruction **block;

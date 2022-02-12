@@ -1,0 +1,3 @@
+Error [tests/test197.rael:1:24]: Expected an expression after comma in loop
+| loop :a through "abc", {
+|                        ^

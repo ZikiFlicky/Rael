@@ -933,6 +933,7 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
     case LoopThrough: {
         bool continue_loop = true;
         RaelValue *iterator = expr_eval(interpreter, loop->iterate.expr, true);
+        struct Expr *secondary_condition = loop->iterate.secondary_condition;
 
         if (!value_is_iterable(iterator)) {
             value_deref(iterator);
@@ -942,6 +943,15 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
         // calculate length every time because values can always shrink/grow
         for (size_t i = 0; continue_loop && i < value_length(iterator); ++i) {
             RaelValue *iteration_value;
+
+            // if there is a secondary loop condition, exit the loop
+            if (secondary_condition) {
+                RaelValue *secondary = expr_eval(interpreter, secondary_condition, true);
+                bool is_truthy = value_truthy(secondary);
+                value_deref(secondary);
+                if (!is_truthy)
+                    break;
+            }
 
             // push the new scope and calculate the iterated value
             interpreter_push_scope(interpreter, &loop_scope);
