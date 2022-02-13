@@ -1,0 +1,170 @@
+%% Graphical game-of-life written in Rael
+load :Graphics
+load :Time
+load :Math
+
+:drawGridLine ?= routine() {
+    loop :y through 0 to :HeightInCubes {
+        :surface:drawLine(0, :y * :CellSize, :window:Width, :y * :CellSize, :GridLineColor)
+    }
+    
+    loop :x through 0 to :WidthInCubes {
+        :surface:drawLine(:x * :CellSize, 0, :x * :CellSize, :window:Height, :GridLineColor)
+    }
+
+    :surface:update()    
+}
+
+:getAmountNeighbors ?= routine(:x, :y) {
+    :amountNeighbors ?= 0
+    :startX ?= :Math:Max(:x - 1, 0)
+    :endX ?= :Math:Min(:x + 2, :WidthInCubes)
+    :startY ?= :Math:Max(:y - 1, 0)
+    :endY ?= :Math:Min(:y + 2, :HeightInCubes)
+
+    loop :y2 through :startY to :endY {
+        loop :x2 through :startX to :endX {
+            if !(:y2 = :y & :x2 = :x) {
+                :amountNeighbors += :grid at :y2 at :x2
+            }
+        }
+    }
+
+    ^:amountNeighbors
+}
+
+:updateScreen ?= routine(:extendedColoring) {
+    loop :y through 0 to :HeightInCubes {
+        loop :x through 0 to :WidthInCubes {
+            %% If the cell is active, draw it
+            :color ?= Void
+            if :grid at :y at :x {
+                %% If you allow more colors
+                if :extendedColoring {
+                    :color ?= match :getAmountNeighbors(:x, :y) {
+                    with 3 {
+                        ^:Graphics:Color(0, 255, 0)
+                    }
+                    with 2 {
+                        ^:Graphics:Color(0 , 255, 0)
+                    }
+                    else {
+                        ^:Graphics:Color(255, 0, 0)
+                    }
+                    }
+                } else {
+                    :color ?= :CellColor
+                }
+            } else {
+                :color ?= :BackgroundColor
+            }
+            :surface:drawRect(:x * :CellSize + 1, :y * :CellSize + 1, :CellSize - 1, :CellSize - 1, :color)
+        }
+    }
+    :surface:update()
+}
+
+%% Constants
+:CellSize ?= 20
+:WidthInCubes ?= 32
+:HeightInCubes ?= 24
+:Fps ?= 2
+:CellColor ?= :Graphics:Color(255, 255, 255)
+:GridLineColor ?= :Graphics:Color(255, 255, 255)
+:BackgroundColor ?= :Graphics:Color(0, 0, 0)
+:ExtendedColoring ?= 1
+
+log "Conway's game-of-life, implemented in Rael"
+log "The rules of the simulation are simple:"
+log "You are given a grid of cells which act according to the following rules:"
+log "* a cell has 3 neighbors - it becomes alive."
+log "* a cell has 2 neighbors - it stays as it were."
+log "* a cell has neither 2 nor 3 neighbors - it dies."
+log "By clicking the cubes on the screen you can activate/deactivate specific cells."
+log "By pressing space you can pause/resume the simulation."
+log "Have fun!"
+
+:Graphics:Init()
+:window ?= :Graphics:Window("Game Of Life", :WidthInCubes * :CellSize, :HeightInCubes * :CellSize)
+:surface ?= :window:getSurface()
+
+:simulate ?= 0
+:loop ?= 1
+
+%% Create grid
+:grid ?= {}
+loop :y through 0 to :HeightInCubes {
+    :xGrid ?= {}
+    loop :x through 0 to :WidthInCubes {
+        :xGrid << 0
+    }
+    :grid << :xGrid
+}
+
+:drawGridLine()
+:updateScreen(0)
+:timeLastDraw ?= :Time:GetEpoch()
+
+loop :loop {
+    %% Check events
+    loop (:event ?= :Graphics:GetEvent()) {
+        match :event:Type {
+        with :Graphics:EVENT_QUIT {
+            :loop ?= 0
+        }
+        with :Graphics:EVENT_MOUSEBUTTONDOWN {
+            if :event:MouseClickEventInfo:ButtonType = 1 {
+                :x ?= :Math:Floor(:event:MouseClickEventInfo:X / :CellSize)
+                :y ?= :Math:Floor(:event:MouseClickEventInfo:Y / :CellSize)
+                :grid at :y at :x ?= !(:grid at :y at :x)
+                if :simulate
+                    :updateScreen(:ExtendedColoring)
+                else
+                    :updateScreen(0)
+            }
+        }
+        with :Graphics:EVENT_KEYUP {
+            if :event:KeyboardEventInfo:KeyCode = :Graphics:KEYCODE_SPACE {
+                %% Don't waste time and memory on repainting if we don't need to
+                if :ExtendedColoring & :simulate
+                    :updateScreen(0)
+                :simulate ?= !:simulate
+            }
+        }
+        }
+    }
+    if !:loop
+        break
+
+    if :simulate & :Time:Since(:timeLastDraw) >= 1 / :Fps {
+        %% Create new grid with modified cells
+        :newGrid ?= {}
+        loop :y through 0 to :HeightInCubes {
+            :newGridX ?= {}
+            loop :x through 0 to :WidthInCubes {
+                :amountNeighbors ?= :getAmountNeighbors(:x, :y)
+                %% Choose the new cell value depending on the amount of neighbors
+                :cellValue ?= match :amountNeighbors {
+                with 3 {
+                    ^1
+                }
+                with 2 {
+                    ^:grid at :y at :x
+                }
+                else {
+                    ^0
+                }
+                }
+                :newGridX << :cellValue
+            }
+            :newGrid << :newGridX
+        }
+
+        %% Make the new grid the main grid
+        :grid ?= :newGrid
+        :updateScreen(:ExtendedColoring)
+        :timeLastDraw ?= :Time:GetEpoch()
+    }
+}
+
+:Graphics:Deinit()
