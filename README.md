@@ -12,6 +12,7 @@ The name Rael has no actual meaning, if you were wondering ;)
 * GNU Make - to build the project on unix systems
 * GCC or Clang - any decent C99 compiler should work, though
 * Python 2.7 or higher - for running tests (`runtests.py`)
+* SDL2 - The SDL2 library is required for the :Graphics module
 
 The default compiler is GCC, but it can be changed in the makefile's configuration
 at the top to whatever you like.
@@ -20,11 +21,15 @@ Note: the language was only tested on Linux (Ubuntu 20.04, to be exact).
 
 The language's code currently uses some Posix libraries and functions and doesn't currently support OSes without Posix support.
 
-In the future I may or may not port it to Windows.
+In the future I may or may not port Rael to Windows.
 
 For build problems and questions regarding the language, please open an issue on this GitHub page.
 
 ## Build
+Make sure you have sdl2 installed.
+
+To install sdl2 on Ubuntu, run `sudo apt install libsdl2-dev`
+
 To build, run `make`.
 
 To run the tests, run `python runtests.py`
