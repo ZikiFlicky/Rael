@@ -519,6 +519,9 @@ error:
     case SetTypeKey:
         free(set_expr.as_key);
         break;
+    case SetTypeMember:
+        expr_delete(set_expr.as_member);
+        break;
     default:
         RAEL_UNREACHABLE();
     }
