@@ -9,25 +9,25 @@
  * just a window.
  */
 
-typedef struct WindowValue {
+typedef struct RaelWindowValue {
     RAEL_VALUE_BASE;
     SDL_Window *window;
     size_t width, height;
-} WindowValue;
-RaelTypeValue WindowType;
+} RaelWindowValue;
+RaelTypeValue RaelWindowType;
 
-typedef struct SurfaceValue {
+typedef struct RaelSurfaceValue {
     RAEL_VALUE_BASE;
-    WindowValue *window_ref;
+    RaelWindowValue *window_ref;
     SDL_Surface *surface;
-} SurfaceValue;
-RaelTypeValue SurfaceType;
+} RaelSurfaceValue;
+RaelTypeValue RaelSurfaceType;
 
-typedef struct ColorValue {
+typedef struct RaelColorValue {
     RAEL_VALUE_BASE;
     uint8_t r, g, b;
-} ColorValue;
-RaelTypeValue ColorType;
+} RaelColorValue;
+RaelTypeValue RaelColorType;
 
 /* Window type definition */
 
@@ -38,7 +38,7 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
     char *title;
     RaelInt width, height;
 
-    WindowValue *window_value;
+    RaelWindowValue *window_value;
     SDL_Window *window;
 
     (void)interpreter;
@@ -78,7 +78,7 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
     height = number_to_int(height_number);
 
     window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
-    window_value = RAEL_VALUE_NEW(WindowType, WindowValue);
+    window_value = RAEL_VALUE_NEW(RaelWindowType, RaelWindowValue);
     window_value->window = window;
     window_value->width = width;
     window_value->height = height;
@@ -91,16 +91,16 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
     return (RaelValue*)window_value;
 }
 
-void window_delete(WindowValue *self) {
+void window_delete(RaelWindowValue *self) {
     SDL_DestroyWindow(self->window);
 }
 
-void window_repr(WindowValue *self) {
+void window_repr(RaelWindowValue *self) {
     printf("[Graphics Window %zux%zu]", self->width, self->height);
 }
 
-RaelValue *window_method_getSurface(WindowValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
-    SurfaceValue *surface = RAEL_VALUE_NEW(SurfaceType, SurfaceValue);
+RaelValue *window_method_getSurface(RaelWindowValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    RaelSurfaceValue *surface = RAEL_VALUE_NEW(RaelSurfaceType, RaelSurfaceValue);
 
     (void)args;
     (void)interpreter;
@@ -118,7 +118,7 @@ static RaelConstructorInfo window_constructor_info = {
     3
 };
 
-RaelTypeValue WindowType = {
+RaelTypeValue RaelWindowType = {
     RAEL_TYPE_DEF_INIT,
     .name = "Window",
     .op_add = NULL,
@@ -160,7 +160,7 @@ RaelTypeValue WindowType = {
 
 /* Surface type definition */
 
-void surface_delete(SurfaceValue *self) {
+void surface_delete(RaelSurfaceValue *self) {
     value_deref((RaelValue*)self->window_ref);
     SDL_FreeSurface(self->surface);
 }
@@ -170,7 +170,7 @@ void surface_delete(SurfaceValue *self) {
  * The can_be_length parameter tells whether the function
  * should return true when y == height or x == width.
  */
-static bool surface_point_valid(SurfaceValue *self, RaelInt x, RaelInt y, bool can_be_length) {
+static bool surface_point_valid(RaelSurfaceValue *self, RaelInt x, RaelInt y, bool can_be_length) {
     if (can_be_length) {
         return x >= 0 && x <= self->surface->w && y >= 0 && y <= self->surface->h;
     } else {
@@ -178,7 +178,7 @@ static bool surface_point_valid(SurfaceValue *self, RaelInt x, RaelInt y, bool c
     }
 }
 
-static void surface_draw_pixel(SurfaceValue *self, size_t x, size_t y, ColorValue *color) {
+static void surface_draw_pixel(RaelSurfaceValue *self, size_t x, size_t y, RaelColorValue *color) {
     uint32_t computed_color;
     uint8_t *pixel_ptr;
     size_t bpp = self->surface->format->BytesPerPixel;
@@ -213,7 +213,7 @@ static void surface_draw_pixel(SurfaceValue *self, size_t x, size_t y, ColorValu
 }
 
 /* fill a rectangle of a certain size in a certain place with a solid color */
-static void surface_draw_rect(SurfaceValue *self, size_t x, size_t y, size_t w, size_t h, ColorValue *color) {
+static void surface_draw_rect(RaelSurfaceValue *self, size_t x, size_t y, size_t w, size_t h, RaelColorValue *color) {
     for (size_t y2 = 0; y2 < h; ++y2) {
         for (size_t x2 = 0; x2 < w; ++x2) {
             surface_draw_pixel(self, x + x2, y + y2, color);
@@ -222,7 +222,7 @@ static void surface_draw_rect(SurfaceValue *self, size_t x, size_t y, size_t w, 
 }
 
 /* draw a line */
-static void surface_draw_line(SurfaceValue *self, size_t x1, size_t y1, size_t x2, size_t y2, ColorValue *color) {
+static void surface_draw_line(RaelSurfaceValue *self, size_t x1, size_t y1, size_t x2, size_t y2, RaelColorValue *color) {
     RaelInt length_x = (RaelInt)x2 - (RaelInt)x1;
     RaelInt length_y = (RaelInt)y2 - (RaelInt)y1;
     RaelFloat length = sqrt(length_x * length_x + length_y * length_y);
@@ -235,10 +235,10 @@ static void surface_draw_line(SurfaceValue *self, size_t x1, size_t y1, size_t x
     }
 }
 
-RaelValue *surface_method_drawPixel(SurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *surface_method_drawPixel(RaelSurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *arg;
     RaelNumberValue *number;
-    ColorValue *color;
+    RaelColorValue *color;
     RaelInt x, y;
 
     (void)interpreter;
@@ -262,10 +262,10 @@ RaelValue *surface_method_drawPixel(SurfaceValue *self, RaelArgumentList *args, 
     y = number_to_int(number);
 
     arg = arguments_get(args, 2);
-    if (arg->type != &ColorType) {
+    if (arg->type != &RaelColorType) {
         return BLAME_NEW_CSTR_ST("Expected a color value", *arguments_state(args, 2));
     }
-    color = (ColorValue*)arg;
+    color = (RaelColorValue*)arg;
 
     if (surface_point_valid(self, x, y, false))
         return BLAME_NEW_CSTR("Invalid coordinates");
@@ -274,10 +274,10 @@ RaelValue *surface_method_drawPixel(SurfaceValue *self, RaelArgumentList *args, 
     return void_new();
 }
 
-RaelValue *surface_method_drawRect(SurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *surface_method_drawRect(RaelSurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *arg;
     RaelNumberValue *number;
-    ColorValue *color;
+    RaelColorValue *color;
     RaelInt x, y, width, height;
 
     (void)interpreter;
@@ -327,10 +327,10 @@ RaelValue *surface_method_drawRect(SurfaceValue *self, RaelArgumentList *args, R
 
     // get color
     arg = arguments_get(args, 4);
-    if (arg->type != &ColorType) {
+    if (arg->type != &RaelColorType) {
         return BLAME_NEW_CSTR_ST("Expected a color value", *arguments_state(args, 4));
     }
-    color = (ColorValue*)arg;
+    color = (RaelColorValue*)arg;
 
     if (!surface_point_valid(self, x, y, true) || !surface_point_valid(self, x + width, y + height, true))
         return BLAME_NEW_CSTR("Invalid rect");
@@ -342,26 +342,26 @@ RaelValue *surface_method_drawRect(SurfaceValue *self, RaelArgumentList *args, R
 }
 
 /* fill a whole surface with a solid color */
-RaelValue *surface_method_fill(SurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *surface_method_fill(RaelSurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *arg;
-    ColorValue *color;
+    RaelColorValue *color;
 
     (void)interpreter;
     assert(arguments_amount(args) == 1);
 
     arg = arguments_get(args, 0);
-    if (arg->type != &ColorType)
+    if (arg->type != &RaelColorType)
         return BLAME_NEW_CSTR_ST("Expected a color value", *arguments_state(args, 0));
-    color = (ColorValue*)arg;
+    color = (RaelColorValue*)arg;
 
     surface_draw_rect(self, 0, 0, (size_t)self->surface->w, (size_t)self->surface->h, color);
     return void_new();
 }
 
-RaelValue *surface_method_drawLine(SurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *surface_method_drawLine(RaelSurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *arg;
     RaelNumberValue *number;
-    ColorValue *color;
+    RaelColorValue *color;
     RaelInt x1, y1, x2, y2;
 
     (void)interpreter;
@@ -413,9 +413,9 @@ RaelValue *surface_method_drawLine(SurfaceValue *self, RaelArgumentList *args, R
 
     // get color
     arg = arguments_get(args, 4);
-    if (arg->type != &ColorType)
+    if (arg->type != &RaelColorType)
         return BLAME_NEW_CSTR_ST("Expected a color value", *arguments_state(args, 4));
-    color = (ColorValue*)arg;
+    color = (RaelColorValue*)arg;
 
     if (!surface_point_valid(self, x1, y1, true) || !surface_point_valid(self, x2, y2, true))
         return BLAME_NEW_CSTR("Invalid coordinates");
@@ -426,7 +426,7 @@ RaelValue *surface_method_drawLine(SurfaceValue *self, RaelArgumentList *args, R
     return void_new();
 }
 
-RaelValue *surface_method_update(SurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *surface_method_update(RaelSurfaceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     (void)interpreter;
     assert(arguments_amount(args) == 0);
 
@@ -434,7 +434,7 @@ RaelValue *surface_method_update(SurfaceValue *self, RaelArgumentList *args, Rae
     return void_new();
 }
 
-RaelTypeValue SurfaceType = {
+RaelTypeValue RaelSurfaceType = {
     RAEL_TYPE_DEF_INIT,
     .name = "Surface",
     .op_add = NULL,
@@ -479,7 +479,7 @@ RaelTypeValue SurfaceType = {
 };
 
 RaelValue *color_new(uint8_t r, uint8_t g, uint8_t b) {
-    ColorValue *self = RAEL_VALUE_NEW(ColorType, ColorValue);
+    RaelColorValue *self = RAEL_VALUE_NEW(RaelColorType, RaelColorValue);
     self->r = r;
     self->g = g;
     self->b = b;
@@ -539,7 +539,7 @@ RaelValue *color_construct(RaelArgumentList *args, RaelInterpreter *interpreter)
     return color_new((uint8_t)r, (uint8_t)g, (uint8_t)b);
 }
 
-void color_repr(ColorValue *self) {
+void color_repr(RaelColorValue *self) {
     printf("[Color %d, %d, %d]", self->r, self->g, self->b);
 }
 
@@ -550,7 +550,7 @@ RaelConstructorInfo color_constructor_info = {
     3
 };
 
-RaelTypeValue ColorType = {
+RaelTypeValue RaelColorType = {
     RAEL_TYPE_DEF_INIT,
     .name = "Color",
     .op_add = NULL,
@@ -672,12 +672,12 @@ RaelValue *module_graphics_new(RaelInterpreter *interpreter) {
     (void)interpreter;
 
     m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("Graphics"));
-    value_ref((RaelValue*)&WindowType);
-    value_ref((RaelValue*)&ColorType);
-    value_ref((RaelValue*)&SurfaceType);
-    module_set_key(m, RAEL_HEAPSTR("Window"), (RaelValue*)&WindowType);
-    module_set_key(m, RAEL_HEAPSTR("Color"), (RaelValue*)&ColorType);
-    module_set_key(m, RAEL_HEAPSTR("Surface"), (RaelValue*)&SurfaceType);
+    value_ref((RaelValue*)&RaelWindowType);
+    value_ref((RaelValue*)&RaelColorType);
+    value_ref((RaelValue*)&RaelSurfaceType);
+    module_set_key(m, RAEL_HEAPSTR("Window"), (RaelValue*)&RaelWindowType);
+    module_set_key(m, RAEL_HEAPSTR("Color"), (RaelValue*)&RaelColorType);
+    module_set_key(m, RAEL_HEAPSTR("Surface"), (RaelValue*)&RaelSurfaceType);
     module_set_key(m, RAEL_HEAPSTR("Init"), cfunc_new(RAEL_HEAPSTR("Init"), module_graphics_Init, 0));
     module_set_key(m, RAEL_HEAPSTR("Deinit"), cfunc_new(RAEL_HEAPSTR("Deinit"), module_graphics_Deinit, 0));
     module_set_key(m, RAEL_HEAPSTR("GetEvent"), cfunc_new(RAEL_HEAPSTR("GetEvent"), module_graphics_GetEvent, 0));
