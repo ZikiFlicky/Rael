@@ -1,5 +1,5 @@
 CC=gcc
-LINK=-lm
+LINK=-lm -lSDL2
 CFLAGS=-Wall -Wextra -std=c99 -Wno-missing-braces -Isrc/
 
 SRCDIR=src
@@ -9,8 +9,8 @@ NAME=rael
 RM=rm -f
 RMDIR=rm -rf
 
-OBJECTS=lexer.o parser.o interpreter.o value.o number.o main.o common.o string.o stack.o module.o range.o blame.o routine.o cfuncs.o varmap.o scope.o \
-		mathmodule.o typesmodule.o timemodule.o randommodule.o systemmodule.o filemodule.o functionalmodule.o binmodule.o
+OBJECTS=lexer.o parser.o interpreter.o value.o number.o main.o common.o string.o stack.o module.o range.o blame.o routine.o cfuncs.o struct.o varmap.o scope.o \
+		mathmodule.o typesmodule.o timemodule.o randommodule.o systemmodule.o filemodule.o functionalmodule.o binmodule.o graphicsmodule.o
 
 .PHONY: clean all debug
 
