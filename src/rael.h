@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <math.h>
 #include <time.h>
+#include <inttypes.h>
 
 #include "common.h"
 #include "lexer.h"
@@ -43,5 +44,6 @@
 #include "types/range.h"
 #include "types/routine.h"
 #include "types/cfuncs.h"
+#include "types/struct.h"
 
 #endif /* RAEL_RAEL_H */
