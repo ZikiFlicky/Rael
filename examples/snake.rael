@@ -1,0 +1,159 @@
+%% The classic Snake game, implemented in Rael
+load :Graphics
+load :Time
+load :Random
+load :Math
+
+:generateApple ?= routine() {
+    %% You've won
+    if sizeof(:snake) >= :WidthInCubes * :HeightInCubes
+        ^Void
+
+    :stillGenerating ?= 1
+    %% Declare x and y
+    :generatedX ?= -1
+    :generatedY ?= -1
+    loop :stillGenerating {
+        :generatedX ?= :Random:RandomRange(0 to :WidthInCubes)
+        :generatedY ?= :Random:RandomRange(0 to :HeightInCubes)
+        :stillGenerating ?= 0
+        loop :s through :snake {
+            if :s = { :generatedX, :generatedY } {
+                :stillGenerating ?= 1
+                break
+            }
+        }
+    }
+    ^{ :generatedX, :generatedY }
+}
+
+%% Constants
+:CubeSize ?= 20
+:WidthInCubes ?= 32
+:HeightInCubes ?= 24
+:Fps ?= 15
+:SnakeColor ?= :Graphics:Color(0, 255, 0)
+:SnakeColor2 ?= :Graphics:Color(0, 100, 0)
+:AppleColor ?= :Graphics:Color(255, 0, 0)
+:BackgroundColor ?= :Graphics:Color(0, 0, 0)
+
+:Graphics:Init()
+:window ?= :Graphics:Window("Snake", :WidthInCubes * :CubeSize, :HeightInCubes * :CubeSize)
+:surface ?= :window:getSurface()
+
+:snake ?= {{0, 0}}
+:apple ?= :generateApple()
+
+:dirX ?= 1
+:dirY ?= 0
+:y ?= 0
+:x ?= 0
+:loop ?= 1
+loop :loop {
+    %% Get start time
+    :startTime ?= :Time:GetEpoch()
+    :hadKeydown ?= 0
+    loop (:event ?= :Graphics:GetEvent()) != Void {
+        match :event:Type {
+        with :Graphics:EVENT_QUIT {
+            :loop ?= 0
+        }
+        with :Graphics:EVENT_KEYUP {
+            if :hadKeydown
+                ^
+            match :event:KeyboardEventInfo:KeyCode {
+            with :Graphics:KEYCODE_UP {
+                %% If going left or right
+                if :dirX != 0 {
+                    :hadKeydown ?= 1
+                    :dirX ?= 0
+                    :dirY ?= -1
+                }
+            }
+            with :Graphics:KEYCODE_DOWN {
+                %% If going left or right
+                if :dirX != 0 {
+                    :hadKeydown ?= 1
+                    :dirX ?= 0
+                    :dirY ?= 1
+                }
+            }
+            with :Graphics:KEYCODE_LEFT {
+                %% If going up or down
+                if :dirY != 0 {
+                    :hadKeydown ?= 1
+                    :dirX ?= -1
+                    :dirY ?= 0
+                }
+            }
+            with :Graphics:KEYCODE_RIGHT {
+                %% If going up or down
+                if :dirY != 0 {
+                    :hadKeydown ?= 1
+                    :dirX ?= 1
+                    :dirY ?= 0
+                }
+            }
+            }
+        }
+        }
+    }
+    if !:loop
+        break
+
+    :x ?= (:x + :dirX) % :WidthInCubes
+    :y ?= (:y + :dirY) % :HeightInCubes
+
+    %% If collide with apple
+    if { :x, :y } = :apple {
+        :snake << { :x, :y }
+        :apple ?= :generateApple()
+        if :apple = Void {
+            log "You've won"
+            break
+        }
+    } else {
+        %% Check if the cords are in the snake, meaning we collide
+        :colliding ?= 0
+        loop :s through :snake {
+            if { :x, :y } = :s {
+                :colliding ?= 1
+                break
+            }
+        }
+        if :colliding
+            break
+        %% Move snake
+        :newSnake ?= {}
+        :i ?= 1
+        loop :i < sizeof :snake {
+            :newSnake << :snake at :i
+            :i += 1
+        }
+        :newSnake << {:x, :y}
+        :snake ?= :newSnake
+    }
+
+    %% Draw snake
+    :surface:fill(:Graphics:Color(0, 0, 0))
+    :i ?= 0
+    loop :i through 0 to sizeof(:snake) - 1 {
+        :pair ?= :snake at :i
+        :surface:drawRect((:pair at 0) * :CubeSize, (:pair at 1) * :CubeSize,
+                        :CubeSize, :CubeSize, :SnakeColor)
+    }
+    :snakeHead ?= :snake at (sizeof(:snake) - 1)
+    :surface:drawRect((:snakeHead at 0) * :CubeSize, (:snakeHead at 1) * :CubeSize,
+                        :CubeSize, :CubeSize, :SnakeColor2)
+
+    %% Draw apple
+    :surface:drawRect((:apple at 0) * :CubeSize, (:apple at 1) * :CubeSize,
+                        :CubeSize, :CubeSize, :AppleColor)
+
+    :surface:update()
+
+    :elapsed ?= :Time:Since(:startTime)
+    :Time:Sleep(:Math:Max(1 / :Fps - :elapsed, 0))
+}
+
+:Graphics:Deinit()
