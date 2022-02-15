@@ -86,7 +86,31 @@ log match 9 + 4 {
         log "2"
     }
     else {
-        ^ "nothing"
+        ^"nothing"
+    }
+}
+
+log match 3 * 7 {
+    with 37 {
+        log "1"
+    }
+    with 21, 10, 2 {
+        log "2"
+    }
+    else {
+        ^"nothing"
+    }
+}
+
+log match 3 * 7 {
+    with 37, 3, 7 {
+        log "1"
+    }
+    with 10, 21, 2 {
+        log "2"
+    }
+    else {
+        ^"nothing"
     }
 }
 

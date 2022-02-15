@@ -396,16 +396,19 @@ static RaelValue *expr_match_eval(RaelInterpreter *interpreter, struct MatchExpr
     // loop all match cases while there's no match
     for (size_t i = 0; i < match->amount_cases && !matched; ++i) {
         struct MatchCase match_case = match->match_cases[i];
-        // evaluate the value to compare with
-        RaelValue *with_value = expr_eval(interpreter, match_case.case_value, true);
+        // loop through all exprs in the specific with statement
+        for (size_t expr_idx = 0; !matched && expr_idx < match_case.match_exprs.amount_exprs; ++expr_idx) {
+            // evaluate the value to compare with
+            RaelValue *with_value = expr_eval(interpreter, match_case.match_exprs.exprs[expr_idx].expr, true);
 
-        // check if the case matches, and if it does,
-        // run its block and stop the match's execution
-        if (values_eq(match_against, with_value)) {
-            block_run(interpreter, match_case.case_block, false);
-            matched = true;
+            // check if the case matches, and if it does,
+            // run its block and stop the match's execution
+            if (values_eq(match_against, with_value)) {
+                block_run(interpreter, match_case.case_block, false);
+                matched = true;
+            }
+            value_deref(with_value);
         }
-        value_deref(with_value);
     }
 
     // if you've matched nothing and there's an else case, run the else block

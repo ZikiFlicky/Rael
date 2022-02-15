@@ -1,14 +1,16 @@
 #include "rael.h"
 
 static struct Expr *parser_parse_expr(struct Parser* const parser);
+static struct Expr *parser_parse_expr_at(struct Parser* const parser);
 static struct Instruction *parser_parse_instr(struct Parser* const parser);
 static struct Instruction **parser_parse_block(struct Parser* const parser);
 static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
-static struct Expr *parser_parse_expr_at(struct Parser* const parser);
 static struct Expr *parser_parse_suffix(struct Parser* const parser);
+
 static void expr_delete(struct Expr* const expr);
 static void block_delete(struct Instruction **block);
 static void exprlist_delete(RaelExprList *list);
+static void match_case_delete(struct MatchCase *match_case);
 
 static inline char *parser_get_filename(struct Parser* const parser) {
     return parser->lexer.filename;
@@ -350,37 +352,34 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
     }
     parser_maybe_expect_newline(parser);
 
+    // parse everything else
     while (is_matching) {
         backtrack = parser_dump_state(parser);
         if (!lexer_tokenize(&parser->lexer)) {
             expr_delete(match_against);
-            for (size_t i = 0; i < amount; ++i) {
-                expr_delete(match_cases[i].case_value);
-                block_delete(match_cases[i].case_block);
-            }
+            for (size_t i = 0; i < amount; ++i)
+                match_case_delete(&match_cases[i]);
             parser_error(parser, "Unexpected EOF");
         }
 
         switch (parser->lexer.token.name) {
         case TokenNameWith: {
-            struct Expr *case_value;
             struct Instruction **case_block;
+            RaelExprList exprs;
 
             // parse the part after the 'with'
-            if (!(case_value = parser_parse_expr(parser))) {
+            if ((exprs = parser_parse_csv(parser, true)).amount_exprs == 0) {
                 expr_delete(match_against);
-                parser_error(parser, "An expression is expected after 'with'");
+                parser_error(parser, "Expected at least one expression after 'with'");
             }
 
+            parser_maybe_expect_newline(parser);
             // parse the block to execute
             if (!(case_block = parser_parse_block(parser))) {
                 expr_delete(match_against);
-                expr_delete(case_value);
-                for (size_t i = 0; i < amount; ++i) {
-                    expr_delete(match_cases[i].case_value);
-                    block_delete(match_cases[i].case_block);
-                }
-                parser_error(parser, "Block expected");
+                for (size_t i = 0; i < amount; ++i)
+                    match_case_delete(&match_cases[i]);
+                parser_error(parser, "Expected a block");
             }
             parser_maybe_expect_newline(parser);
 
@@ -390,8 +389,9 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
             else if (amount >= allocated)
                 match_cases = realloc(match_cases, (allocated += 8) * sizeof(struct MatchCase));
 
+            // add match case
             match_cases[amount++] = (struct MatchCase) {
-                .case_value = case_value,
+                .match_exprs = exprs,
                 .case_block = case_block
             };
             break;
@@ -408,10 +408,8 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
             if (!parser_match(parser, TokenNameRightCur)) {
                 expr_delete(match_against);
                 block_delete(else_block);
-                for (size_t i = 0; i < amount; ++i) {
-                    expr_delete(match_cases[i].case_value);
-                    block_delete(match_cases[i].case_block);
-                }
+                for (size_t i = 0; i < amount; ++i)
+                    match_case_delete(&match_cases[i]);
                 parser_error(parser, "Expected a '}'");
             }
             is_matching = false;
@@ -422,10 +420,8 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
         default:
             parser_load_state(parser, backtrack);
             expr_delete(match_against);
-            for (size_t i = 0; i < amount; ++i) {
-                expr_delete(match_cases[i].case_value);
-                block_delete(match_cases[i].case_block);
-            }
+            for (size_t i = 0; i < amount; ++i)
+                match_case_delete(&match_cases[i]);
             parser_error(parser, "Expected 'with' or 'else'");
         }
     }
@@ -511,7 +507,7 @@ static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
     full_expr->state = operator_state;
     return full_expr;
 error:
-    // if you couldn't parse the expression proparly, free used stuff and return a NULL
+    // if you couldn't parse the expression properly, free used stuff and return a NULL
     switch (set_expr.set_type) {
     case SetTypeAtExpr:
         expr_delete(set_expr.as_at);
@@ -1458,6 +1454,11 @@ struct Instruction **rael_parse(char* const filename, char* const stream, bool s
     return parser.instructions;
 }
 
+static void match_case_delete(struct MatchCase *match_case) {
+    exprlist_delete(&match_case->match_exprs);
+    block_delete(match_case->case_block);
+}
+
 static void block_delete(struct Instruction **block) {
     assert(block);
     for (struct Instruction **instr = block; *instr; ++instr)
@@ -1563,17 +1564,18 @@ static void expr_delete(struct Expr* const expr) {
         }
         expr_delete(expr->as_set.expr);
         break;
-    case ExprTypeMatch:
-        expr_delete(expr->as_match.match_against);
-        for (size_t i = 0; i < expr->as_match.amount_cases; ++i) {
-            struct MatchCase match_case = expr->as_match.match_cases[i];
-            expr_delete(match_case.case_value);
-            block_delete(match_case.case_block);
-        }
-        free(expr->as_match.match_cases);
-        if (expr->as_match.else_block)
-            block_delete(expr->as_match.else_block);
+    case ExprTypeMatch: {
+        struct MatchExpr *match = &expr->as_match;
+
+        expr_delete(match->match_against);
+        for (size_t i = 0; i < match->amount_cases; ++i)
+            match_case_delete(&match->match_cases[i]);
+
+        free(match->match_cases);
+        if (match->else_block)
+            block_delete(match->else_block);
         break;
+    }
     case ExprTypeGetMember:
         expr_delete(expr->as_get_member.lhs);
         free(expr->as_get_member.key);

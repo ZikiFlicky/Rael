@@ -108,7 +108,7 @@ struct MatchExpr {
     size_t amount_cases;
     struct Expr *match_against;
     struct MatchCase {
-        struct Expr *case_value;
+        RaelExprList match_exprs;
         struct Instruction **case_block;
     } *match_cases;
     struct Instruction **else_block;
