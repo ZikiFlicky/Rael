@@ -92,11 +92,16 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
 }
 
 void window_delete(RaelWindowValue *self) {
-    SDL_DestroyWindow(self->window);
+    // if not destroyed yet
+    if (self->window)
+        SDL_DestroyWindow(self->window);
 }
 
 void window_repr(RaelWindowValue *self) {
-    printf("[Graphics Window %zux%zu]", self->width, self->height);
+    printf("[Graphics Window %zux%zu", self->width, self->height);
+    if (!self->window)
+        printf(" (closed)");
+    printf("]");
 }
 
 RaelValue *window_method_getSurface(RaelWindowValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
@@ -104,11 +109,21 @@ RaelValue *window_method_getSurface(RaelWindowValue *self, RaelArgumentList *arg
 
     (void)args;
     (void)interpreter;
+    if (!self->window)
+        return BLAME_NEW_CSTR("Can't operate on a closed window");
     value_ref((RaelValue*)self);
     surface->window_ref = self;
     surface->surface = SDL_GetWindowSurface(self->window);
 
     return (RaelValue*)surface;
+}
+
+RaelValue *window_method_close(RaelWindowValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    (void)interpreter;
+    assert(arguments_amount(args) == 0);
+    SDL_DestroyWindow(self->window);
+    self->window = NULL;
+    return void_new();
 }
 
 static RaelConstructorInfo window_constructor_info = {
@@ -154,6 +169,7 @@ RaelTypeValue RaelWindowType = {
 
     .methods = (MethodDecl[]) {
         RAEL_CMETHOD("getSurface", window_method_getSurface, 0, 0),
+        RAEL_CMETHOD("close", window_method_close, 0, 0),
         RAEL_CMETHOD_TERMINATOR
     }
 };
