@@ -81,6 +81,7 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
     /* Store the width and height in the window value */
     value_set_int((RaelValue*)window_value, RAEL_HEAPSTR("Width"), width, true);
     value_set_int((RaelValue*)window_value, RAEL_HEAPSTR("Height"), height, true);
+    value_set_key((RaelValue*)window_value, RAEL_HEAPSTR("Name"), (RaelValue*)name_string, true);
 
     free(title);
     return (RaelValue*)window_value;
