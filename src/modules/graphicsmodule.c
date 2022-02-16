@@ -32,7 +32,8 @@ RaelTypeValue RaelColorType;
 /* Window type definition */
 
 RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter) {
-    RaelValue *arg1, *arg2, *arg3;
+    RaelValue *arg;
+    RaelStringValue *name_string;
     RaelNumberValue *width_number, *height_number;
 
     char *title;
@@ -44,36 +45,30 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
     (void)interpreter;
     assert(arguments_amount(args) == 3);
     // argument for name
-    arg1 = arguments_get(args, 0);
-    if (arg1->type != &RaelStringType) {
+    arg = arguments_get(args, 0);
+    if (arg->type != &RaelStringType)
         return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
-    }
+    name_string = (RaelStringValue *)arg;
 
-    arg2 = arguments_get(args, 1);
-    if (arg2->type != &RaelNumberType) {
+    arg = arguments_get(args, 1);
+    if (arg->type != &RaelNumberType)
         return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 1));
-    }
-    width_number = (RaelNumberValue*)arg2;
-    if (!number_is_whole(width_number)) {
+    width_number = (RaelNumberValue*)arg;
+    if (!number_is_whole(width_number))
         return BLAME_NEW_CSTR_ST("Expected a whole number", *arguments_state(args, 1));
-    }
-    if (!number_positive(width_number)) {
+    if (!number_positive(width_number))
         return BLAME_NEW_CSTR_ST("Expected a positive number", *arguments_state(args, 1));
-    }
 
-    arg3 = arguments_get(args, 2);
-    if (arg3->type != &RaelNumberType) {
+    arg = arguments_get(args, 2);
+    if (arg->type != &RaelNumberType)
         return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 2));
-    }
-    height_number = (RaelNumberValue*)arg3;
-    if (!number_is_whole(height_number)) {
+    height_number = (RaelNumberValue*)arg;
+    if (!number_is_whole(height_number))
         return BLAME_NEW_CSTR_ST("Expected a whole number", *arguments_state(args, 2));
-    }
-    if (!number_positive(height_number)) {
+    if (!number_positive(height_number))
         return BLAME_NEW_CSTR_ST("Expected a positive number", *arguments_state(args, 2));
-    }
 
-    title = string_to_cstr((RaelStringValue*)arg1);
+    title = string_to_cstr(name_string);
     width = number_to_int(width_number);
     height = number_to_int(height_number);
 
@@ -84,8 +79,8 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
     window_value->height = height;
 
     /* Store the width and height in the window value */
-    value_set_key((RaelValue*)window_value, RAEL_HEAPSTR("Width"), number_newi(width), true);
-    value_set_key((RaelValue*)window_value, RAEL_HEAPSTR("Height"), number_newi(height), true);
+    value_set_int((RaelValue*)window_value, RAEL_HEAPSTR("Width"), width, true);
+    value_set_int((RaelValue*)window_value, RAEL_HEAPSTR("Height"), height, true);
 
     free(title);
     return (RaelValue*)window_value;

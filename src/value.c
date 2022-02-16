@@ -320,6 +320,12 @@ void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate
     varmap_set(&self->keys, key, value, true, deallocate_key_on_free);
 }
 
+void value_set_int(RaelValue *value, char *key, RaelInt i, bool deallocate_key_on_free) {
+    RaelValue *number = number_newi(i);
+    value_set_key(value, key, number, deallocate_key_on_free);
+    value_deref(number);
+}
+
 RaelValue *value_slice(RaelValue *self, size_t start, size_t end) {
     RaelSliceFunc possible_at_range = self->type->at_range;
 
