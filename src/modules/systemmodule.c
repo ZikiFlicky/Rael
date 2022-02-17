@@ -73,6 +73,35 @@ RaelValue *module_system_GetShellOutput(RaelArgumentList *args, RaelInterpreter 
     return string_new_pure(output, length, true);
 }
 
+RaelValue *module_system_Exit(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    RaelInt exit_code;
+
+    switch (arguments_amount(args)) {
+    case 0:
+        exit_code = 1;
+        break;
+    case 1: {
+        RaelValue *arg = arguments_get(args, 0);
+        RaelNumberValue *number;
+
+        if (arg->type != &RaelNumberType)
+            return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
+        number = (RaelNumberValue*)arg;
+        if (!number_is_whole(number))
+            return BLAME_NEW_CSTR_ST("Expected a whole number", *arguments_state(args, 0));
+
+        exit_code = number_to_int(number);
+        break;
+    }
+    default:
+        RAEL_UNREACHABLE();
+    }
+
+    interpreter_destroy_all(interpreter);
+    exit(exit_code);
+    return void_new();
+}
+
 static RaelValue *program_argv_stack_new(RaelInterpreter *interpreter) {
     RaelStackValue *stack = (RaelStackValue*)stack_new(interpreter->argc);
     for (size_t i = 0; i < interpreter->argc; ++i) {
@@ -103,6 +132,7 @@ RaelValue *module_system_new(RaelInterpreter *interpreter) {
     module_set_key(m, RAEL_HEAPSTR("ProgramFilename"), program_filename_string_new(interpreter));
     module_set_key(m, RAEL_HEAPSTR("RunShellCommand"), cfunc_new(RAEL_HEAPSTR("RunShellCommand"), (RaelRawCFunc)module_system_RunShellCommand, 1));
     module_set_key(m, RAEL_HEAPSTR("GetShellOutput"), cfunc_new(RAEL_HEAPSTR("GetShellOutput"), (RaelRawCFunc)module_system_GetShellOutput, 1));
+    module_set_key(m, RAEL_HEAPSTR("Exit"), cfunc_ranged_new(RAEL_HEAPSTR("Exit"), (RaelRawCFunc)module_system_Exit, 0, 1));
 
     return (RaelValue*)m;
 }

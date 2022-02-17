@@ -87,6 +87,8 @@ typedef struct RaelArgumentList {
     RaelArgument *arguments;
 } RaelArgumentList;
 
+void interpreter_destroy_all(RaelInterpreter* const interpreter);
+
 RaelInt rael_int_abs(RaelInt i);
 
 RaelFloat rael_float_abs(RaelFloat f);

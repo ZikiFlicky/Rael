@@ -64,7 +64,7 @@ static void interpreter_remove_modules(RaelInterpreter *interpreter) {
 }
 
 /* make the interpreter deallocate everything it stores */
-static void interpreter_destroy_all(RaelInterpreter* const interpreter) {
+void interpreter_destroy_all(RaelInterpreter* const interpreter) {
     // deallocate all of the scopes
     while (interpreter->scope) {
         interpreter_pop_scope(interpreter);

@@ -48,7 +48,7 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
     arg = arguments_get(args, 0);
     if (arg->type != &RaelStringType)
         return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
-    name_string = (RaelStringValue *)arg;
+    name_string = (RaelStringValue*)arg;
 
     arg = arguments_get(args, 1);
     if (arg->type != &RaelNumberType)
