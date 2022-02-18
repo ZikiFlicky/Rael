@@ -28,7 +28,7 @@ static char *load_file(const char* const filename) {
     fseek(file, 0, SEEK_SET);
     if (!(allocated = malloc((size+1) * sizeof(char))))
         return NULL;
-    fread(allocated, size, 1, file);
+    fread(allocated, sizeof(char), size, file);
     allocated[size] = '\0';
     fclose(file);
     return allocated;
