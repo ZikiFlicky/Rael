@@ -19,9 +19,9 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
 static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
 void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
 
-void interpreter_push_scope(RaelInterpreter* const interpreter, struct Scope *scope_addr) {
-    scope_construct(scope_addr, interpreter->instance->scope);
-    interpreter->instance->scope = scope_addr;
+void interpreter_push_scope(RaelInterpreter* const interpreter) {
+    struct Scope *new_scope = scope_new(interpreter->instance->scope);
+    interpreter->instance->scope = new_scope;
 }
 
 void interpreter_pop_scope(RaelInterpreter* const interpreter) {
@@ -70,7 +70,7 @@ void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream str
     instance->instructions = instructions;
     instance->interrupt = ProgramInterruptNone;
     instance->returned_value = NULL;
-    instance->scope = NULL;
+    instance->scope = scope_new(NULL);
     instance->stream = stream;
     interpreter->instance = instance;
 }
@@ -106,18 +106,13 @@ void interpreter_destroy_all(RaelInterpreter* const interpreter) {
 
 /* make the interpreter run its instructions */
 void interpreter_interpret(RaelInterpreter *interpreter) {
-    struct Scope scope;
     RaelInstance *instance = interpreter->instance;
     struct Instruction *instruction;
-
-    interpreter_push_scope(interpreter, &scope);
 
     for (instance->idx = 0; (instruction = instance->instructions[instance->idx]); ++instance->idx) {
         interpreter_interpret_inst(interpreter, instruction);
         assert(instance->interrupt == ProgramInterruptNone);
     }
-
-    interpreter_pop_scope(interpreter);
 }
 
 void interpreter_error(RaelInterpreter* const interpreter, struct State state, const char* const error_message, ...) {
@@ -932,9 +927,8 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
 }
 
 void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope) {
-    struct Scope block_scope;
     if (create_new_scope)
-        interpreter_push_scope(interpreter, &block_scope);
+        interpreter_push_scope(interpreter);
     for (size_t i = 0; block[i]; ++i) {
         interpreter_interpret_inst(interpreter, block[i]);
         if (interpreter->instance->interrupt != ProgramInterruptNone)
@@ -945,13 +939,12 @@ void block_run(RaelInterpreter* const interpreter, struct Instruction **block, b
 }
 
 static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct LoopInstruction *loop) {
-    struct Scope loop_scope;
     switch (loop->type) {
     case LoopWhile: {
         bool continue_loop;
         do {
             RaelValue *condition;
-            interpreter_push_scope(interpreter, &loop_scope);
+            interpreter_push_scope(interpreter);
 
             condition = expr_eval(interpreter, loop->while_condition, true);
             continue_loop = value_truthy(condition);
@@ -996,7 +989,7 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
             }
 
             // push the new scope and calculate the iterated value
-            interpreter_push_scope(interpreter, &loop_scope);
+            interpreter_push_scope(interpreter);
             iteration_value = value_get(iterator, i);
 
             // set the iteration value and deref, because the value is already referenced in scope_set_local
@@ -1062,13 +1055,12 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
         break;
     }
     case InstructionTypeIf: {
-        struct Scope if_scope;
         RaelValue *condition;
         bool is_true;
 
         switch (instruction->if_stat.if_type) {
         case IfTypeBlock:
-            interpreter_push_scope(interpreter, &if_scope);
+            interpreter_push_scope(interpreter);
             // evaluate condition and check if it is true then dereference the condition
             condition = expr_eval(interpreter, instruction->if_stat.condition, true);
             is_true = value_truthy(condition);

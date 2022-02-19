@@ -1,20 +1,18 @@
 #include "rael.h"
 
-#include "routine.h"
-
 void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
-void interpreter_push_scope(RaelInterpreter* const interpreter, struct Scope *scope_addr);
+void interpreter_push_scope(RaelInterpreter* const interpreter);
 void interpreter_pop_scope(RaelInterpreter* const interpreter);
 
 RaelValue *routine_call(RaelRoutineValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
-    struct Scope *prev_scope, routine_scope;
+    struct Scope *prev_scope;
     size_t amount_params = self->amount_parameters;
 
     // store last scopes
     prev_scope = interpreter->instance->scope;
     // create new "scope chain"
     interpreter->instance->scope = self->scope;
-    interpreter_push_scope(interpreter, &routine_scope);
+    interpreter_push_scope(interpreter);
 
     for (size_t i = 0; i < amount_params; ++i) {
         RaelValue *value = arguments_get(args, i);

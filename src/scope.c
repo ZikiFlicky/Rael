@@ -1,12 +1,15 @@
 #include "rael.h"
 
-void scope_construct(struct Scope* const scope, struct Scope* const parent_scope) {
-    scope->parent = parent_scope;
+struct Scope *scope_new(struct Scope* const parent) {
+    struct Scope *scope = malloc(sizeof(struct Scope));
+    scope->parent = parent;
     varmap_new(&scope->variables);
+    return scope;
 }
 
 void scope_dealloc(struct Scope* const scope) {
     varmap_delete(&scope->variables);
+    free(scope);
 }
 
 void scope_set(struct Scope* const scope, char *key, RaelValue *value, bool dealloc_key_on_free) {

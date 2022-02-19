@@ -13,7 +13,7 @@ struct Scope {
     struct Scope *parent;
 };
 
-void scope_construct(struct Scope* const scope, struct Scope* const parent_scope); 
+struct Scope *scope_new(struct Scope* const parent);
 
 void scope_set_local(struct Scope *scope, char *key, RaelValue *value, bool dealloc_key_on_free);
 
