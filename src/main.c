@@ -1,13 +1,4 @@
-#include "lexer.h"
-#include "parser.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-
-void rael_interpret(struct Instruction **instructions, char *stream_base, const bool stream_on_heap,
-                    char* const exec_path, char *filename, char **argv, size_t argc, const bool warn_undefined);
+#include "rael.h"
 
 static void print_help(void) {
     puts("Welcome to the Rael programming language!");
@@ -17,29 +8,11 @@ static void print_help(void) {
     puts("  --warn-undefined: shows warning when getting an undefined variable");
 }
 
-static char *load_file(const char* const filename) {
-    FILE *file;
-    char *allocated;
-    size_t size;
-    if (!(file = fopen(filename, "r")))
-        return NULL;
-    fseek(file, 0, SEEK_END);
-    size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    if (!(allocated = malloc((size+1) * sizeof(char))))
-        return NULL;
-    fread(allocated, sizeof(char), size, file);
-    allocated[size] = '\0';
-    fclose(file);
-    return allocated;
-}
-
 int main(int argc, char **argv) {
-    char *stream = NULL;
-    char *filename;
+    RaelStream stream;
     char **program_argv;
     size_t program_argc;
-    bool warn_undefined = false, on_heap = false;
+    bool warn_undefined = false, stream_defined = false;
     struct Instruction **parsed;
 
     if (argc <= 1) {
@@ -47,7 +20,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    for (int i = 1; stream == NULL && i < argc; ++i) {
+    for (int i = 1; !stream_defined && i < argc; ++i) {
         char *arg = argv[i];
         if (strcmp(arg, "--warn-undefined") == 0) {
             warn_undefined = true;
@@ -56,42 +29,41 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Expected an input string after '%s' flag\n", arg);
                 return 1;
             }
-            // set the stream
-            stream = argv[i];
-            on_heap = false;
-            // set metadata
-            filename = NULL;
-            // skip filename when setting argv
+            stream.base = argv[i];
+            stream.cur = argv[i];
+            stream.length = strlen(argv[i]);
+            stream.name = NULL;
+            stream.on_heap = false;
+            // skip string when setting argv
             ++i;
-            program_argv = argv + i;
+            program_argv = &argv[i];
             program_argc = (size_t)(argc - i);
+            stream_defined = true;
         } else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
             // after you've defined a code stream, you can't run with option --help
             print_help();
             return 0;
         } else {
             // try to set the stream
-            if (!(stream = load_file(arg))) {
+            if (!load_file(arg, &stream)) {
                 perror(arg);
                 return 1;
             }
-            on_heap = true;
-            // set metadata
-            filename = arg;
             // skip filename when setting argv
             ++i;
             program_argv = argv + i;
             program_argc = (size_t)(argc - i);
+            stream_defined = true;
         }
     }
 
-    if (!stream) {
+    if (!stream_defined) {
         fprintf(stderr, "No code stream defined, run with '--help' to learn more\n");
         return 1;
     }
 
-    parsed = rael_parse(filename, stream, on_heap);
-    rael_interpret(parsed, stream, on_heap, argv[0], filename, program_argv, program_argc, warn_undefined);
+    parsed = rael_parse(stream);
+    rael_interpret(parsed, stream, argv[0], program_argv, program_argc, warn_undefined);
 
     return 0;
 }

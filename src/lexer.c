@@ -17,10 +17,10 @@ void lexer_load_state(struct Lexer* const lexer, struct State state) {
 static void lexer_error(struct Lexer* const lexer, const char* const error_message, ...) {
     va_list va;
     va_start(va, error_message);
-    rael_show_error_message(lexer->filename, lexer_dump_state(lexer), error_message, va);
+    rael_show_error_message(lexer->stream.name, lexer_dump_state(lexer), error_message, va);
     va_end(va);
-    if (lexer->stream_on_heap)
-        free(lexer->stream_base);
+    if (lexer->stream.on_heap)
+        free(lexer->stream.base);
     exit(1);
 }
 
@@ -34,22 +34,25 @@ static inline bool is_whitespace(char c) {
 
 static bool lexer_clean(struct Lexer* const lexer) {
     bool cleaned = false;
+    char *stream = lexer->stream.cur;
+
     for (;;) {
-        if (is_whitespace(lexer->stream[0])) {
-            ++lexer->stream;
+        if (is_whitespace(stream[0])) {
+            ++stream;
             ++lexer->column;
-        } else if (lexer->stream[0] == '%' && lexer->stream[1] == '%') { // handle comments :^)
-            lexer->stream += 2;
+        } else if (stream[0] == '%' && stream[1] == '%') { // handle comments :^)
+            stream += 2;
             lexer->column += 2;
-            while (lexer->stream[0] != '\n' && lexer->stream[0] != '\0') {
-                ++lexer->stream;
+            while (stream[0] != '\n' && stream[0] != '\0') {
+                ++stream;
                 ++lexer->column;
             }
-        } else if (lexer->stream[0] == '\\') {
-            if (lexer->stream[1] != '\n') {
+        } else if (stream[0] == '\\') {
+            if (stream[1] != '\n') {
+                lexer->stream.cur = stream;
                 lexer_error(lexer, "Expected a newline after '\\'");
             }
-            lexer->stream += 2;
+            stream += 2;
             ++lexer->line;
             lexer->column = 1;
         } else {
@@ -57,16 +60,17 @@ static bool lexer_clean(struct Lexer* const lexer) {
         }
         cleaned = true;
     }
+    lexer->stream.cur = stream;
     return cleaned;
 }
 
 static bool lexer_match_keyword(struct Lexer* const lexer, const char* const keyword,
                                  const size_t length, const enum TokenName name) {
-    if (strncmp(lexer->stream, keyword, length) == 0 && !is_identifier_char(lexer->stream[length])) {
+    if (strncmp(lexer->stream.cur, keyword, length) == 0 && !is_identifier_char(lexer->stream.cur[length])) {
         lexer->token.name = name;
-        lexer->token.string = lexer->stream;
+        lexer->token.string = lexer->stream.cur;
         lexer->token.length = length;
-        lexer->stream += length;
+        lexer->stream.cur += length;
         lexer->column += length;
         return true;
     }
@@ -76,283 +80,283 @@ static bool lexer_match_keyword(struct Lexer* const lexer, const char* const key
 bool lexer_tokenize(struct Lexer* const lexer) {
     lexer_clean(lexer);
     // if it's an eof, return false
-    if (lexer->stream[0] == '\0')
+    if (lexer->stream.cur[0] == '\0')
         return false;
     // tokenize a bunch of newlines as one newline
-    if (lexer->stream[0] == '\n') {
+    if (lexer->stream.cur[0] == '\n') {
         lexer->token.name = TokenNameNewline;
-        lexer->token.string = lexer->stream;
+        lexer->token.string = lexer->stream.cur;
         lexer->token.length = 1;
         do {
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->line;
             lexer->column = 1;
             lexer_clean(lexer);
-        } while(lexer->stream[0] == '\n');
+        } while(lexer->stream.cur[0] == '\n');
         // if had newlines and was ended with a \0, count it as an eof
-        if (lexer->stream[0] == '\0')
+        if (lexer->stream.cur[0] == '\0')
             return false;
         return true;
     }
-    if (lexer->stream[0] == ':') {
-        ++lexer->stream;
+    if (lexer->stream.cur[0] == ':') {
+        ++lexer->stream.cur;
         ++lexer->column;
-        lexer->token.string = lexer->stream;
+        lexer->token.string = lexer->stream.cur;
         lexer->token.length = 0;
         lexer->token.name = TokenNameKey;
-        if (!is_identifier_char(lexer->stream[0]))
+        if (!is_identifier_char(lexer->stream.cur[0]))
             lexer_error(lexer, "Unexpected character after ':'");
         do {
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
             ++lexer->token.length;
-        } while(is_identifier_char(lexer->stream[0]));
+        } while(is_identifier_char(lexer->stream.cur[0]));
         return true;
     }
     // tokenize number
-    if (isdigit(lexer->stream[0])) {
+    if (isdigit(lexer->stream.cur[0])) {
         lexer->token.name = TokenNameNumber;
-        lexer->token.string = lexer->stream;
+        lexer->token.string = lexer->stream.cur;
         lexer->token.length = 0;
         do {
             ++lexer->token.length;
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
-        } while(isdigit(lexer->stream[0]));
-        if (lexer->stream[0] == '.') {
-            if (!isdigit(lexer->stream[1]))
+        } while(isdigit(lexer->stream.cur[0]));
+        if (lexer->stream.cur[0] == '.') {
+            if (!isdigit(lexer->stream.cur[1]))
                 return true;
             do {
                 ++lexer->token.length;
-                ++lexer->stream;
+                ++lexer->stream.cur;
                 ++lexer->column;
-            } while (isdigit(lexer->stream[0]));
+            } while (isdigit(lexer->stream.cur[0]));
         }
         return true;
     }
     // tokenize string
-    if (lexer->stream[0] == '"') {
+    if (lexer->stream.cur[0] == '"') {
         lexer->token.name = TokenNameString;
-        lexer->token.string = ++lexer->stream;
+        lexer->token.string = ++lexer->stream.cur;
         ++lexer->column;
         lexer->token.length = 0;
-        while (lexer->stream[0] != '"') {
-            if (lexer->stream[0] == '\\') {
-                if (lexer->stream[1] == '\\' || lexer->stream[1] == '"') {
+        while (lexer->stream.cur[0] != '"') {
+            if (lexer->stream.cur[0] == '\\') {
+                if (lexer->stream.cur[1] == '\\' || lexer->stream.cur[1] == '"') {
                     ++lexer->token.length;
-                    ++lexer->stream;
+                    ++lexer->stream.cur;
                     ++lexer->column;
-                } else if (lexer->stream[1] == '\n') {
+                } else if (lexer->stream.cur[1] == '\n') {
                     ++lexer->token.length;
-                    ++lexer->stream;
+                    ++lexer->stream.cur;
                     ++lexer->line;
                     lexer->column = 1;
                 }
-            } else if (lexer->stream[0] == '\n' || lexer->stream[0] == '\0') {
+            } else if (lexer->stream.cur[0] == '\n' || lexer->stream.cur[0] == '\0') {
                 lexer_error(lexer, "Unexpected end-of-line");
             }
             ++lexer->token.length;
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
         }
-        ++lexer->stream;
+        ++lexer->stream.cur;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == '?' && lexer->stream[1] == '=') {
+    if (lexer->stream.cur[0] == '?' && lexer->stream.cur[1] == '=') {
         lexer->token.name = TokenNameQuestionEquals;
         lexer->token.length = 2;
-        lexer->token.string = lexer->stream;
-        lexer->stream += 2;
+        lexer->token.string = lexer->stream.cur;
+        lexer->stream.cur += 2;
         lexer->column += 2;
         return true;
     }
-    if (lexer->stream[0] == '+') {
+    if (lexer->stream.cur[0] == '+') {
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream;
-        ++lexer->stream;
+        lexer->token.string = lexer->stream.cur;
+        ++lexer->stream.cur;
         ++lexer->column;
-        if (lexer->stream[0] == '=') {
+        if (lexer->stream.cur[0] == '=') {
             lexer->token.name = TokenNamePlusEquals;
             ++lexer->token.length;
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
         } else {
             lexer->token.name = TokenNameAdd;
         }
         return true;
     }
-    if (lexer->stream[0] == '-') {
+    if (lexer->stream.cur[0] == '-') {
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream;
-        ++lexer->stream;
+        lexer->token.string = lexer->stream.cur;
+        ++lexer->stream.cur;
         ++lexer->column;
-        if (lexer->stream[0] == '=') {
+        if (lexer->stream.cur[0] == '=') {
             lexer->token.name = TokenNameMinusEquals;
             ++lexer->token.length;
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
         } else {
             lexer->token.name = TokenNameSub;
         }
         return true;
     }
-    if (lexer->stream[0] == '*') {
+    if (lexer->stream.cur[0] == '*') {
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream;
-        ++lexer->stream;
+        lexer->token.string = lexer->stream.cur;
+        ++lexer->stream.cur;
         ++lexer->column;
-        if (lexer->stream[0] == '=') {
+        if (lexer->stream.cur[0] == '=') {
             lexer->token.name = TokenNameStarEquals;
             ++lexer->token.length;
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
         } else {
             lexer->token.name = TokenNameMul;
         }
         return true;
     }
-    if (lexer->stream[0] == '/') {
+    if (lexer->stream.cur[0] == '/') {
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream;
-        ++lexer->stream;
+        lexer->token.string = lexer->stream.cur;
+        ++lexer->stream.cur;
         ++lexer->column;
-        if (lexer->stream[0] == '=') {
+        if (lexer->stream.cur[0] == '=') {
             lexer->token.name = TokenNameSlashEquals;
             ++lexer->token.length;
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
         } else {
             lexer->token.name = TokenNameDiv;
         }
         return true;
     }
-    if (lexer->stream[0] == '%') {
+    if (lexer->stream.cur[0] == '%') {
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream;
-        ++lexer->stream;
+        lexer->token.string = lexer->stream.cur;
+        ++lexer->stream.cur;
         ++lexer->column;
-        if (lexer->stream[0] == '=') {
+        if (lexer->stream.cur[0] == '=') {
             lexer->token.name = TokenNamePercentEquals;
             ++lexer->token.length;
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
         } else {
             lexer->token.name = TokenNameMod;
         }
         return true;
     }
-    if (lexer->stream[0] == '(') {
+    if (lexer->stream.cur[0] == '(') {
         lexer->token.name = TokenNameLeftParen;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == ')') {
+    if (lexer->stream.cur[0] == ')') {
         lexer->token.name = TokenNameRightParen;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == ',') {
+    if (lexer->stream.cur[0] == ',') {
         lexer->token.name = TokenNameComma;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == '{') {
+    if (lexer->stream.cur[0] == '{') {
         lexer->token.name = TokenNameLeftCur;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == '}') {
+    if (lexer->stream.cur[0] == '}') {
         lexer->token.name = TokenNameRightCur;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == '=') {
+    if (lexer->stream.cur[0] == '=') {
         lexer->token.name = TokenNameEquals;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == '!') {
+    if (lexer->stream.cur[0] == '!') {
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream;
-        ++lexer->stream;
+        lexer->token.string = lexer->stream.cur;
+        ++lexer->stream.cur;
         ++lexer->column;
-        if (lexer->stream[0] == '=') {
+        if (lexer->stream.cur[0] == '=') {
             lexer->token.name = TokenNameExclamationMarkEquals;
             ++lexer->token.length;
-            ++lexer->stream;
+            ++lexer->stream.cur;
             ++lexer->column;
         } else {
             lexer->token.name = TokenNameExclamationMark;
         }
         return true;
     }
-    if (lexer->stream[0] == '<') {
-        if (lexer->stream[1] == '<') { // <<
+    if (lexer->stream.cur[0] == '<') {
+        if (lexer->stream.cur[1] == '<') { // <<
             lexer->token.name = TokenNameRedirect;
             lexer->token.length = 2;
-            lexer->token.string = lexer->stream;
-            lexer->stream += 2;
+            lexer->token.string = lexer->stream.cur;
+            lexer->stream.cur += 2;
             lexer->column += 2;
-        } else if (lexer->stream[1] == '=') { // <=
+        } else if (lexer->stream.cur[1] == '=') { // <=
             lexer->token.name = TokenNameSmallerOrEqual;
             lexer->token.length = 2;
-            lexer->token.string = lexer->stream;
-            lexer->stream += 2;
+            lexer->token.string = lexer->stream.cur;
+            lexer->stream.cur += 2;
             lexer->column += 2;
         } else { // <
             lexer->token.name = TokenNameSmallerThan;
             lexer->token.length = 1;
-            lexer->token.string = lexer->stream++;
+            lexer->token.string = lexer->stream.cur++;
             ++lexer->column;
         }
         return true;
     }
-    if (lexer->stream[0] == '>') {
-        if (lexer->stream[1] == '=') {
+    if (lexer->stream.cur[0] == '>') {
+        if (lexer->stream.cur[1] == '=') {
             lexer->token.name = TokenNameBiggerOrEqual;
             lexer->token.length = 2;
-            lexer->token.string = lexer->stream;
-            lexer->stream += 2;
+            lexer->token.string = lexer->stream.cur;
+            lexer->stream.cur += 2;
             lexer->column += 2;
         } else {
             lexer->token.name = TokenNameBiggerThan;
             lexer->token.length = 1;
-            lexer->token.string = lexer->stream++;
+            lexer->token.string = lexer->stream.cur++;
             ++lexer->column;
         }
         return true;
     }
-    if (lexer->stream[0] == '^') {
+    if (lexer->stream.cur[0] == '^') {
         lexer->token.name = TokenNameCaret;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == '&') {
+    if (lexer->stream.cur[0] == '&') {
         lexer->token.name = TokenNameAmpersand;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }
-    if (lexer->stream[0] == '|') {
+    if (lexer->stream.cur[0] == '|') {
         lexer->token.name = TokenNamePipe;
         lexer->token.length = 1;
-        lexer->token.string = lexer->stream++;
+        lexer->token.string = lexer->stream.cur++;
         ++lexer->column;
         return true;
     }

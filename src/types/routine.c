@@ -11,35 +11,35 @@ RaelValue *routine_call(RaelRoutineValue *self, RaelArgumentList *args, RaelInte
     size_t amount_params = self->amount_parameters;
 
     // store last scopes
-    prev_scope = interpreter->scope;
+    prev_scope = interpreter->instance->scope;
     // create new "scope chain"
-    interpreter->scope = self->scope;
+    interpreter->instance->scope = self->scope;
     interpreter_push_scope(interpreter, &routine_scope);
 
     for (size_t i = 0; i < amount_params; ++i) {
         RaelValue *value = arguments_get(args, i);
         assert(value); // you must get a value
         // set the parameter
-        scope_set_local(interpreter->scope, self->parameters[i], value, false);
+        scope_set_local(interpreter->instance->scope, self->parameters[i], value, false);
     }
 
     // run the block of code
     block_run(interpreter, self->block, false);
 
-    if (interpreter->interrupt == ProgramInterruptReturn) {
+    if (interpreter->instance->interrupt == ProgramInterruptReturn) {
         // if had a return statement
         ;
     } else {
         // if you get to the end of the function without returning anything, return a Void
-        interpreter->returned_value = void_new();
+        interpreter->instance->returned_value = void_new();
     }
 
     // clear interrupt
-    interpreter->interrupt = ProgramInterruptNone;
+    interpreter->instance->interrupt = ProgramInterruptNone;
     // remove routine scope and restore previous scope
     interpreter_pop_scope(interpreter);
-    interpreter->scope = prev_scope;
-    return interpreter->returned_value;
+    interpreter->instance->scope = prev_scope;
+    return interpreter->instance->returned_value;
 }
 
 void routine_repr(RaelRoutineValue *self) {

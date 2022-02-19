@@ -1,7 +1,5 @@
 #include "rael.h"
 
-#include <time.h>
-
 typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
 // TODO: add interpreter_set_variable function
@@ -22,15 +20,15 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
 void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
 
 void interpreter_push_scope(RaelInterpreter* const interpreter, struct Scope *scope_addr) {
-    scope_construct(scope_addr, interpreter->scope);
-    interpreter->scope = scope_addr;
+    scope_construct(scope_addr, interpreter->instance->scope);
+    interpreter->instance->scope = scope_addr;
 }
 
 void interpreter_pop_scope(RaelInterpreter* const interpreter) {
-    if (interpreter->scope) {
-        struct Scope *parent = interpreter->scope->parent;
-        scope_dealloc(interpreter->scope);
-        interpreter->scope = parent;
+    if (interpreter->instance->scope) {
+        struct Scope *parent = interpreter->instance->scope->parent;
+        scope_dealloc(interpreter->instance->scope);
+        interpreter->instance->scope = parent;
     }
 }
 
@@ -63,29 +61,69 @@ static void interpreter_remove_modules(RaelInterpreter *interpreter) {
     }
 }
 
+void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream stream,
+                                    struct Instruction **instructions) {
+    RaelInstance *instance = malloc(sizeof(RaelInstance));
+
+    instance->prev = interpreter->instance;
+    instance->idx = 0;
+    instance->instructions = instructions;
+    instance->interrupt = ProgramInterruptNone;
+    instance->returned_value = NULL;
+    instance->scope = NULL;
+    instance->stream = stream;
+    interpreter->instance = instance;
+}
+
+void interpreter_delete_instance(RaelInterpreter* const interpreter) {
+    RaelInstance *instance = interpreter->instance;
+    interpreter->instance = instance->prev;
+    free(instance);
+}
+
 /* make the interpreter deallocate everything it stores */
 void interpreter_destroy_all(RaelInterpreter* const interpreter) {
+    RaelInstance *instance;
     // deallocate all of the scopes
-    while (interpreter->scope) {
-        interpreter_pop_scope(interpreter);
+    while ((instance = interpreter->instance)) {
+        while (instance->scope) {
+            interpreter_pop_scope(interpreter);
+        }
+
+        // deallocate all of the intstructions
+        for (size_t i = 0; instance->instructions[i]; ++i)
+            instruction_delete(instance->instructions[i]);
+
+        free(instance->instructions);
+
+        if (instance->stream.on_heap)
+            free(instance->stream.base);
+
+        interpreter_delete_instance(interpreter);
+    }
+    interpreter_remove_modules(interpreter);
+}
+
+/* make the interpreter run its instructions */
+void interpreter_interpret(RaelInterpreter *interpreter) {
+    struct Scope scope;
+    RaelInstance *instance = interpreter->instance;
+    struct Instruction *instruction;
+
+    interpreter_push_scope(interpreter, &scope);
+
+    for (instance->idx = 0; (instruction = instance->instructions[instance->idx]); ++instance->idx) {
+        interpreter_interpret_inst(interpreter, instruction);
+        assert(instance->interrupt == ProgramInterruptNone);
     }
 
-    // deallocate all of the intstructions
-    for (size_t i = 0; interpreter->instructions[i]; ++i)
-        instruction_delete(interpreter->instructions[i]);
-
-    free(interpreter->instructions);
-
-    if (interpreter->stream_on_heap)
-        free(interpreter->stream_base);
-
-    interpreter_remove_modules(interpreter);
+    interpreter_pop_scope(interpreter);
 }
 
 void interpreter_error(RaelInterpreter* const interpreter, struct State state, const char* const error_message, ...) {
     va_list va;
     va_start(va, error_message);
-    rael_show_error_message(interpreter->filename, state, error_message, va);
+    rael_show_error_message(interpreter->instance->stream.name, state, error_message, va);
     va_end(va);
     interpreter_destroy_all(interpreter);
     exit(1);
@@ -137,7 +175,7 @@ static RaelValue *value_eval(RaelInterpreter* const interpreter, struct ValueExp
         new_routine->block = ast_routine.block;
         new_routine->parameters = ast_routine.parameters;
         new_routine->amount_parameters = ast_routine.amount_parameters;
-        new_routine->scope = interpreter->scope;
+        new_routine->scope = interpreter->instance->scope;
 
         out_value = (RaelValue*)new_routine;
         break;
@@ -295,7 +333,7 @@ static RaelValue *eval_key_operation_set(RaelInterpreter *interpreter, char *key
     RaelValue **lhs_ptr;
 
     // try to get the pointer to the value you need to modify
-    lhs_ptr = scope_get_ptr(interpreter->scope, key);
+    lhs_ptr = scope_get_ptr(interpreter->instance->scope, key);
     // if there is a value at that key, get its value and do the operation
     if (lhs_ptr) {
         RaelValue *rhs = expr_eval(interpreter, value_expr, true);
@@ -418,10 +456,10 @@ static RaelValue *expr_match_eval(RaelInterpreter *interpreter, struct MatchExpr
 
     // if there was a return, set the match's return value to the return
     // value and clear the interrupt
-    if (interpreter->interrupt == ProgramInterruptReturn) {
+    if (interpreter->instance->interrupt == ProgramInterruptReturn) {
         // set return value
-        return_value = interpreter->returned_value;
-        interpreter->interrupt = ProgramInterruptNone;
+        return_value = interpreter->instance->returned_value;
+        interpreter->instance->interrupt = ProgramInterruptNone;
     } else {
         // if there was no interrupt, set the return value to Void
         return_value = void_new();
@@ -443,7 +481,7 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
         value = value_eval(interpreter, expr->as_value);
         break;
     case ExprTypeKey:
-        value = scope_get(interpreter->scope, expr->as_key, interpreter->warn_undefined);
+        value = scope_get(interpreter->instance->scope, expr->as_key, interpreter->warn_undefined);
         break;
     case ExprTypeAdd:
         lhs = expr_eval(interpreter, expr->lhs, true);
@@ -762,7 +800,7 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
         case SetTypeKey:
             value = expr_eval(interpreter, set.expr, true);
             // this also adds a new reference
-            scope_set(interpreter->scope, set.as_key, value, false);
+            scope_set(interpreter->instance->scope, set.as_key, value, false);
             break;
         case SetTypeMember: {
             struct GetMemberExpr get_member = set.as_member->as_get_member;
@@ -873,12 +911,12 @@ static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* con
         state = blame->original_place;
 
         // remove preceding whitespace
-        while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
+        while (state.stream_pos.cur[0] == ' ' || state.stream_pos.cur[0] == '\t') {
             ++state.column;
-            ++state.stream_pos;
+            ++state.stream_pos.cur;
         }
 
-        rael_show_error_tag(interpreter->filename, state);
+        rael_show_error_tag(interpreter->instance->stream.name, state);
         if (blame->message) {
             value_log(blame->message);
         }
@@ -899,7 +937,7 @@ void block_run(RaelInterpreter* const interpreter, struct Instruction **block, b
         interpreter_push_scope(interpreter, &block_scope);
     for (size_t i = 0; block[i]; ++i) {
         interpreter_interpret_inst(interpreter, block[i]);
-        if (interpreter->interrupt != ProgramInterruptNone)
+        if (interpreter->instance->interrupt != ProgramInterruptNone)
             break;
     }
     if (create_new_scope)
@@ -921,13 +959,13 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
             // if you can loop, run the block
             if (continue_loop) {
                 block_run(interpreter, loop->block, false);
-                if (interpreter->interrupt == ProgramInterruptBreak) {
-                    interpreter->interrupt = ProgramInterruptNone;
+                if (interpreter->instance->interrupt == ProgramInterruptBreak) {
+                    interpreter->instance->interrupt = ProgramInterruptNone;
                     continue_loop = false;
-                } else if (interpreter->interrupt == ProgramInterruptReturn) {
+                } else if (interpreter->instance->interrupt == ProgramInterruptReturn) {
                     continue_loop = false;
-                } else if (interpreter->interrupt == ProgramInterruptSkip) {
-                    interpreter->interrupt = ProgramInterruptNone;
+                } else if (interpreter->instance->interrupt == ProgramInterruptSkip) {
+                    interpreter->instance->interrupt = ProgramInterruptNone;
                 }
             }
             interpreter_pop_scope(interpreter);
@@ -962,20 +1000,20 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
             iteration_value = value_get(iterator, i);
 
             // set the iteration value and deref, because the value is already referenced in scope_set_local
-            scope_set_local(interpreter->scope, loop->iterate.key, iteration_value, false);
+            scope_set_local(interpreter->instance->scope, loop->iterate.key, iteration_value, false);
             value_deref(iteration_value);
 
             // run the block of code
             block_run(interpreter, loop->block, false);
 
             // check for program interrupts
-            if (interpreter->interrupt == ProgramInterruptBreak) {
-                interpreter->interrupt = ProgramInterruptNone;
+            if (interpreter->instance->interrupt == ProgramInterruptBreak) {
+                interpreter->instance->interrupt = ProgramInterruptNone;
                 continue_loop = false;
-            } else if (interpreter->interrupt == ProgramInterruptReturn) {
+            } else if (interpreter->instance->interrupt == ProgramInterruptReturn) {
                 continue_loop = false;
-            } else if (interpreter->interrupt == ProgramInterruptSkip) {
-                interpreter->interrupt = ProgramInterruptNone;
+            } else if (interpreter->instance->interrupt == ProgramInterruptSkip) {
+                interpreter->instance->interrupt = ProgramInterruptNone;
             }
             interpreter_pop_scope(interpreter);
         }
@@ -985,13 +1023,13 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
     case LoopForever:
         for (;;) {
             block_run(interpreter, loop->block, true);
-            if (interpreter->interrupt == ProgramInterruptBreak) {
-                interpreter->interrupt = ProgramInterruptNone;
+            if (interpreter->instance->interrupt == ProgramInterruptBreak) {
+                interpreter->instance->interrupt = ProgramInterruptNone;
                 break;
-            } else if (interpreter->interrupt == ProgramInterruptReturn) {
+            } else if (interpreter->instance->interrupt == ProgramInterruptReturn) {
                 break;
-            } else if (interpreter->interrupt == ProgramInterruptSkip) {
-                interpreter->interrupt = ProgramInterruptNone;
+            } else if (interpreter->instance->interrupt == ProgramInterruptSkip) {
+                interpreter->instance->interrupt = ProgramInterruptNone;
             }
         }
         break;
@@ -1077,18 +1115,18 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
     case InstructionTypeReturn: {
         // if there is a return value, return it, and if there isn't, return a Void
         if (instruction->return_value) {
-            interpreter->returned_value = expr_eval(interpreter, instruction->return_value, false);
+            interpreter->instance->returned_value = expr_eval(interpreter, instruction->return_value, false);
         } else {
-            interpreter->returned_value = void_new();
+            interpreter->instance->returned_value = void_new();
         }
-        interpreter->interrupt = ProgramInterruptReturn;
+        interpreter->instance->interrupt = ProgramInterruptReturn;
         break;
     }
     case InstructionTypeBreak:
-        interpreter->interrupt = ProgramInterruptBreak;
+        interpreter->instance->interrupt = ProgramInterruptBreak;
         break;
     case InstructionTypeSkip:
-        interpreter->interrupt = ProgramInterruptSkip;
+        interpreter->instance->interrupt = ProgramInterruptSkip;
         break;
     case InstructionTypeCatch: {
         struct CatchInstruction catch = instruction->catch;
@@ -1107,14 +1145,14 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
                     message = void_new();
                 }
                 // set the message as the key
-                scope_set(interpreter->scope, catch.value_key, message, false);
+                scope_set(interpreter->instance->scope, catch.value_key, message, false);
                 // dereference the value because it's already being referenced in scope_set
                 value_deref(message);
             }
             block_run(interpreter, catch.handle_block, true);
         } else if (catch.else_block) {
             if (catch.value_key) {
-                scope_set(interpreter->scope, catch.value_key, caught_value, false);
+                scope_set(interpreter->instance->scope, catch.value_key, caught_value, false);
             }
             block_run(interpreter, catch.else_block, true);
         }
@@ -1129,7 +1167,7 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
         if (!module)
             interpreter_error(interpreter, instruction->state, "Unknown module name");
         // set the module
-        scope_set(interpreter->scope, instruction->load.module_name, module, false);
+        scope_set(interpreter->instance->scope, instruction->load.module_name, module, false);
         // deref because the value is referenced when set
         value_deref(module);
         break;
@@ -1145,23 +1183,17 @@ static unsigned int generate_seed(void) {
     return (unsigned int)ts.tv_sec % (unsigned int)ts.tv_nsec;
 }
 
-void rael_interpret(struct Instruction **instructions, char *stream_base, const bool stream_on_heap,
-                    char* const exec_path, char *filename, char **argv, size_t argc, const bool warn_undefined) {
-    struct Instruction *instruction;
-    struct Scope bottom_scope;
+void rael_interpret(struct Instruction **instructions, RaelStream stream,
+                    char* const exec_path, char **argv, size_t argc, const bool warn_undefined) {
     unsigned int seed = generate_seed();
-    RaelInterpreter interp = {
-        .stream_base = stream_base,
-        .stream_on_heap = stream_on_heap,
-        .filename = filename,
+    RaelInterpreter interpreter = {
         .exec_path = exec_path,
         .argv = argv,
         .argc = argc,
 
-        .instructions = instructions,
+        .main_stream = stream,
+        .instance = NULL,
 
-        .interrupt = ProgramInterruptNone,
-        .returned_value = NULL,
         .loaded_modules = (RaelModuleLoader[]) {
             { "Types", module_types_new, NULL },
             { "Math", module_math_new, NULL },
@@ -1179,13 +1211,12 @@ void rael_interpret(struct Instruction **instructions, char *stream_base, const 
         .warn_undefined = warn_undefined
     };
 
+    interpreter_new_instance(&interpreter, stream, instructions);
+
     // seed the random number generator
     srand(seed);
 
-    scope_construct(&bottom_scope, NULL);
-    interp.scope = &bottom_scope;
-    for (interp.idx = 0; (instruction = interp.instructions[interp.idx]); ++interp.idx) {
-        interpreter_interpret_inst(&interp, instruction);
-    }
-    interpreter_destroy_all(&interp);
+    interpreter_interpret(&interpreter);
+
+    interpreter_destroy_all(&interpreter);
 }

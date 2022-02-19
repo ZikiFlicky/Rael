@@ -1,6 +1,8 @@
 #ifndef RAEL_LEXER_H
 #define RAEL_LEXER_H
 
+#include "common.h"
+
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -66,9 +68,7 @@ struct Token {
 
 struct Lexer {
     struct Token token;
-    char* const filename;
-    char *stream, *stream_base;
-    bool stream_on_heap;
+    RaelStream stream;
     size_t line;
     size_t column;
 };

@@ -13,7 +13,7 @@ static void exprlist_delete(RaelExprList *list);
 static void match_case_delete(struct MatchCase *match_case);
 
 static inline char *parser_get_filename(struct Parser* const parser) {
-    return parser->lexer.filename;
+    return parser->lexer.stream.name;
 }
 
 static inline void internal_parser_state_error(struct Parser* const parser, struct State state,
@@ -28,8 +28,8 @@ static inline void internal_parser_state_error(struct Parser* const parser, stru
         instruction_delete(parser->instructions[i]);
 
     free(parser->instructions);
-    if (parser->lexer.stream_on_heap)
-        free(parser->lexer.stream_base);
+    if (parser->lexer.stream.on_heap)
+        free(parser->lexer.stream.base);
 
     exit(1);
 }
@@ -1420,17 +1420,14 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     return NULL;
 }
 
-struct Instruction **rael_parse(char* const filename, char* const stream, bool stream_on_heap) {
+struct Instruction **rael_parse(RaelStream stream) {
     struct State backtrack;
     struct Instruction *inst;
     struct Parser parser = {
         .lexer = {
-            .filename = filename,
             .line = 1,
             .column = 1,
-            .stream = stream,
-            .stream_base = stream,
-            .stream_on_heap = stream_on_heap
+            .stream = stream
         },
         .idx = 0,
         .allocated = 0,

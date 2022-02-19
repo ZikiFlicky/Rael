@@ -113,8 +113,9 @@ static RaelValue *program_argv_stack_new(RaelInterpreter *interpreter) {
 }
 
 static RaelValue *program_filename_string_new(RaelInterpreter *interpreter) {
-    if (interpreter->filename) {
-        return string_new_pure(interpreter->filename, strlen(interpreter->filename), false);
+    char *name = interpreter->main_stream.name;
+    if (name) {
+        return string_new_pure(name, strlen(name), false);
     } else {
         return void_new();
     }

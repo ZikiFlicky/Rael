@@ -1,5 +1,31 @@
 #include "rael.h"
 
+bool load_file(char* const filename, RaelStream *out) {
+    FILE *file;
+    char *allocated;
+    size_t length;
+
+    if (!(file = fopen(filename, "r")))
+        return false;
+
+    fseek(file, 0, SEEK_END);
+    length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    if (!(allocated = malloc((length+1) * sizeof(char))))
+        return false;
+    fread(allocated, sizeof(char), length, file);
+    allocated[length] = '\0';
+    fclose(file);
+
+    out->base = allocated;
+    out->cur = allocated;
+    out->length = length;
+    out->name = filename;
+    out->on_heap = true;
+
+    return true;
+}
+
 RaelInt rael_int_abs(RaelInt i) {
     if (i < 0) {
         return -i;
@@ -25,7 +51,7 @@ void rael_show_error_tag(char* const filename, struct State state) {
 
 void rael_show_line_state(struct State state) {
     size_t line_length = state.column - 1;
-    char *line_start = state.stream_pos - line_length;
+    char *line_start = state.stream_pos.cur - line_length;
 
     // show the line
     printf("| ");
@@ -50,9 +76,9 @@ void rael_show_line_state(struct State state) {
 
 void rael_show_error_message(char* const filename, struct State state, const char* const error_message, va_list va) {
     // advance all whitespace
-    while (state.stream_pos[0] == ' ' || state.stream_pos[0] == '\t') {
+    while (state.stream_pos.cur[0] == ' ' || state.stream_pos.cur[0] == '\t') {
         ++state.column;
-        ++state.stream_pos;
+        ++state.stream_pos.cur;
     }
     rael_show_error_tag(filename, state);
     vprintf(error_message, va);

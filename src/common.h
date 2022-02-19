@@ -1,6 +1,8 @@
 #ifndef RAEL_COMMON_H
 #define RAEL_COMMON_H
 
+#include "varmap.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -25,9 +27,30 @@ typedef struct RaelValue RaelValue;
 #define RAELINT_MAX LONG_MAX
 #define RAELFLOAT_MAX DBL_MAX
 
+struct VariableMap;
+
+struct RaelInterpreter;
+
 typedef struct RaelInterpreter RaelInterpreter;
 
 typedef RaelValue* (*RaelNewModuleFunc)(RaelInterpreter *interpreter);
+
+struct RaelInstance;
+
+typedef struct RaelInstance RaelInstance;
+
+typedef struct RaelStream {
+    // Name of stream. This is usually the filename
+    char *name;
+    // Pointer to first char
+    char *base;
+    // Length of stream
+    size_t length;
+    // Pointer to current char
+    char *cur;
+    // This decides whether we can `free()` this
+    bool on_heap;
+} RaelStream;
 
 struct RaelHybridNumber {
     bool is_float;
@@ -50,30 +73,35 @@ typedef struct RaelModuleLoader {
     RaelValue *module_cache;
 } RaelModuleLoader;
 
-typedef struct RaelInterpreter {
-    char *stream_base;
-    const bool stream_on_heap;
-    char* const filename;
-    char* const exec_path;
-    char **argv;
-    size_t argc;
+struct RaelInstance {
+    /* Store previous instance */
+    RaelInstance *prev;
 
+    RaelStream stream;
     struct Instruction **instructions;
     size_t idx;
 
     struct Scope *scope;
     enum ProgramInterrupt interrupt;
     RaelValue *returned_value;
+};
 
+struct RaelInterpreter {
+    char* const exec_path;
+    char **argv;
+    size_t argc;
+
+    RaelStream main_stream;
+    RaelInstance *instance;
     RaelModuleLoader *loaded_modules;
     unsigned int seed;
 
     // warnings
     bool warn_undefined;
-} RaelInterpreter;
+};
 
 struct State {
-    char *stream_pos;
+    RaelStream stream_pos;
     size_t line, column;
 };
 
@@ -87,7 +115,17 @@ typedef struct RaelArgumentList {
     RaelArgument *arguments;
 } RaelArgumentList;
 
+bool load_file(char* const filename, RaelStream *out);
+
+void rael_interpret(struct Instruction **instructions, RaelStream stream,
+                    char* const exec_path, char **argv, size_t argc, const bool warn_undefined);
+
 void interpreter_destroy_all(RaelInterpreter* const interpreter);
+
+void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream stream,
+                            struct Instruction **instructions);
+
+void interpreter_delete_instance(RaelInterpreter* const interpreter);
 
 RaelInt rael_int_abs(RaelInt i);
 
