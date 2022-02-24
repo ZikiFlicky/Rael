@@ -1,0 +1,118 @@
+%% Very basic sudoku solver written in Rael
+load :Math
+
+:Height ?= 9
+:Width ?= 9
+
+:showGrid ?= routine() {
+    loop :y through 0 to :Height {
+        loop :x through 0 to :Width {
+            if :x != 0
+                show " "
+            show :grid at :y at :x
+        }
+        log
+    }    
+}
+
+:getAmountNotSet ?= routine() {
+    :amount ?= 0
+    loop :y through 0 to :Height {
+        loop :x through 0 to :Width {
+            if :grid at :y at :x = 0
+                :amount += 1
+        }
+    }
+    ^:amount
+}
+
+
+:grids ?= {
+    {
+        { 3, 0, 4, 6, 1, 0, 0, 0, 5 },
+        { 7, 0, 8, 0, 0, 0, 3, 0, 6 },
+        { 0, 0, 0, 9, 0, 3, 4, 0, 0 },
+        { 8, 0, 7, 0, 0, 0, 5, 1, 0 },
+        { 0, 2, 0, 7, 0, 5, 0, 4, 0 },
+        { 6, 0, 0, 0, 9, 1, 0, 0, 2 },
+        { 4, 8, 0, 3, 5, 2, 0, 0, 7 },
+        { 0, 0, 0, 0, 0, 0, 9, 0, 0 },
+        { 1, 0, 6, 0, 0, 9, 2, 8, 0 }
+    },
+    {
+        { 5, 3, 0, 0, 7, 0, 0, 0, 0 },
+        { 6, 0, 0, 1, 9, 5, 0, 0, 0 },
+        { 0, 9, 8, 0, 0, 0, 0, 6, 0 },
+        { 8, 0, 0, 0, 6, 0, 0, 0, 3 },
+        { 4, 0, 0, 8, 0, 3, 0, 0, 1 },
+        { 7, 0, 0, 0, 2, 0, 0, 0, 6 },
+        { 0, 6, 0, 0, 0, 0, 2, 8, 0 },
+        { 0, 0, 0, 4, 1, 9, 0, 0, 5 },
+        { 0, 0, 0, 0, 8, 0, 0, 7, 9 }
+    }
+}
+%% You can choose a grid here
+:grid ?= :grids at 0
+:amountNotSet ?= :getAmountNotSet()
+
+log "Unsolved:"
+:showGrid()
+
+loop :amountNotSet > 0 {
+    :setValue ?= 0
+    loop :y through 0 to :Height, !:setValue {
+        loop :x through 0 to :Height, !:setValue {
+            :n ?= :grid at :y at :x
+            %% If the number was not found yet
+            if :n = 0 {
+                :startX ?= :Math:Floor(:x / 3) * 3
+                :endX ?= :startX + 3
+                :startY ?= :Math:Floor(:y / 3) * 3
+                :endY ?= :startY + 3
+                :numbersPresent ?= { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+                :changePresence ?= routine(:x, :y) {
+                    :number ?= :grid at :y at :x
+                    if :number != 0
+                        :numbersPresent at (:number - 1) ?= 1
+                }
+                %% Check the current square
+                loop :y2 through :startY to :endY {
+                    loop :x2 through :startX to :endX {
+                        :changePresence(:x2, :y2)
+                    }
+                }
+                %% Check the horizontal line
+                loop :x2 through 0 to :Width {
+                    if :x2 != :x {
+                        :changePresence(:x2, :y)
+                    }
+                }
+                %% Check the vertical line
+                loop :y2 through 0 to :Height {
+                    if :y2 != :y {
+                        :changePresence(:x, :y2)
+                    }
+                }
+                :amountTaken ?= 0
+                :lastNotTaken ?= -1
+                loop :i through 0 to 9 {
+                    if :numbersPresent at :i {
+                        :amountTaken += 1
+                    } else {
+                        :lastNotTaken ?= :i + 1
+                    }
+                }
+                if :amountTaken = 8 {
+                    :grid at :y at :x ?= :lastNotTaken
+                    :setValue ?= 1
+                    :amountNotSet -= 1
+                }
+            }
+        }
+    }
+    if !:setValue
+        blame "Unsolvable grid"
+}
+
+log "Solved:"
+:showGrid()
