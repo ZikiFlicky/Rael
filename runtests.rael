@@ -1,0 +1,45 @@
+load :System
+load :File
+load :Types
+load :Functional
+
+:getTestName ?= routine(:testNumber) {
+    ^"tests/test" + (:n to :Types:String) + ".rael"
+}
+
+:n ?= 1
+:failed ?= {}
+loop {
+    :name ?= :getTestName(:n)
+    :expName ?= :name + ".exp"
+    %% Declare :f
+    :f ?= Void
+    %% If we fail to open the file, break from the loop, otherwise put the file value into :f
+    catch :File:FileStream(:expName) with :f {
+        break
+    } else {}
+    :expected ?= :f:read()
+    :output ?= :System:GetShellOutput(:System:RaelPath + " " + :name)
+    if :output = :expected {
+        log "Test", :n, "passed!"
+    } else {
+        log "Test", :n, "failed!"
+        log "expected:"
+        log :expected
+        log "output:"
+        log :output
+        :failed << :n
+    }
+    :n += 1
+}
+
+if :failed {
+    log "Failed tests:", ", ":separate(
+        :Functional:Map(
+            routine(:n) {
+                ^:n to :Types:String
+            },
+            :failed
+        )
+    )
+}
