@@ -1,6 +1,6 @@
 #include "rael.h"
 
-static RaelInt get_random() {
+static RaelInt get_random(void) {
     const size_t times_generate = sizeof(RaelInt) / sizeof(RAND_MAX);
     RaelInt generated = 0;
 
@@ -12,7 +12,7 @@ static RaelInt get_random() {
     return generated;
 }
 
-RaelValue *module_random_random_range(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_random_RandomRange(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *arg1;
     RaelRangeValue *range;
     size_t length, idx;
@@ -39,7 +39,7 @@ RaelValue *module_random_random_range(RaelArgumentList *args, RaelInterpreter *i
     return number_newi(generated_number);
 }
 
-RaelValue *module_random_random(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_random_RandomFloat(RaelArgumentList *args, RaelInterpreter *interpreter) {
     (void)interpreter;
     assert(arguments_amount(args) == 0);
     return number_newf((RaelFloat)get_random() / (RaelFloat)RAELINT_MAX);
@@ -53,8 +53,8 @@ RaelValue *module_random_new(RaelInterpreter *interpreter) {
     m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("Random"));
 
     // set all keys
-    module_set_key(m, RAEL_HEAPSTR("RandomRange"), cfunc_new(RAEL_HEAPSTR("RandomRange"), module_random_random_range, 1));
-    module_set_key(m, RAEL_HEAPSTR("RandomFloat"), cfunc_new(RAEL_HEAPSTR("RandomFloat"), module_random_random, 0));
+    module_set_key(m, RAEL_HEAPSTR("RandomRange"), cfunc_new(RAEL_HEAPSTR("RandomRange"), module_random_RandomRange, 1));
+    module_set_key(m, RAEL_HEAPSTR("RandomFloat"), cfunc_new(RAEL_HEAPSTR("RandomFloat"), module_random_RandomFloat, 0));
 
     return (RaelValue*)m;
 }

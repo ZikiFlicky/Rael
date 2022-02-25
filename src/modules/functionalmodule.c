@@ -1,6 +1,6 @@
 #include "rael.h"
 
-RaelValue *module_functional_map(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_functional_Map(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *callable, *iterable;
     size_t length;
     RaelStackValue *mapped_stack;
@@ -52,7 +52,7 @@ RaelValue *module_functional_map(RaelArgumentList *args, RaelInterpreter *interp
     return (RaelValue*)mapped_stack;
 }
 
-RaelValue *module_functional_filter(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_functional_Filter(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *callable, *iterable;
     RaelStackValue *filtered_stack;
     size_t length;
@@ -105,7 +105,7 @@ RaelValue *module_functional_filter(RaelArgumentList *args, RaelInterpreter *int
     return (RaelValue*)filtered_stack;
 }
 
-RaelValue *module_functional_reduce(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_functional_Reduce(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *callable, *iterable;
     RaelValue *reduced;
     size_t length;
@@ -164,9 +164,9 @@ RaelValue *module_functional_new(RaelInterpreter *interpreter) {
 
     (void)interpreter;
     m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("Functional"));
-    module_set_key(m, RAEL_HEAPSTR("Map"), cfunc_new(RAEL_HEAPSTR("Map"), module_functional_map, 2));
-    module_set_key(m, RAEL_HEAPSTR("Filter"), cfunc_new(RAEL_HEAPSTR("Filter"), module_functional_filter, 2));
-    module_set_key(m, RAEL_HEAPSTR("Reduce"), cfunc_new(RAEL_HEAPSTR("Reduce"), module_functional_reduce, 2));
+    module_set_key(m, RAEL_HEAPSTR("Map"), cfunc_new(RAEL_HEAPSTR("Map"), module_functional_Map, 2));
+    module_set_key(m, RAEL_HEAPSTR("Filter"), cfunc_new(RAEL_HEAPSTR("Filter"), module_functional_Filter, 2));
+    module_set_key(m, RAEL_HEAPSTR("Reduce"), cfunc_new(RAEL_HEAPSTR("Reduce"), module_functional_Reduce, 2));
 
     return (RaelValue*)m;
 }

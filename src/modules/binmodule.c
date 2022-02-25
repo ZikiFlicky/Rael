@@ -72,31 +72,31 @@ static RaelValue *run_bin_op(RaelArgumentList *args, RaelInterpreter *interprete
 }
 
 
-RaelValue *module_bin_and(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_bin_And(RaelArgumentList *args, RaelInterpreter *interpreter) {
     return run_bin_op(args, interpreter, bin_and);
 }
 
-RaelValue *module_bin_or(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_bin_Or(RaelArgumentList *args, RaelInterpreter *interpreter) {
     return run_bin_op(args, interpreter, bin_or);
 }
 
-RaelValue *module_bin_xor(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_bin_Xor(RaelArgumentList *args, RaelInterpreter *interpreter) {
     return run_bin_op(args, interpreter, bin_xor);
 }
 
-RaelValue *module_bin_nand(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_bin_Nand(RaelArgumentList *args, RaelInterpreter *interpreter) {
     return run_bin_op(args, interpreter, bin_nand);
 }
 
-RaelValue *module_bin_nor(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_bin_Nor(RaelArgumentList *args, RaelInterpreter *interpreter) {
     return run_bin_op(args, interpreter, bin_nor);
 }
 
-RaelValue *module_bin_xnor(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_bin_Xnor(RaelArgumentList *args, RaelInterpreter *interpreter) {
     return run_bin_op(args, interpreter, bin_xnor);
 }
 
-RaelValue *module_bin_not(RaelArgumentList *args, RaelInterpreter *interpreter) {
+RaelValue *module_bin_Not(RaelArgumentList *args, RaelInterpreter *interpreter) {
     RaelValue *arg1;
     RaelNumberValue *number;
 
@@ -120,13 +120,13 @@ RaelValue *module_bin_new(RaelInterpreter *interpreter) {
     (void)interpreter;
     m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("Bin"));
 
-    module_set_key(m, RAEL_HEAPSTR("And"), cfunc_unlimited_new(RAEL_HEAPSTR("BinAnd"), module_bin_and, 2));
-    module_set_key(m, RAEL_HEAPSTR("Or"), cfunc_unlimited_new(RAEL_HEAPSTR("BinOr"), module_bin_or, 2));
-    module_set_key(m, RAEL_HEAPSTR("Xor"), cfunc_unlimited_new(RAEL_HEAPSTR("BinXor"), module_bin_xor, 2));
-    module_set_key(m, RAEL_HEAPSTR("Nand"), cfunc_unlimited_new(RAEL_HEAPSTR("BinNand"), module_bin_nand, 2));
-    module_set_key(m, RAEL_HEAPSTR("Nor"), cfunc_unlimited_new(RAEL_HEAPSTR("BinNor"), module_bin_nor, 2));
-    module_set_key(m, RAEL_HEAPSTR("Xnor"), cfunc_unlimited_new(RAEL_HEAPSTR("BinXnor"), module_bin_xnor, 2));
-    module_set_key(m, RAEL_HEAPSTR("Not"), cfunc_new(RAEL_HEAPSTR("BinNot"), module_bin_not, 1));
+    module_set_key(m, RAEL_HEAPSTR("And"), cfunc_unlimited_new(RAEL_HEAPSTR("BinAnd"), module_bin_And, 2));
+    module_set_key(m, RAEL_HEAPSTR("Or"), cfunc_unlimited_new(RAEL_HEAPSTR("BinOr"), module_bin_Or, 2));
+    module_set_key(m, RAEL_HEAPSTR("Xor"), cfunc_unlimited_new(RAEL_HEAPSTR("BinXor"), module_bin_Xor, 2));
+    module_set_key(m, RAEL_HEAPSTR("Nand"), cfunc_unlimited_new(RAEL_HEAPSTR("BinNand"), module_bin_Nand, 2));
+    module_set_key(m, RAEL_HEAPSTR("Nor"), cfunc_unlimited_new(RAEL_HEAPSTR("BinNor"), module_bin_Nor, 2));
+    module_set_key(m, RAEL_HEAPSTR("Xnor"), cfunc_unlimited_new(RAEL_HEAPSTR("BinXnor"), module_bin_Xnor, 2));
+    module_set_key(m, RAEL_HEAPSTR("Not"), cfunc_new(RAEL_HEAPSTR("BinNot"), module_bin_Not, 1));
 
     return (RaelValue*)m;
 }
