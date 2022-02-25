@@ -1041,11 +1041,11 @@ static RaelExprList parser_parse_csv(struct Parser* const parser, const bool all
         if (!parser_match(parser, TokenNameComma))
             break;
 
+        backtrack = parser_dump_state(parser);
         // allow a newline after a comma
         if (allow_newlines)
             parser_maybe_expect_newline(parser);
 
-        backtrack = parser_dump_state(parser);
         if ((expr = parser_parse_expr(parser))) {
             // push expression
             if (idx == allocated) {
@@ -1055,7 +1055,7 @@ static RaelExprList parser_parse_csv(struct Parser* const parser, const bool all
             entries[idx].start_state = backtrack;
             ++idx;
         } else {
-            parser_error(parser, "Expected expression");
+            parser_state_error(parser, backtrack, "Expected expression after ','");
         }
         if (allow_newlines)
             parser_maybe_expect_newline(parser);
