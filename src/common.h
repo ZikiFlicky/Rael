@@ -40,15 +40,15 @@ struct RaelInstance;
 typedef struct RaelInstance RaelInstance;
 
 typedef struct RaelStream {
-    // Name of stream. This is usually the filename
+    /* Name of stream. This is usually the filename */
     char *name;
-    // Pointer to first char
+    /* Pointer to first char */
     char *base;
-    // Length of stream
+    /* Length of stream */
     size_t length;
-    // Pointer to current char
+    /* Pointer to current char */
     char *cur;
-    // This decides whether we can `free()` this
+    /* This decides whether we can `free()` this */
     bool on_heap;
 } RaelStream;
 
