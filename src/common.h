@@ -81,6 +81,8 @@ struct RaelInstance {
     struct Instruction **instructions;
     size_t idx;
 
+    /* If true, the scope is inherited from a different instance */
+    bool inherit_scope;
     struct Scope *scope;
     enum ProgramInterrupt interrupt;
     RaelValue *returned_value;
@@ -115,6 +117,8 @@ typedef struct RaelArgumentList {
     RaelArgument *arguments;
 } RaelArgumentList;
 
+void stream_construct(RaelStream *stream, char *code, size_t length, bool on_heap, char *name);
+
 bool load_file(char* const filename, RaelStream *out);
 
 void rael_interpret(struct Instruction **instructions, RaelStream stream,
@@ -123,9 +127,13 @@ void rael_interpret(struct Instruction **instructions, RaelStream stream,
 void interpreter_destroy_all(RaelInterpreter* const interpreter);
 
 void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream stream,
-                            struct Instruction **instructions);
+                            struct Instruction **instructions, bool inherit_scope);
+
+void interpreter_interpret(RaelInterpreter *interpreter);
 
 void interpreter_delete_instance(RaelInterpreter* const interpreter);
+
+void instance_delete(RaelInstance *instance);
 
 RaelInt rael_int_abs(RaelInt i);
 

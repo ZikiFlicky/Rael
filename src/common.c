@@ -1,5 +1,28 @@
 #include "rael.h"
 
+void stream_construct(RaelStream *stream, char *code, size_t length, bool on_heap, char *name) {
+    stream->base = code;
+    stream->cur = code;
+    stream->length = length;
+    stream->on_heap = on_heap;
+    stream->name = name;
+}
+
+void instance_delete(RaelInstance *instance) {
+    if (!instance->inherit_scope) {
+        struct Scope *parent;
+        for (struct Scope *scope = instance->scope; scope; scope = parent) {
+            parent = scope->parent;
+            scope_delete(scope);
+        }
+    }
+    if (instance->instructions)
+        block_delete(instance->instructions);
+    if (instance->stream.on_heap)
+        free(instance->stream.base);
+    free(instance);
+}
+
 bool load_file(char* const filename, RaelStream *out) {
     FILE *file;
     char *allocated;
@@ -17,12 +40,7 @@ bool load_file(char* const filename, RaelStream *out) {
     allocated[length] = '\0';
     fclose(file);
 
-    out->base = allocated;
-    out->cur = allocated;
-    out->length = length;
-    out->name = filename;
-    out->on_heap = true;
-
+    stream_construct(out, allocated, length, true, filename);
     return true;
 }
 

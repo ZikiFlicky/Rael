@@ -7,10 +7,9 @@ static struct Instruction **parser_parse_block(struct Parser* const parser);
 static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
 static struct Expr *parser_parse_suffix(struct Parser* const parser);
 
-static void expr_delete(struct Expr* const expr);
-static void block_delete(struct Instruction **block);
 static void exprlist_delete(RaelExprList *list);
 static void match_case_delete(struct MatchCase *match_case);
+void block_delete(struct Instruction **block);
 
 static inline char *parser_get_filename(struct Parser* const parser) {
     return parser->lexer.stream.name;
@@ -1420,21 +1419,21 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     return NULL;
 }
 
+static void parser_construct(struct Parser *parser, RaelStream stream) {
+    lexer_construct(&parser->lexer, stream);
+    parser->idx = 0;
+    parser->allocated = 0;
+    parser->instructions = NULL;
+    parser->can_return = false;
+    parser->in_loop = false;
+}
+
 struct Instruction **rael_parse(RaelStream stream) {
     struct State backtrack;
     struct Instruction *inst;
-    struct Parser parser = {
-        .lexer = {
-            .line = 1,
-            .column = 1,
-            .stream = stream
-        },
-        .idx = 0,
-        .allocated = 0,
-        .instructions = NULL,
-        .can_return = false,
-        .in_loop = false
-    };
+    struct Parser parser;
+
+    parser_construct(&parser, stream);
     parser_maybe_expect_newline(&parser);
     // parse instruction while possible
     while ((inst = parser_parse_instr(&parser)))
@@ -1456,7 +1455,7 @@ static void match_case_delete(struct MatchCase *match_case) {
     block_delete(match_case->case_block);
 }
 
-static void block_delete(struct Instruction **block) {
+void block_delete(struct Instruction **block) {
     assert(block);
     for (struct Instruction **instr = block; *instr; ++instr)
         instruction_delete(*instr);
@@ -1496,7 +1495,7 @@ static void value_expr_delete(struct ValueExpr* value) {
     free(value);
 }
 
-static void expr_delete(struct Expr* const expr) {
+void expr_delete(struct Expr* const expr) {
     switch (expr->type) {
     case ExprTypeValue:
         value_expr_delete(expr->as_value);

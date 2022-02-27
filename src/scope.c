@@ -7,7 +7,7 @@ struct Scope *scope_new(struct Scope* const parent) {
     return scope;
 }
 
-void scope_dealloc(struct Scope* const scope) {
+void scope_delete(struct Scope* const scope) {
     varmap_delete(&scope->variables);
     free(scope);
 }

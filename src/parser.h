@@ -224,4 +224,8 @@ struct Instruction **rael_parse(RaelStream stream);
 
 void instruction_delete(struct Instruction* const instruction);
 
+void expr_delete(struct Expr* const expr);
+
+void block_delete(struct Instruction **block);
+
 #endif // RAEL_PARSER_H

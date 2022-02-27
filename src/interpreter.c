@@ -16,7 +16,7 @@ RaelValue *module_bin_new(RaelInterpreter *interpreter);
 RaelValue *module_graphics_new(RaelInterpreter *interpreter);
 
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
-static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
+RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
 void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
 
 void interpreter_push_scope(RaelInterpreter* const interpreter) {
@@ -27,7 +27,7 @@ void interpreter_push_scope(RaelInterpreter* const interpreter) {
 void interpreter_pop_scope(RaelInterpreter* const interpreter) {
     if (interpreter->instance->scope) {
         struct Scope *parent = interpreter->instance->scope->parent;
-        scope_dealloc(interpreter->instance->scope);
+        scope_delete(interpreter->instance->scope);
         interpreter->instance->scope = parent;
     }
 }
@@ -62,7 +62,7 @@ static void interpreter_remove_modules(RaelInterpreter *interpreter) {
 }
 
 void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream stream,
-                                    struct Instruction **instructions) {
+                            struct Instruction **instructions, bool inherit_scope) {
     RaelInstance *instance = malloc(sizeof(RaelInstance));
 
     instance->prev = interpreter->instance;
@@ -70,7 +70,8 @@ void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream str
     instance->instructions = instructions;
     instance->interrupt = ProgramInterruptNone;
     instance->returned_value = NULL;
-    instance->scope = scope_new(NULL);
+    instance->inherit_scope = inherit_scope;
+    instance->scope = inherit_scope ? interpreter->instance->scope : scope_new(NULL);
     instance->stream = stream;
     interpreter->instance = instance;
 }
@@ -78,29 +79,14 @@ void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream str
 void interpreter_delete_instance(RaelInterpreter* const interpreter) {
     RaelInstance *instance = interpreter->instance;
     interpreter->instance = instance->prev;
-    free(instance);
+    instance_delete(instance);
 }
 
 /* make the interpreter deallocate everything it stores */
 void interpreter_destroy_all(RaelInterpreter* const interpreter) {
-    RaelInstance *instance;
     // deallocate all of the scopes
-    while ((instance = interpreter->instance)) {
-        while (instance->scope) {
-            interpreter_pop_scope(interpreter);
-        }
-
-        // deallocate all of the intstructions
-        for (size_t i = 0; instance->instructions[i]; ++i)
-            instruction_delete(instance->instructions[i]);
-
-        free(instance->instructions);
-
-        if (instance->stream.on_heap)
-            free(instance->stream.base);
-
+    while (interpreter->instance)
         interpreter_delete_instance(interpreter);
-    }
     interpreter_remove_modules(interpreter);
 }
 
@@ -465,7 +451,7 @@ static RaelValue *expr_match_eval(RaelInterpreter *interpreter, struct MatchExpr
     return return_value;
 }
 
-static RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode) {
+RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode) {
     RaelValue *lhs;
     RaelValue *rhs;
     RaelValue *single;
@@ -1203,12 +1189,11 @@ void rael_interpret(struct Instruction **instructions, RaelStream stream,
         .warn_undefined = warn_undefined
     };
 
-    interpreter_new_instance(&interpreter, stream, instructions);
+    interpreter_new_instance(&interpreter, stream, instructions, false);
 
     // seed the random number generator
     srand(seed);
 
     interpreter_interpret(&interpreter);
-
     interpreter_destroy_all(&interpreter);
 }

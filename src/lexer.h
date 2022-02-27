@@ -73,6 +73,9 @@ struct Lexer {
     size_t column;
 };
 
+/* constructs the lexer pointer */
+void lexer_construct(struct Lexer *lexer, RaelStream stream);
+
 bool lexer_tokenize(struct Lexer* const lexer);
 
 struct State lexer_dump_state(struct Lexer* const lexer);

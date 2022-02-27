@@ -64,6 +64,12 @@ static bool lexer_clean(struct Lexer* const lexer) {
     return cleaned;
 }
 
+void lexer_construct(struct Lexer *lexer, RaelStream stream) {
+    lexer->stream = stream;
+    lexer->line = 1;
+    lexer->column = 1;
+}
+
 static bool lexer_match_keyword(struct Lexer* const lexer, const char* const keyword,
                                  const size_t length, const enum TokenName name) {
     if (strncmp(lexer->stream.cur, keyword, length) == 0 && !is_identifier_char(lexer->stream.cur[length])) {

@@ -29,11 +29,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Expected an input string after '%s' flag\n", arg);
                 return 1;
             }
-            stream.base = argv[i];
-            stream.cur = argv[i];
-            stream.length = strlen(argv[i]);
-            stream.name = NULL;
-            stream.on_heap = false;
+            stream_construct(&stream, argv[i], strlen(argv[i]), false, NULL);
             // skip string when setting argv
             ++i;
             program_argv = &argv[i];
