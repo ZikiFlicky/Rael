@@ -199,6 +199,7 @@ struct LoadInstruction {
 };
 
 struct Instruction {
+    size_t refcount;
     enum InstructionType type;
     struct State state;
     union {
@@ -222,10 +223,16 @@ struct Parser {
 
 struct Instruction **rael_parse(RaelStream *stream);
 
-void instruction_delete(struct Instruction* const instruction);
+void instruction_ref(struct Instruction *instruction);
+
+void instruction_deref(struct Instruction* const instruction);
 
 void expr_delete(struct Expr* const expr);
 
+/* go through insturctions in block and instruction_deref each one of them */
+void block_deref(struct Instruction **block);
+
+/* block_deref then free the block itself */
 void block_delete(struct Instruction **block);
 
 #endif // RAEL_PARSER_H

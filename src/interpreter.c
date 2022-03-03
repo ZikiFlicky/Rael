@@ -153,6 +153,10 @@ static RaelValue *value_eval(RaelInterpreter* const interpreter, struct ValueExp
         const struct ASTRoutineValue ast_routine = value->as_routine;
         RaelRoutineValue *new_routine = RAEL_VALUE_NEW(RaelRoutineType, RaelRoutineValue);
 
+        // reference the block
+        for (size_t i = 0; ast_routine.block[i]; ++i)
+            instruction_ref(ast_routine.block[i]);
+
         new_routine->block = ast_routine.block;
         new_routine->parameters = ast_routine.parameters;
         new_routine->amount_parameters = ast_routine.amount_parameters;

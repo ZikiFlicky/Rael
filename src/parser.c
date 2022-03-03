@@ -24,7 +24,7 @@ static inline void internal_parser_state_error(struct Parser* const parser, stru
 
     // destroy all of the parsed instructions
     for (size_t i = 0; i < parser->idx; ++i)
-        instruction_delete(parser->instructions[i]);
+        instruction_deref(parser->instructions[i]);
 
     free(parser->instructions);
     lexer_destruct(&parser->lexer);
@@ -39,22 +39,27 @@ static inline void parser_load_state(struct Parser* const parser, struct State s
     lexer_load_state(&parser->lexer, state);
 }
 
-static inline struct Expr *expr_create(enum ExprType type) {
+static struct Expr *expr_new(enum ExprType type) {
     struct Expr *expr = malloc(sizeof(struct Expr));
     expr->type = type;
     return expr;
 }
 
-static struct ValueExpr *value_expr_create(enum ValueExprType type) {
+static struct ValueExpr *value_expr_new(enum ValueExprType type) {
     struct ValueExpr *value = malloc(sizeof(struct ValueExpr));
     value->type = type;
     return value;
 }
 
-static inline struct Instruction *instruction_create(enum InstructionType type) {
+static struct Instruction *instruction_new(enum InstructionType type) {
     struct Instruction *instruction = malloc(sizeof(struct Instruction));
+    instruction->refcount = 1;
     instruction->type = type;
     return instruction;
+}
+
+void instruction_ref(struct Instruction *instruction) {
+    ++instruction->refcount;
 }
 
 static void parser_state_error(struct Parser* const parser, struct State state, const char* const error_message, ...) {
@@ -128,7 +133,7 @@ static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
         return NULL;
     }
 
-    value = value_expr_create(ValueTypeStack);
+    value = value_expr_new(ValueTypeStack);
     value->as_stack.entries = stack;
     return value;
 }
@@ -143,7 +148,7 @@ static struct ValueExpr *parser_parse_number(struct Parser* const parser) {
     // this should always work
     number_from_string(parser->lexer.token.string, parser->lexer.token.length, &ast_number);
 
-    value = value_expr_create(ValueTypeNumber);
+    value = value_expr_new(ValueTypeNumber);
     value->as_number = ast_number;
     return value;
 }
@@ -219,7 +224,7 @@ static struct ValueExpr *parser_parse_routine(struct Parser* const parser) {
         parser_error(parser, "Expected block after routine decleration");
     }
 
-    value = value_expr_create(ValueTypeRoutine);
+    value = value_expr_new(ValueTypeRoutine);
     value->as_routine = decl;
     parser->can_return = old_can_return;
     return value;
@@ -274,7 +279,7 @@ static struct ValueExpr *parser_parse_string(struct Parser* const parser) {
     if (allocated > 0)
         string = realloc(string, length * sizeof(char));
 
-    value = value_expr_create(ValueTypeString);
+    value = value_expr_new(ValueTypeString);
     value->as_string = (struct ASTStringValue) {
         .source = string,
         .length = length
@@ -292,7 +297,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
         (value = parser_parse_stack(parser))   ||
         (value = parser_parse_number(parser))  ||
         (value = parser_parse_string(parser))) {
-        expr = expr_create(ExprTypeValue);
+        expr = expr_new(ExprTypeValue);
         expr->as_value = value;
     } else { // if you couldn't parse any other literal expression up until here, try to parse other stuff
         if (!lexer_tokenize(&parser->lexer))
@@ -300,12 +305,12 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
 
         switch (parser->lexer.token.name) {
         case TokenNameKey:
-            expr = expr_create(ExprTypeKey);
+            expr = expr_new(ExprTypeKey);
             expr->as_key = token_allocate_key(&parser->lexer.token);
             break;
         case TokenNameVoid:
-            expr = expr_create(ExprTypeValue);
-            expr->as_value = value_expr_create(ValueTypeVoid);
+            expr = expr_new(ExprTypeValue);
+            expr->as_value = value_expr_new(ValueTypeVoid);
             break;
         default:
             parser_load_state(parser, backtrack);
@@ -429,7 +434,7 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
     else
         match_cases = NULL;
 
-    expr = expr_create(ExprTypeMatch);
+    expr = expr_new(ExprTypeMatch);
     expr->as_match = (struct MatchExpr) {
         .match_against = match_against,
         .amount_cases = amount,
@@ -499,7 +504,7 @@ static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
         goto error;
     }
 
-    full_expr = expr_create(type);
+    full_expr = expr_new(type);
     full_expr->as_set = set_expr;
     full_expr->state = operator_state;
     return full_expr;
@@ -575,7 +580,7 @@ static struct Expr *parser_parse_suffix(struct Parser* const parser) {
             struct Expr *new_expr;
             char *key = token_allocate_key(&parser->lexer.token);
 
-            new_expr = expr_create(ExprTypeGetMember);
+            new_expr = expr_new(ExprTypeGetMember);
             new_expr->as_get_member.lhs = expr;
             new_expr->as_get_member.key = key;
             expr = new_expr;
@@ -593,7 +598,7 @@ static struct Expr *parser_parse_suffix(struct Parser* const parser) {
             if (!parser_match(parser, TokenNameRightParen))
                 parser_state_error(parser, backtrack, "Expected a ')'");
 
-            expr = expr_create(ExprTypeCall);
+            expr = expr_new(ExprTypeCall);
             expr->as_call = call;
         }
         expr->state = start_backtrack;
@@ -618,7 +623,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             if (!(to_negative = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected an expression after or before '-'");
 
-            expr = expr_create(ExprTypeNeg);
+            expr = expr_new(ExprTypeNeg);
             expr->as_single = to_negative;
             break;
         }
@@ -628,7 +633,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             if (!(to_opposite = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected an expression after '!'");
 
-            expr = expr_create(ExprTypeNot);
+            expr = expr_new(ExprTypeNot);
             expr->as_single = to_opposite;
             break;
         }
@@ -638,7 +643,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             if (!(sizeof_value = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected value after 'sizeof'");
 
-            expr = expr_create(ExprTypeSizeof);
+            expr = expr_new(ExprTypeSizeof);
             expr->as_single = sizeof_value;
             break;
         }
@@ -648,7 +653,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             if (!(typeof_value = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected value after 'typeof'");
 
-            expr = expr_create(ExprTypeTypeof);
+            expr = expr_new(ExprTypeTypeof);
             expr->as_single = typeof_value;
             break;
         }
@@ -658,12 +663,12 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
             if (!(prompt_value = parser_parse_expr_single(parser)))
                 parser_error(parser, "Expected value after 'getstring'");
 
-            expr = expr_create(ExprTypeGetString);
+            expr = expr_new(ExprTypeGetString);
             expr->as_single = prompt_value;
             break;
         }
         case TokenNameBlame:
-            expr = expr_create(ExprTypeBlame);
+            expr = expr_new(ExprTypeBlame);
             expr->as_single = parser_parse_expr_single(parser);
             break;
         default:
@@ -689,21 +694,21 @@ static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
         if (lexer_tokenize(&parser->lexer)) {
             switch (parser->lexer.token.name) {
             case TokenNameMul:
-                new_expr = expr_create(ExprTypeMul);
+                new_expr = expr_new(ExprTypeMul);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     parser_state_error(parser, backtrack, "Expected a value after '*'");
                 }
                 break;
             case TokenNameDiv:
-                new_expr = expr_create(ExprTypeDiv);
+                new_expr = expr_new(ExprTypeDiv);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     parser_state_error(parser, backtrack, "Expected a value after '/'");
                 }
                 break;
             case TokenNameMod:
-                new_expr = expr_create(ExprTypeMod);
+                new_expr = expr_new(ExprTypeMod);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_single(parser))) {
                     parser_state_error(parser, backtrack, "Expected a value after '%'");
@@ -737,13 +742,13 @@ static struct Expr *parser_parse_expr_sum(struct Parser* const parser) {
         if (lexer_tokenize(&parser->lexer)) {
             switch (parser->lexer.token.name) {
             case TokenNameAdd:
-                new_expr = expr_create(ExprTypeAdd);
+                new_expr = expr_new(ExprTypeAdd);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_product(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '+'");
                 break;
             case TokenNameSub:
-                new_expr = expr_create(ExprTypeSub);
+                new_expr = expr_new(ExprTypeSub);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_product(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '-'");
@@ -776,7 +781,7 @@ static struct Expr *parser_parse_expr_range(struct Parser* const parser) {
 
         if (lexer_tokenize(&parser->lexer)) {
             if (parser->lexer.token.name == TokenNameTo) {
-                new_expr = expr_create(ExprTypeTo);
+                new_expr = expr_new(ExprTypeTo);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_sum(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after 'to'");
@@ -806,7 +811,7 @@ static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
 
         if (lexer_tokenize(&parser->lexer)) {
             if (parser->lexer.token.name == TokenNameAt) {
-                new_expr = expr_create(ExprTypeAt);
+                new_expr = expr_new(ExprTypeAt);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_range(parser))) {
                     parser_state_error(parser, backtrack, "Expected a value after 'at'");
@@ -838,32 +843,32 @@ static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
         if (lexer_tokenize(&parser->lexer)) {
             switch (parser->lexer.token.name) {
             case TokenNameEquals: // =
-                new_expr = expr_create(ExprTypeEquals);
+                new_expr = expr_new(ExprTypeEquals);
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '='");
                 break;
             case TokenNameExclamationMarkEquals: // !=
-                new_expr = expr_create(ExprTypeNotEqual);
+                new_expr = expr_new(ExprTypeNotEqual);
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '='");
                 break;
             case TokenNameSmallerThan: // <
-                new_expr = expr_create(ExprTypeSmallerThan);
+                new_expr = expr_new(ExprTypeSmallerThan);
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '<'");
                 break;
             case TokenNameBiggerThan: // >
-                new_expr = expr_create(ExprTypeBiggerThan);
+                new_expr = expr_new(ExprTypeBiggerThan);
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '>'");
                 break;
             case TokenNameSmallerOrEqual: // <=
-                new_expr = expr_create(ExprTypeSmallerOrEqual);
+                new_expr = expr_new(ExprTypeSmallerOrEqual);
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '<='");
                 break;
             case TokenNameBiggerOrEqual: // >=
-                new_expr = expr_create(ExprTypeBiggerOrEqual);
+                new_expr = expr_new(ExprTypeBiggerOrEqual);
                 if (!(new_expr->rhs = parser_parse_expr_at(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '>='");
                 break;
@@ -896,7 +901,7 @@ static struct Expr *parser_parse_expr_and(struct Parser* const parser) {
 
         if (lexer_tokenize(&parser->lexer)) {
             if (parser->lexer.token.name == TokenNameAmpersand) {
-                new_expr = expr_create(ExprTypeAnd);
+                new_expr = expr_new(ExprTypeAnd);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_comparison(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '&'");
@@ -926,7 +931,7 @@ static struct Expr *parser_parse_expr_or(struct Parser* const parser) {
 
         if (lexer_tokenize(&parser->lexer)) {
             if (parser->lexer.token.name == TokenNamePipe) {
-                new_expr = expr_create(ExprTypeOr);
+                new_expr = expr_new(ExprTypeOr);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_and(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '|'");
@@ -957,7 +962,7 @@ static struct Expr *parser_parse_expr(struct Parser* const parser) {
         if (lexer_tokenize(&parser->lexer)) {
             switch (parser->lexer.token.name) {
             case TokenNameRedirect:
-                new_expr = expr_create(ExprTypeRedirect);
+                new_expr = expr_new(ExprTypeRedirect);
                 new_expr->lhs = expr;
                 if (!(new_expr->rhs = parser_parse_expr_or(parser)))
                     parser_state_error(parser, backtrack, "Expected a value after '<<'");
@@ -998,7 +1003,7 @@ static struct Instruction *parser_parse_instr_pure(struct Parser* const parser) 
 
     return NULL;
 end:
-    inst = instruction_create(InstructionTypePureExpr);
+    inst = instruction_new(InstructionTypePureExpr);
     inst->pure = expr;
     return inst;
 }
@@ -1131,7 +1136,7 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
         catch.value_key = NULL;
     }
 
-    inst = instruction_create(InstructionTypeCatch);
+    inst = instruction_new(InstructionTypeCatch);
     inst->catch = catch;
     return inst;
 }
@@ -1146,7 +1151,7 @@ static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
     expr_list = parser_parse_csv(parser, false);
     parser_expect_newline(parser);
 
-    inst = instruction_create(InstructionTypeLog);
+    inst = instruction_new(InstructionTypeLog);
     inst->csv = expr_list;
 
     return inst;
@@ -1164,7 +1169,7 @@ static struct Instruction *parser_parse_instr_show(struct Parser* const parser) 
 
     parser_expect_newline(parser);
 
-    inst = instruction_create(InstructionTypeShow);
+    inst = instruction_new(InstructionTypeShow);
     inst->csv = expr_list;
 
     return inst;
@@ -1192,7 +1197,7 @@ static struct Instruction *parser_parse_instr_return(struct Parser* const parser
         parser_state_error(parser, backtrack, "'^' is outside of a routine and a match statement");
     }
 
-    inst = instruction_create(InstructionTypeReturn);
+    inst = instruction_new(InstructionTypeReturn);
     inst->return_value = expr;
     return inst;
 }
@@ -1222,7 +1227,7 @@ static struct Instruction *parser_parse_instr_single(struct Parser* const parser
     }
 
     parser_expect_newline(parser);
-    inst = instruction_create(type);
+    inst = instruction_new(type);
     return inst;
 }
 
@@ -1250,9 +1255,8 @@ static struct Instruction **parser_parse_block(struct Parser* const parser) {
                 parser_error(parser, "Unexpected token");
             }
         }
-        if (idx == allocated) {
+        if (idx == allocated)
             block = realloc(block, ((allocated += 32)+1) * sizeof(struct Instruction*));
-        }
         block[idx++] = inst;
     }
 
@@ -1278,7 +1282,7 @@ static struct Instruction *parser_parse_instr_load(struct Parser* const parser) 
     parser_expect_newline(parser);
     key = token_allocate_key(&key_token);
 
-    instruction = instruction_create(InstructionTypeLoad);
+    instruction = instruction_new(InstructionTypeLoad);
     instruction->load.module_name = key;
     return instruction;
 }
@@ -1314,7 +1318,7 @@ static struct Instruction *parser_parse_if_statement(struct Parser* const parser
 
     parser_maybe_expect_newline(parser);
 
-    inst = instruction_create(InstructionTypeIf);
+    inst = instruction_new(InstructionTypeIf);
 
     if (!parser_match(parser, TokenNameElse))
         goto end;
@@ -1393,7 +1397,7 @@ static struct Instruction *parser_parse_loop(struct Parser* const parser) {
 
 loop_parsing_end:
     parser_maybe_expect_newline(parser);
-    inst = instruction_create(InstructionTypeLoop);
+    inst = instruction_new(InstructionTypeLoop);
     inst->loop = loop;
     parser->in_loop = old_in_loop;
     return inst;
@@ -1459,10 +1463,14 @@ static void match_case_delete(struct MatchCase *match_case) {
     block_delete(match_case->case_block);
 }
 
+void block_deref(struct Instruction **block) {
+    for (struct Instruction **instr = block; *instr; ++instr)
+        instruction_deref(*instr);
+}
+
 void block_delete(struct Instruction **block) {
     assert(block);
-    for (struct Instruction **instr = block; *instr; ++instr)
-        instruction_delete(*instr);
+    block_deref(block);
     free(block);
 }
 
@@ -1484,9 +1492,8 @@ static void value_expr_delete(struct ValueExpr* value) {
             free(value->as_string.source);
         break;
     case ValueTypeRoutine:
-        for (size_t i = 0; i < value->as_routine.amount_parameters; ++i) {
+        for (size_t i = 0; i < value->as_routine.amount_parameters; ++i)
             free(value->as_routine.parameters[i]);
-        }
         free(value->as_routine.parameters);
         block_delete(value->as_routine.block);
         break;
@@ -1586,89 +1593,92 @@ void expr_delete(struct Expr* const expr) {
     free(expr);
 }
 
-void instruction_delete(struct Instruction* const inst) {
-    switch (inst->type) {
-    case InstructionTypeIf:
-        expr_delete(inst->if_stat.condition);
-        // remove the if statement part
-        switch (inst->if_stat.if_type) {
-        case IfTypeBlock:
-            block_delete(inst->if_stat.if_block);
-            break;
-        case IfTypeInstruction:
-            instruction_delete(inst->if_stat.if_instruction);
-            break;
-        default:
-            RAEL_UNREACHABLE();
-        }
-        // remove the else statement part
-        switch (inst->if_stat.else_type) {
-        case ElseTypeBlock:
-            block_delete(inst->if_stat.else_block);
-            break;
-        case ElseTypeInstruction:
-            instruction_delete(inst->if_stat.else_instruction);
-            break;
-        case ElseTypeNone:
-            break;
-        default:
-            RAEL_UNREACHABLE();
-        }
-        break;
-    case InstructionTypeLog:
-    case InstructionTypeShow:
-        exprlist_delete(&inst->csv);
-        break;
-    case InstructionTypeLoop: {
-        struct LoopInstruction *loop = &inst->loop;
-        switch (loop->type) {
-        case LoopWhile:
-            expr_delete(loop->while_condition);
-            break;
-        case LoopThrough:
-            free(loop->iterate.key);
-            expr_delete(loop->iterate.expr);
-            if (loop->iterate.secondary_condition) {
-                expr_delete(loop->iterate.secondary_condition);
+void instruction_deref(struct Instruction* const inst) {
+    --inst->refcount;
+    if (inst->refcount == 0) {
+        switch (inst->type) {
+        case InstructionTypeIf:
+            expr_delete(inst->if_stat.condition);
+            // remove the if statement part
+            switch (inst->if_stat.if_type) {
+            case IfTypeBlock:
+                block_delete(inst->if_stat.if_block);
+                break;
+            case IfTypeInstruction:
+                instruction_deref(inst->if_stat.if_instruction);
+                break;
+            default:
+                RAEL_UNREACHABLE();
+            }
+            // remove the else statement part
+            switch (inst->if_stat.else_type) {
+            case ElseTypeBlock:
+                block_delete(inst->if_stat.else_block);
+                break;
+            case ElseTypeInstruction:
+                instruction_deref(inst->if_stat.else_instruction);
+                break;
+            case ElseTypeNone:
+                break;
+            default:
+                RAEL_UNREACHABLE();
             }
             break;
-        case LoopForever:
+        case InstructionTypeLog:
+        case InstructionTypeShow:
+            exprlist_delete(&inst->csv);
+            break;
+        case InstructionTypeLoop: {
+            struct LoopInstruction *loop = &inst->loop;
+            switch (loop->type) {
+            case LoopWhile:
+                expr_delete(loop->while_condition);
+                break;
+            case LoopThrough:
+                free(loop->iterate.key);
+                expr_delete(loop->iterate.expr);
+                if (loop->iterate.secondary_condition) {
+                    expr_delete(loop->iterate.secondary_condition);
+                }
+                break;
+            case LoopForever:
+                break;
+            default:
+                RAEL_UNREACHABLE();
+            }
+
+            block_delete(loop->block);
+            break;
+        }
+        case InstructionTypePureExpr:
+            expr_delete(inst->pure);
+            break;
+        case InstructionTypeReturn:
+            if (inst->return_value) {
+                expr_delete(inst->return_value);
+            }
+            break;
+        case InstructionTypeBreak:
+        case InstructionTypeSkip:
+            break;
+        case InstructionTypeCatch:
+            expr_delete(inst->catch.catch_expr);
+            block_delete(inst->catch.handle_block);
+
+            // if there is an else part to the catch statement
+            if (inst->catch.else_block) {
+                block_delete(inst->catch.else_block);
+            }
+            // only if you tell it to catch, catch
+            if (inst->catch.value_key)
+                free(inst->catch.value_key);
+            break;
+        case InstructionTypeLoad:
+            free(inst->load.module_name);
             break;
         default:
             RAEL_UNREACHABLE();
         }
-
-        block_delete(loop->block);
-        break;
+        free(inst);
     }
-    case InstructionTypePureExpr:
-        expr_delete(inst->pure);
-        break;
-    case InstructionTypeReturn:
-        if (inst->return_value) {
-            expr_delete(inst->return_value);
-        }
-        break;
-    case InstructionTypeBreak:
-    case InstructionTypeSkip:
-        break;
-    case InstructionTypeCatch:
-        expr_delete(inst->catch.catch_expr);
-        block_delete(inst->catch.handle_block);
-
-        // if there is an else part to the catch statement
-        if (inst->catch.else_block) {
-            block_delete(inst->catch.else_block);
-        }
-        // only if you tell it to catch, catch
-        if (inst->catch.value_key)
-            free(inst->catch.value_key);
-        break;
-    case InstructionTypeLoad:
-        free(inst->load.module_name);
-        break;
-    default:
-        RAEL_UNREACHABLE();
-    }
-    free(inst);
 }

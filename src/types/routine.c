@@ -60,6 +60,11 @@ RaelInt routine_validate_args(RaelRoutineValue *self, size_t amount) {
     }
 }
 
+void routine_delete(RaelRoutineValue *self) {
+    for (size_t i = 0; self->block[i]; ++i)
+        instruction_deref(self->block[i]);
+}
+
 static RaelCallableInfo routine_callable_info = {
     (RaelCallerFunc)routine_call,
     (RaelCanTakeFunc)routine_validate_args
@@ -88,7 +93,7 @@ RaelTypeValue RaelRoutineType = {
     .op_deref = NULL,
 
     .as_bool = NULL,
-    .deallocator = NULL,
+    .deallocator = (RaelSingleFunc)routine_delete,
     .repr = (RaelSingleFunc)routine_repr,
     .logger = NULL, /* fallbacks to .repr */
 
