@@ -1,13 +1,5 @@
 #include "rael.h"
 
-void stream_construct(RaelStream *stream, char *code, size_t length, bool on_heap, char *name) {
-    stream->base = code;
-    stream->cur = code;
-    stream->length = length;
-    stream->on_heap = on_heap;
-    stream->name = name;
-}
-
 void instance_delete(RaelInstance *instance) {
     if (!instance->inherit_scope) {
         struct Scope *parent;
@@ -18,30 +10,8 @@ void instance_delete(RaelInstance *instance) {
     }
     if (instance->instructions)
         block_delete(instance->instructions);
-    if (instance->stream.on_heap)
-        free(instance->stream.base);
+    stream_deref(instance->stream);
     free(instance);
-}
-
-bool load_file(char* const filename, RaelStream *out) {
-    FILE *file;
-    char *allocated;
-    size_t length;
-
-    if (!(file = fopen(filename, "r")))
-        return false;
-
-    fseek(file, 0, SEEK_END);
-    length = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    if (!(allocated = malloc((length+1) * sizeof(char))))
-        return false;
-    fread(allocated, sizeof(char), length, file);
-    allocated[length] = '\0';
-    fclose(file);
-
-    stream_construct(out, allocated, length, true, filename);
-    return true;
 }
 
 RaelInt rael_int_abs(RaelInt i) {

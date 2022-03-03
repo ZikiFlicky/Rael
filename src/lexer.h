@@ -68,13 +68,15 @@ struct Token {
 
 struct Lexer {
     struct Token token;
-    RaelStream stream;
+    RaelStreamPtr stream;
     size_t line;
     size_t column;
 };
 
 /* constructs the lexer pointer */
-void lexer_construct(struct Lexer *lexer, RaelStream stream);
+void lexer_construct(struct Lexer *lexer, RaelStream *stream);
+
+void lexer_destruct(struct Lexer *lexer);
 
 bool lexer_tokenize(struct Lexer* const lexer);
 

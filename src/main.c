@@ -9,7 +9,7 @@ static void print_help(void) {
 }
 
 int main(int argc, char **argv) {
-    RaelStream stream;
+    RaelStream *stream;
     char **program_argv;
     size_t program_argc;
     bool warn_undefined = false, stream_defined = false;
@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Expected an input string after '%s' flag\n", arg);
                 return 1;
             }
-            stream_construct(&stream, argv[i], strlen(argv[i]), false, NULL);
+            stream = stream_new(argv[i], strlen(argv[i]), false, NULL);
             // skip string when setting argv
             ++i;
             program_argv = &argv[i];
@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
             return 0;
         } else {
             // try to set the stream
-            if (!load_file(arg, &stream)) {
+            if (!(stream = load_file(arg))) {
                 perror(arg);
                 return 1;
             }

@@ -2,6 +2,7 @@
 #define RAEL_COMMON_H
 
 #include "varmap.h"
+#include "stream.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,19 +44,6 @@ struct RaelInstance;
 
 typedef struct RaelInstance RaelInstance;
 
-typedef struct RaelStream {
-    /* Name of stream. This is usually the filename */
-    char *name;
-    /* Pointer to first char */
-    char *base;
-    /* Length of stream */
-    size_t length;
-    /* Pointer to current char */
-    char *cur;
-    /* This decides whether we can `free()` this */
-    bool on_heap;
-} RaelStream;
-
 struct RaelHybridNumber {
     bool is_float;
     union {
@@ -81,7 +69,7 @@ struct RaelInstance {
     /* Store previous instance */
     RaelInstance *prev;
 
-    RaelStream stream;
+    RaelStream *stream;
     struct Instruction **instructions;
     size_t idx;
 
@@ -97,7 +85,7 @@ struct RaelInterpreter {
     char **argv;
     size_t argc;
 
-    RaelStream main_stream;
+    RaelStream *main_stream;
     RaelInstance *instance;
     RaelModuleLoader *loaded_modules;
     unsigned int seed;
@@ -107,7 +95,7 @@ struct RaelInterpreter {
 };
 
 struct State {
-    RaelStream stream_pos;
+    RaelStreamPtr stream_pos;
     size_t line, column;
 };
 
@@ -121,16 +109,12 @@ typedef struct RaelArgumentList {
     RaelArgument *arguments;
 } RaelArgumentList;
 
-void stream_construct(RaelStream *stream, char *code, size_t length, bool on_heap, char *name);
-
-bool load_file(char* const filename, RaelStream *out);
-
-void rael_interpret(struct Instruction **instructions, RaelStream stream,
+void rael_interpret(struct Instruction **instructions, RaelStream *stream,
                     char* const exec_path, char **argv, size_t argc, const bool warn_undefined);
 
 void interpreter_destroy_all(RaelInterpreter* const interpreter);
 
-void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream stream,
+void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
                             struct Instruction **instructions, bool inherit_scope);
 
 void interpreter_interpret(RaelInterpreter *interpreter);

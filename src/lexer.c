@@ -17,10 +17,9 @@ void lexer_load_state(struct Lexer* const lexer, struct State state) {
 static void lexer_error(struct Lexer* const lexer, const char* const error_message, ...) {
     va_list va;
     va_start(va, error_message);
-    rael_show_error_message(lexer->stream.name, lexer_dump_state(lexer), error_message, va);
+    rael_show_error_message(lexer->stream.base->name, lexer_dump_state(lexer), error_message, va);
     va_end(va);
-    if (lexer->stream.on_heap)
-        free(lexer->stream.base);
+    lexer_destruct(lexer);
     exit(1);
 }
 
@@ -64,10 +63,14 @@ static bool lexer_clean(struct Lexer* const lexer) {
     return cleaned;
 }
 
-void lexer_construct(struct Lexer *lexer, RaelStream stream) {
-    lexer->stream = stream;
+void lexer_construct(struct Lexer *lexer, RaelStream *stream) {
+    stream_ptr_construct(&lexer->stream, stream, 0);
     lexer->line = 1;
     lexer->column = 1;
+}
+
+void lexer_destruct(struct Lexer *lexer) {
+    stream_ptr_destruct(&lexer->stream);
 }
 
 static bool lexer_match_keyword(struct Lexer* const lexer, const char* const keyword,

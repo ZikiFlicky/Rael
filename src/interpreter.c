@@ -61,7 +61,7 @@ static void interpreter_remove_modules(RaelInterpreter *interpreter) {
     }
 }
 
-void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream stream,
+void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
                             struct Instruction **instructions, bool inherit_scope) {
     RaelInstance *instance = malloc(sizeof(RaelInstance));
 
@@ -104,7 +104,7 @@ void interpreter_interpret(RaelInterpreter *interpreter) {
 void interpreter_error(RaelInterpreter* const interpreter, struct State state, const char* const error_message, ...) {
     va_list va;
     va_start(va, error_message);
-    rael_show_error_message(interpreter->instance->stream.name, state, error_message, va);
+    rael_show_error_message(interpreter->instance->stream->name, state, error_message, va);
     va_end(va);
     interpreter_destroy_all(interpreter);
     exit(1);
@@ -897,10 +897,9 @@ RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr
             ++state.stream_pos.cur;
         }
 
-        rael_show_error_tag(interpreter->instance->stream.name, state);
-        if (blame->message) {
+        rael_show_error_tag(interpreter->instance->stream->name, state);
+        if (blame->message)
             value_log(blame->message);
-        }
         printf("\n");
         rael_show_line_state(state);
         // dereference the blame value
@@ -1161,7 +1160,7 @@ static unsigned int generate_seed(void) {
     return (unsigned int)ts.tv_sec % (unsigned int)ts.tv_nsec;
 }
 
-void rael_interpret(struct Instruction **instructions, RaelStream stream,
+void rael_interpret(struct Instruction **instructions, RaelStream *stream,
                     char* const exec_path, char **argv, size_t argc, const bool warn_undefined) {
     unsigned int seed = generate_seed();
     RaelInterpreter interpreter = {

@@ -12,7 +12,7 @@ static void match_case_delete(struct MatchCase *match_case);
 void block_delete(struct Instruction **block);
 
 static inline char *parser_get_filename(struct Parser* const parser) {
-    return parser->lexer.stream.name;
+    return parser->lexer.stream.base->name;
 }
 
 static inline void internal_parser_state_error(struct Parser* const parser, struct State state,
@@ -27,9 +27,7 @@ static inline void internal_parser_state_error(struct Parser* const parser, stru
         instruction_delete(parser->instructions[i]);
 
     free(parser->instructions);
-    if (parser->lexer.stream.on_heap)
-        free(parser->lexer.stream.base);
-
+    lexer_destruct(&parser->lexer);
     exit(1);
 }
 
@@ -1419,7 +1417,7 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     return NULL;
 }
 
-static void parser_construct(struct Parser *parser, RaelStream stream) {
+static void parser_construct(struct Parser *parser, RaelStream *stream) {
     lexer_construct(&parser->lexer, stream);
     parser->idx = 0;
     parser->allocated = 0;
@@ -1428,7 +1426,11 @@ static void parser_construct(struct Parser *parser, RaelStream stream) {
     parser->in_loop = false;
 }
 
-struct Instruction **rael_parse(RaelStream stream) {
+static void parser_destruct(struct Parser* parser) {
+    lexer_destruct(&parser->lexer);
+}
+
+struct Instruction **rael_parse(RaelStream *stream) {
     struct State backtrack;
     struct Instruction *inst;
     struct Parser parser;
@@ -1447,6 +1449,8 @@ struct Instruction **rael_parse(RaelStream stream) {
 
     // push a terminating NULL
     parser_push(&parser, NULL);
+    // remove the parser, but not its instructions
+    parser_destruct(&parser);
     return parser.instructions;
 }
 
