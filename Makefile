@@ -14,10 +14,11 @@ OBJECTS=lexer.o parser.o interpreter.o value.o number.o main.o common.o string.o
 
 .PHONY: clean all debug
 
-all: clean $(BUILDDIR)/$(NAME)
-
 debug: CFLAGS+=-g
-debug: all
+debug: clean $(BUILDDIR)/$(NAME)
+
+all: CFLAGS+=-DNDEBUG
+all: clean $(BUILDDIR)/$(NAME)
 
 $(BUILDDIR):
 	$(MKDIR) $@
