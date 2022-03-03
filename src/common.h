@@ -14,11 +14,15 @@
 #define RAEL_CONSTANT_2PI 6.283185307179586
 #define RAEL_CONSTANT_E 2.718281828459045
 
+#ifndef NDEBUG /* if we show assetions */
 #define RAEL_UNREACHABLE()                                                               \
     do {                                                                                 \
         fprintf(stderr, "Unreachable code block reached (%s:%d)\n", __FILE__, __LINE__); \
         abort();                                                                         \
     } while(0)
+#else /* if we ignore assertions */
+#define RAEL_UNREACHABLE() do {} while(0)
+#endif
 
 typedef long RaelInt;
 typedef double RaelFloat;
