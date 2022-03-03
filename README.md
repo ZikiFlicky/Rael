@@ -30,16 +30,21 @@ Make sure you have sdl2 installed.
 
 To install sdl2 on Ubuntu, run `sudo apt install libsdl2-dev`
 
-To build, run `make`.
+To build for use purpose, run `make all`.
 
-To run the tests, run `python runtests.py`
+To build for development-related purposes, run `make` or `make debug` (they're identical).
+
+`make debug` enables debug features in the compiler, and `make all` disables assertions
+and should be a bit faster due to that.
+
+To run the tests, run `python runtests.py`.
 
 ## Usage
-To run a file, `build/rael filename.rael`
+To run a file, `build/rael filename.rael`.
 
 ## Examples
 Examples can be found in the examples directory.
 
-They can be run like this: `build/rael examples/beer.rael`
+They can be run like this: `build/rael examples/beer.rael`.
 
 ![The Rael programming language logo|400x400](rael_logo.png)
