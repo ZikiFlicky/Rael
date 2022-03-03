@@ -37,7 +37,9 @@ To build for development-related purposes, run `make` or `make debug` (they're i
 `make debug` enables debug features in the compiler, and `make all` disables assertions
 and should be a bit faster due to that.
 
-To run the tests, run `python runtests.py`.
+To run the tests, run `python runtests.py` or `build/rael runtests.rael`.
+
+Running `build/rael runtests.rael` is not recommended, because changes to the source code may impact how we run the file.
 
 ## Usage
 To run a file, `build/rael filename.rael`.
