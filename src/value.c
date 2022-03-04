@@ -316,13 +316,13 @@ RaelValue *value_get_key(RaelValue *self, char *key, RaelInterpreter *interprete
     return void_new();
 }
 
-void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate_key_on_free) {
-    varmap_set(&self->keys, key, value, true, deallocate_key_on_free);
+void value_set_key(RaelValue *self, char *key, RaelValue *value) {
+    varmap_set(&self->keys, key, value, true, true);
 }
 
-void value_set_int(RaelValue *value, char *key, RaelInt i, bool deallocate_key_on_free) {
+void value_set_int(RaelValue *value, char *key, RaelInt i) {
     RaelValue *number = number_newi(i);
-    value_set_key(value, key, number, deallocate_key_on_free);
+    value_set_key(value, key, number);
     value_deref(number);
 }
 

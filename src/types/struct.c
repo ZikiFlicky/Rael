@@ -7,7 +7,7 @@ RaelStructValue *struct_new(char *name) {
 }
 
 void struct_add_entry(RaelStructValue *self, char *name, RaelValue *value) {
-    value_set_key((RaelValue*)self, name, value, true);
+    value_set_key((RaelValue*)self, name, value);
 }
 
 void struct_repr(RaelStructValue *self) {

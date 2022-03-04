@@ -14,6 +14,15 @@ void instance_delete(RaelInstance *instance) {
     free(instance);
 }
 
+/* this is basically our own implementation of strdup */
+char *rael_cstr_duplicate(char *cstr) {
+    size_t length = strlen(cstr);
+    char *new_cstr = malloc((length + 1) * sizeof(char));
+    strncpy(new_cstr, cstr, length);
+    new_cstr[length] = '\0';
+    return new_cstr;
+}
+
 RaelInt rael_int_abs(RaelInt i) {
     if (i < 0) {
         return -i;

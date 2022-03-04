@@ -123,6 +123,8 @@ void interpreter_delete_instance(RaelInterpreter* const interpreter);
 
 void instance_delete(RaelInstance *instance);
 
+char *rael_cstr_duplicate(char *cstr);
+
 RaelInt rael_int_abs(RaelInt i);
 
 RaelFloat rael_float_abs(RaelFloat f);

@@ -143,7 +143,7 @@ static void file_set_opentype(RaelFileValue *self, enum FileOpenType type) {
 
 static void file_set_mode_member(RaelFileValue *self) {
     RaelValue *member = number_newi((RaelInt)self->opentype);
-    value_set_key((RaelValue*)self, RAEL_HEAPSTR("OpenMode"), member, true);
+    value_set_key((RaelValue*)self, RAEL_HEAPSTR("OpenMode"), member);
     // deref local reference
     value_deref(member);
 }
@@ -223,7 +223,7 @@ RaelValue *file_construct(RaelArgumentList *args, RaelInterpreter *interpreter) 
     file_set_opentype(file, open_type);
 
     // set the name as an inner key
-    value_set_key((RaelValue*)file, RAEL_HEAPSTR("Name"), (RaelValue*)string_filename, true);
+    value_set_key((RaelValue*)file, RAEL_HEAPSTR("Name"), (RaelValue*)string_filename);
     // set the OpenMode member
     file_set_mode_member(file);
 

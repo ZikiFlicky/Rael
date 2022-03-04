@@ -79,9 +79,9 @@ RaelValue *window_construct(RaelArgumentList *args, RaelInterpreter *interpreter
     window_value->height = height;
 
     /* Store the width and height in the window value */
-    value_set_int((RaelValue*)window_value, RAEL_HEAPSTR("Width"), width, true);
-    value_set_int((RaelValue*)window_value, RAEL_HEAPSTR("Height"), height, true);
-    value_set_key((RaelValue*)window_value, RAEL_HEAPSTR("Name"), (RaelValue*)name_string, true);
+    value_set_int((RaelValue*)window_value, RAEL_HEAPSTR("Width"), width);
+    value_set_int((RaelValue*)window_value, RAEL_HEAPSTR("Height"), height);
+    value_set_key((RaelValue*)window_value, RAEL_HEAPSTR("Name"), (RaelValue*)name_string);
 
     free(title);
     return (RaelValue*)window_value;
@@ -495,9 +495,9 @@ RaelValue *color_new(uint8_t r, uint8_t g, uint8_t b) {
     self->r = r;
     self->g = g;
     self->b = b;
-    value_set_key((RaelValue*)self, RAEL_HEAPSTR("R"), number_newi(r), true);
-    value_set_key((RaelValue*)self, RAEL_HEAPSTR("G"), number_newi(g), true);
-    value_set_key((RaelValue*)self, RAEL_HEAPSTR("B"), number_newi(b), true);
+    value_set_key((RaelValue*)self, RAEL_HEAPSTR("R"), number_newi(r));
+    value_set_key((RaelValue*)self, RAEL_HEAPSTR("G"), number_newi(g));
+    value_set_key((RaelValue*)self, RAEL_HEAPSTR("B"), number_newi(b));
     return (RaelValue*)self;
 }
 

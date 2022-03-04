@@ -217,11 +217,11 @@ RaelValue *value_cast(RaelValue *value, RaelTypeValue *type);
 /* value:key */
 RaelValue *value_get_key(RaelValue *self, char *key, RaelInterpreter *interpreter);
 
-/* value:key ?= */
-void value_set_key(RaelValue *self, char *key, RaelValue *value, bool deallocate_key_on_free);
+/* value:key ?= value. notice that key will be freed, so it mustn't be a shared key (like an ast one) */
+void value_set_key(RaelValue *self, char *key, RaelValue *value);
 
-/* value:key ?= somenumber */
-void value_set_int(RaelValue *value, char *key, RaelInt i, bool deallocate_key_on_free);
+/* value:key ?= i. same rules as value_set_key are applied here */
+void value_set_int(RaelValue *value, char *key, RaelInt i);
 
 /* value at range */
 RaelValue *value_slice(RaelValue *self, size_t start, size_t end);

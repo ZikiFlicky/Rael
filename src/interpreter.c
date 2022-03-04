@@ -157,8 +157,12 @@ static RaelValue *value_eval(RaelInterpreter* const interpreter, struct ValueExp
         for (size_t i = 0; ast_routine.block[i]; ++i)
             instruction_ref(ast_routine.block[i]);
 
+        // copy parameters
+        new_routine->parameters = malloc(ast_routine.amount_parameters * sizeof(char*));
+        for (size_t i = 0; i < ast_routine.amount_parameters; ++i)
+            new_routine->parameters[i] = rael_cstr_duplicate(ast_routine.parameters[i]);
+
         new_routine->block = ast_routine.block;
-        new_routine->parameters = ast_routine.parameters;
         new_routine->amount_parameters = ast_routine.amount_parameters;
         new_routine->scope = interpreter->instance->scope;
 
@@ -785,7 +789,7 @@ RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr
         case SetTypeKey:
             value = expr_eval(interpreter, set.expr, true);
             // this also adds a new reference
-            scope_set(interpreter->instance->scope, set.as_key, value, false);
+            scope_set(interpreter->instance->scope, rael_cstr_duplicate(set.as_key), value, true);
             break;
         case SetTypeMember: {
             struct GetMemberExpr get_member = set.as_member->as_get_member;
@@ -795,7 +799,7 @@ RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr
             // get the member's value
             value = expr_eval(interpreter, set.expr, true);
             // set the member
-            value_set_key(lhs, get_member.key, value, false);
+            value_set_key(lhs, rael_cstr_duplicate(get_member.key), value);
 
             value_deref(lhs);
             break;
@@ -982,7 +986,7 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
             iteration_value = value_get(iterator, i);
 
             // set the iteration value and deref, because the value is already referenced in scope_set_local
-            scope_set_local(interpreter->instance->scope, loop->iterate.key, iteration_value, false);
+            scope_set_local(interpreter->instance->scope, rael_cstr_duplicate(loop->iterate.key), iteration_value, true);
             value_deref(iteration_value);
 
             // run the block of code
@@ -1126,14 +1130,14 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
                     message = void_new();
                 }
                 // set the message as the key
-                scope_set(interpreter->instance->scope, catch->value_key, message, false);
+                scope_set(interpreter->instance->scope, rael_cstr_duplicate(catch->value_key), message, true);
                 // dereference the value because it's already being referenced in scope_set
                 value_deref(message);
             }
             block_run(interpreter, catch->handle_block, true);
         } else if (catch->else_block) {
             if (catch->value_key) {
-                scope_set(interpreter->instance->scope, catch->value_key, caught_value, false);
+                scope_set(interpreter->instance->scope, rael_cstr_duplicate(catch->value_key), caught_value, true);
             }
             block_run(interpreter, catch->else_block, true);
         }
@@ -1148,7 +1152,7 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
         if (!module)
             interpreter_error(interpreter, instruction->state, "Unknown module name");
         // set the module
-        scope_set(interpreter->instance->scope, instruction->load.module_name, module, false);
+        scope_set(interpreter->instance->scope, rael_cstr_duplicate(instruction->load.module_name), module, true);
         // deref because the value is referenced when set
         value_deref(module);
         break;
