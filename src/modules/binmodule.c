@@ -31,8 +31,16 @@ static RaelInt bin_xnor(RaelInt a, RaelInt b) {
     return ~(a ^ b);
 }
 
+static RaelInt bin_shl(RaelInt a, RaelInt b) {
+    return a << b;
+}
+
+static RaelInt bin_shr(RaelInt a, RaelInt b) {
+    return a >> b;
+}
+
 /*
- * This function is called by bin operations (xor, or, nor) and takes 2 or more arguments.
+ * This function is called by bin operations (xor, and etc) and takes 2 or more arguments.
  * The function is also given an function pointer for the function that is run on the two numbers,
  * like bin_or, bin_nand etc...
  * If more than 2 arguments are given, the result of every operation is fed back into a new expression.
@@ -114,6 +122,16 @@ RaelValue *module_bin_Not(RaelArgumentList *args, RaelInterpreter *interpreter) 
     return number_newi(~number_to_int(number));
 }
 
+RaelValue *module_bin_Shl(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    assert(arguments_amount(args) == 2);
+    return run_bin_op(args, interpreter, bin_shl);
+}
+
+RaelValue *module_bin_Shr(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    assert(arguments_amount(args) == 2);
+    return run_bin_op(args, interpreter, bin_shr);
+}
+
 RaelValue *module_bin_new(RaelInterpreter *interpreter) {
     RaelModuleValue *m;
 
@@ -127,6 +145,8 @@ RaelValue *module_bin_new(RaelInterpreter *interpreter) {
     module_set_key(m, RAEL_HEAPSTR("Nor"), cfunc_unlimited_new(RAEL_HEAPSTR("BinNor"), module_bin_Nor, 2));
     module_set_key(m, RAEL_HEAPSTR("Xnor"), cfunc_unlimited_new(RAEL_HEAPSTR("BinXnor"), module_bin_Xnor, 2));
     module_set_key(m, RAEL_HEAPSTR("Not"), cfunc_new(RAEL_HEAPSTR("BinNot"), module_bin_Not, 1));
+    module_set_key(m, RAEL_HEAPSTR("Shl"), cfunc_new(RAEL_HEAPSTR("BinShl"), module_bin_Shl, 2));
+    module_set_key(m, RAEL_HEAPSTR("Shr"), cfunc_new(RAEL_HEAPSTR("BinShr"), module_bin_Shr, 2));
 
     return (RaelValue*)m;
 }

@@ -43,3 +43,9 @@ log :Bin:Xnor(3, 7)
 log :Bin:Xnor(100, 100, 42)
 
 log :Bin:Not(100)
+
+log :Bin:Shl(3, 2)
+log :Bin:Shl(2, 10)
+
+log :Bin:Shr(256, 5)
+log :Bin:Shr(145, 2)
