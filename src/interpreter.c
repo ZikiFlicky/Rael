@@ -1110,13 +1110,13 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
         interpreter->instance->interrupt = ProgramInterruptSkip;
         break;
     case InstructionTypeCatch: {
-        struct CatchInstruction catch = instruction->catch;
-        RaelValue *caught_value = expr_eval(interpreter, catch.catch_expr, false);
+        struct CatchInstruction *catch = &instruction->catch;
+        RaelValue *caught_value = expr_eval(interpreter, catch->catch_expr, false);
 
         // handle blame
         if (blame_validate(caught_value)) {
             // if it is a catch with, set the message of the blame
-            if (catch.value_key) {
+            if (catch->value_key) {
                 RaelValue *message = ((RaelBlameValue*)caught_value)->message;
 
                 if (message) {
@@ -1126,16 +1126,16 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
                     message = void_new();
                 }
                 // set the message as the key
-                scope_set(interpreter->instance->scope, catch.value_key, message, false);
+                scope_set(interpreter->instance->scope, catch->value_key, message, false);
                 // dereference the value because it's already being referenced in scope_set
                 value_deref(message);
             }
-            block_run(interpreter, catch.handle_block, true);
-        } else if (catch.else_block) {
-            if (catch.value_key) {
-                scope_set(interpreter->instance->scope, catch.value_key, caught_value, false);
+            block_run(interpreter, catch->handle_block, true);
+        } else if (catch->else_block) {
+            if (catch->value_key) {
+                scope_set(interpreter->instance->scope, catch->value_key, caught_value, false);
             }
-            block_run(interpreter, catch.else_block, true);
+            block_run(interpreter, catch->else_block, true);
         }
 
         value_deref(caught_value);
