@@ -223,6 +223,8 @@ struct Parser {
 
 struct Instruction **rael_parse(RaelStream *stream);
 
+struct Expr *rael_parse_expr(RaelStream *stream);
+
 void instruction_ref(struct Instruction *instruction);
 
 void instruction_deref(struct Instruction* const instruction);

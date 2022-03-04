@@ -1458,6 +1458,23 @@ struct Instruction **rael_parse(RaelStream *stream) {
     return parser.instructions;
 }
 
+struct Expr *rael_parse_expr(RaelStream *stream) {
+    struct Parser parser;
+    struct Expr *expr;
+
+    parser_construct(&parser, stream);
+    parser_maybe_expect_newline(&parser);
+    expr = parser_parse_expr(&parser);
+    if (!expr)
+        return NULL;
+    if (!parser_maybe_expect_newline(&parser)) {
+        expr_delete(expr);
+        return NULL;
+    }
+    parser_destruct(&parser);
+    return expr;
+}
+
 static void match_case_delete(struct MatchCase *match_case) {
     exprlist_delete(&match_case->match_exprs);
     block_delete(match_case->case_block);

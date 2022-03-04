@@ -107,6 +107,98 @@ RaelValue *module_system_Exit(RaelArgumentList *args, RaelInterpreter *interpret
     return void_new();
 }
 
+RaelValue *module_system_Run(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    RaelValue *arg;
+    RaelStringValue *string;
+    RaelStream *stream;
+    char *code;
+    struct Instruction **instructions;
+    bool new_scope;
+
+    assert(arguments_amount(args) >= 1 && arguments_amount(args) <= 2);
+
+    // get first argument
+    arg = arguments_get(args, 0);
+    if (arg->type != &RaelStringType)
+        return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
+    string = (RaelStringValue*)arg;
+    code = string_to_cstr(string);
+
+
+    // get the rest of the arguments
+    switch (arguments_amount(args)) {
+    case 1:
+        new_scope = false;
+        break;
+    case 2:
+        arg = arguments_get(args, 1);
+        new_scope = value_truthy(arg);
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+
+    stream = stream_new(code, string_length(string), true, NULL);
+
+    // parse the string
+    instructions = rael_parse(stream);
+    // create a new instance that inherits our current scope
+    interpreter_new_instance(interpreter, stream, instructions, !new_scope);
+    // run
+    interpreter_interpret(interpreter);
+    // remove the new instance and return to the previous one
+    interpreter_delete_instance(interpreter);
+
+    return void_new();
+}
+
+RaelValue *module_system_Eval(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    RaelValue *arg;
+    RaelStringValue *string;
+    RaelStream *stream;
+    char *code;
+    struct Expr *expr;
+    RaelValue *evaluated;
+    bool new_scope;
+
+    assert(arguments_amount(args) >= 1 && arguments_amount(args) <= 2);
+
+    // get first argument
+    arg = arguments_get(args, 0);
+    if (arg->type != &RaelStringType)
+        return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
+    string = (RaelStringValue*)arg;
+    code = string_to_cstr(string);
+
+    // get the rest of the arguments
+    switch (arguments_amount(args)) {
+    case 1:
+        new_scope = false;
+        break;
+    case 2:
+        arg = arguments_get(args, 1);
+        new_scope = value_truthy(arg);
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+
+    stream = stream_new(code, string_length(string), true, NULL);
+
+    interpreter_new_instance(interpreter, stream, NULL, !new_scope);
+    if (!(expr = rael_parse_expr(stream)))
+        return BLAME_NEW_CSTR_ST("Cannot parse string", *arguments_state(args, 0));
+
+    // evaluate the expression
+    evaluated = expr_eval(interpreter, expr, true);
+    // remove the expression
+    expr_delete(expr);
+    // remove the last instance
+    interpreter_delete_instance(interpreter);
+
+    return evaluated;
+}
+
 static RaelValue *program_argv_stack_new(RaelInterpreter *interpreter) {
     RaelStackValue *stack = (RaelStackValue*)stack_new(interpreter->argc);
     for (size_t i = 0; i < interpreter->argc; ++i) {
@@ -136,6 +228,8 @@ RaelValue *module_system_new(RaelInterpreter *interpreter) {
     module_set_key(m, RAEL_HEAPSTR("RaelPath"), raelpath_string_new(interpreter));
     module_set_key(m, RAEL_HEAPSTR("ProgramArgv"), program_argv_stack_new(interpreter));
     module_set_key(m, RAEL_HEAPSTR("ProgramFilename"), program_filename_string_new(interpreter));
+    module_set_key(m, RAEL_HEAPSTR("Run"), cfunc_ranged_new(RAEL_HEAPSTR("Run"), (RaelRawCFunc)module_system_Run, 1, 2));
+    module_set_key(m, RAEL_HEAPSTR("Eval"), cfunc_ranged_new(RAEL_HEAPSTR("Eval"), (RaelRawCFunc)module_system_Eval, 1, 2));
     module_set_key(m, RAEL_HEAPSTR("RunShellCommand"), cfunc_new(RAEL_HEAPSTR("RunShellCommand"), (RaelRawCFunc)module_system_RunShellCommand, 1));
     module_set_key(m, RAEL_HEAPSTR("GetShellOutput"), cfunc_new(RAEL_HEAPSTR("GetShellOutput"), (RaelRawCFunc)module_system_GetShellOutput, 1));
     module_set_key(m, RAEL_HEAPSTR("Exit"), cfunc_ranged_new(RAEL_HEAPSTR("Exit"), (RaelRawCFunc)module_system_Exit, 0, 1));

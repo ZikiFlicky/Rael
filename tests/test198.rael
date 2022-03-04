@@ -1,0 +1,43 @@
+load :System
+
+%% Test :System:Eval
+catch :System:Eval(2) with :err {
+    log :err
+}
+
+log :System:Eval("1 + 2 * 5")
+
+:a ?= 10
+
+log :System:Eval(":a - 2")
+
+log :System:Eval(":a + 2", 0)
+
+log :System:Eval(":a", 1)
+
+%% Test :System:Run
+catch :System:Run(2) with :err {
+    log :err
+}
+
+log :System:Run("log 1 + 2 * 5\nlog \"string\"")
+
+:a ?= 10
+
+:command ?= ":b ?= 4\nlog :a, :b"
+
+:System:Run(:command) %% Inherit scope
+
+log ":b is", :b
+
+:b ?= 3
+
+:System:Run(:command, 0) %% Inherit scope
+
+log ":b is", :b
+
+:b ?= 10
+
+:System:Run(:command, 1) %% Don't inherit scope
+
+log ":b is", :b
