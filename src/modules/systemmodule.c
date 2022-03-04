@@ -12,6 +12,7 @@ void block_delete(struct Instruction **block);
 RaelValue *module_system_RunShellCommand(RaelArgumentList *args, RaelInterpreter *interpreter) {
     char *command_cstr;
     RaelValue *arg1;
+    int exit_code;
 
     (void)interpreter;
     assert(arguments_amount(args) == 1);
@@ -26,11 +27,15 @@ RaelValue *module_system_RunShellCommand(RaelArgumentList *args, RaelInterpreter
     command_cstr = string_to_cstr((RaelStringValue*)arg1);
 
     // run the command
-    system(command_cstr);
+    exit_code = system(command_cstr);
     // free heap-allocated string
     free(command_cstr);
 
-    return void_new();
+    if (exit_code == -1)
+        return BLAME_NEW_CSTR("Unable to create child process");
+
+    // shift to get only the exit code
+    return number_newi((RaelInt)(exit_code >> 8));
 }
 
 RaelValue *module_system_GetShellOutput(RaelArgumentList *args, RaelInterpreter *interpreter) {
