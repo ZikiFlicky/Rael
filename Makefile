@@ -9,8 +9,33 @@ NAME=rael
 RM=rm -f
 RMDIR=rm -rf
 
-OBJECTS=lexer.o parser.o interpreter.o value.o number.o main.o common.o string.o stack.o module.o range.o blame.o routine.o cfuncs.o struct.o varmap.o scope.o stream.o \
-		mathmodule.o typesmodule.o timemodule.o randommodule.o systemmodule.o filemodule.o functionalmodule.o binmodule.o graphicsmodule.o
+OBJECTS=main.o             \
+		lexer.o            \
+		parser.o           \
+		interpreter.o      \
+		value.o            \
+		number.o           \
+		common.o           \
+		string.o           \
+		stack.o            \
+		module.o           \
+		range.o            \
+		blame.o            \
+		routine.o          \
+		cfuncs.o           \
+		struct.o           \
+		varmap.o           \
+		scope.o            \
+		stream.o           \
+		mathmodule.o       \
+		typesmodule.o      \
+		timemodule.o       \
+		randommodule.o     \
+		systemmodule.o     \
+		filemodule.o       \
+		functionalmodule.o \
+		binmodule.o        \
+		graphicsmodule.o
 
 .PHONY: clean all debug
 
