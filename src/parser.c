@@ -1287,7 +1287,7 @@ static struct Instruction *parser_parse_instr_load(RaelParser* const parser) {
     return instruction;
 }
 
-static struct Instruction *parser_parse_if_statement(RaelParser* const parser) {
+static struct Instruction *parser_parse_instr_if(RaelParser* const parser) {
     struct Instruction *inst;
     struct IfInstruction if_stat = {
         .else_type = ElseTypeNone
@@ -1341,7 +1341,7 @@ end:
     return inst;
 }
 
-static struct Instruction *parser_parse_loop(RaelParser* const parser) {
+static struct Instruction *parser_parse_instr_loop(RaelParser* const parser) {
     struct Instruction *inst;
     struct LoopInstruction loop;
     struct State backtrack;
@@ -1408,8 +1408,8 @@ static struct Instruction *parser_parse_instr(RaelParser* const parser) {
     struct State prev_state = parser_dump_state(parser);
     if ((inst = parser_parse_instr_pure(parser))   ||
         (inst = parser_parse_instr_log(parser))    ||
-        (inst = parser_parse_if_statement(parser)) ||
-        (inst = parser_parse_loop(parser))         ||
+        (inst = parser_parse_instr_if(parser))     ||
+        (inst = parser_parse_instr_loop(parser))   ||
         (inst = parser_parse_instr_return(parser)) ||
         (inst = parser_parse_instr_single(parser)) ||
         (inst = parser_parse_instr_catch(parser))  ||
