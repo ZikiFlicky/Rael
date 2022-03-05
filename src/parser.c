@@ -1,21 +1,21 @@
 #include "rael.h"
 
-static struct Expr *parser_parse_expr(struct Parser* const parser);
-static struct Expr *parser_parse_expr_at(struct Parser* const parser);
-static struct Instruction *parser_parse_instr(struct Parser* const parser);
-static struct Instruction **parser_parse_block(struct Parser* const parser);
-static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines);
-static struct Expr *parser_parse_suffix(struct Parser* const parser);
+static struct Expr *parser_parse_expr(RaelParser* const parser);
+static struct Expr *parser_parse_expr_at(RaelParser* const parser);
+static struct Instruction *parser_parse_instr(RaelParser* const parser);
+static struct Instruction **parser_parse_block(RaelParser* const parser);
+static RaelExprList parser_parse_csv(RaelParser* const parser, const bool allow_newlines);
+static struct Expr *parser_parse_suffix(RaelParser* const parser);
 
 static void exprlist_delete(RaelExprList *list);
 static void match_case_delete(struct MatchCase *match_case);
 void block_delete(struct Instruction **block);
 
-static inline char *parser_get_filename(struct Parser* const parser) {
+static inline char *parser_get_filename(RaelParser* const parser) {
     return parser->lexer.stream.base->name;
 }
 
-static inline void internal_parser_state_error(struct Parser* const parser, struct State state,
+static inline void internal_parser_state_error(RaelParser* const parser, struct State state,
                                                const char* const error_message, va_list va) {
     rael_show_error_message(parser_get_filename(parser), state, error_message, va);
 
@@ -31,11 +31,11 @@ static inline void internal_parser_state_error(struct Parser* const parser, stru
     exit(1);
 }
 
-static inline struct State parser_dump_state(struct Parser* const parser) {
+static inline struct State parser_dump_state(RaelParser* const parser) {
     return lexer_dump_state(&parser->lexer);
 }
 
-static inline void parser_load_state(struct Parser* const parser, struct State state) {
+static inline void parser_load_state(RaelParser* const parser, struct State state) {
     lexer_load_state(&parser->lexer, state);
 }
 
@@ -62,19 +62,19 @@ void instruction_ref(struct Instruction *instruction) {
     ++instruction->refcount;
 }
 
-static void parser_state_error(struct Parser* const parser, struct State state, const char* const error_message, ...) {
+static void parser_state_error(RaelParser* const parser, struct State state, const char* const error_message, ...) {
     va_list va;
     va_start(va, error_message);
     internal_parser_state_error(parser, state, error_message, va);
 }
 
-static void parser_error(struct Parser* const parser, char* error_message, ...) {
+static void parser_error(RaelParser* const parser, char* error_message, ...) {
     va_list va;
     va_start(va, error_message);
     internal_parser_state_error(parser, parser_dump_state(parser), error_message, va);
 }
 
-static void parser_push(struct Parser* const parser, struct Instruction* const inst) {
+static void parser_push(RaelParser* const parser, struct Instruction* const inst) {
     if (parser->allocated == 0) {
         parser->instructions = malloc(((parser->allocated = 64)+1) * sizeof(struct Instruction*));
     } else if (parser->idx == 64) {
@@ -83,7 +83,7 @@ static void parser_push(struct Parser* const parser, struct Instruction* const i
     parser->instructions[parser->idx++] = inst;
 }
 
-static bool parser_match(struct Parser* const parser, enum TokenName token) {
+static bool parser_match(RaelParser* const parser, enum TokenName token) {
     struct State backtrack = parser_dump_state(parser);
 
     if (!lexer_tokenize(&parser->lexer))
@@ -97,7 +97,7 @@ static bool parser_match(struct Parser* const parser, enum TokenName token) {
     return true;
 }
 
-static void parser_expect_newline(struct Parser* const parser) {
+static void parser_expect_newline(RaelParser* const parser) {
     struct State backtrack = parser_dump_state(parser);
     if (lexer_tokenize(&parser->lexer)) {
         if (parser->lexer.token.name != TokenNameNewline) {
@@ -106,7 +106,7 @@ static void parser_expect_newline(struct Parser* const parser) {
     }
 }
 
-static bool parser_maybe_expect_newline(struct Parser* const parser) {
+static bool parser_maybe_expect_newline(RaelParser* const parser) {
     struct State backtrack = parser_dump_state(parser);
     if (lexer_tokenize(&parser->lexer)) {
         if (parser->lexer.token.name != TokenNameNewline) {
@@ -117,7 +117,7 @@ static bool parser_maybe_expect_newline(struct Parser* const parser) {
     return true;
 }
 
-static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
+static struct ValueExpr *parser_parse_stack(RaelParser* const parser) {
     struct ValueExpr *value;
     RaelExprList stack;
     struct State backtrack = parser_dump_state(parser);
@@ -138,7 +138,7 @@ static struct ValueExpr *parser_parse_stack(struct Parser* const parser) {
     return value;
 }
 
-static struct ValueExpr *parser_parse_number(struct Parser* const parser) {
+static struct ValueExpr *parser_parse_number(RaelParser* const parser) {
     struct ValueExpr *value;
     struct RaelHybridNumber ast_number;
 
@@ -153,7 +153,7 @@ static struct ValueExpr *parser_parse_number(struct Parser* const parser) {
     return value;
 }
 
-static struct ValueExpr *parser_parse_routine(struct Parser* const parser) {
+static struct ValueExpr *parser_parse_routine(RaelParser* const parser) {
     struct ValueExpr *value;
     struct ASTRoutineValue decl;
     struct State backtrack;
@@ -230,7 +230,7 @@ static struct ValueExpr *parser_parse_routine(struct Parser* const parser) {
     return value;
 }
 
-static struct ValueExpr *parser_parse_string(struct Parser* const parser) {
+static struct ValueExpr *parser_parse_string(RaelParser* const parser) {
     struct ValueExpr *value;
     char *string = NULL;
     size_t allocated = 0, length = 0;
@@ -288,7 +288,7 @@ static struct ValueExpr *parser_parse_string(struct Parser* const parser) {
     return value;
 }
 
-static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
+static struct Expr *parser_parse_literal_expr(RaelParser* const parser) {
     struct Expr *expr;
     struct State backtrack = parser_dump_state(parser);
     struct ValueExpr *value;
@@ -322,7 +322,7 @@ static struct Expr *parser_parse_literal_expr(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_match(struct Parser* const parser) {
+static struct Expr *parser_parse_match(RaelParser* const parser) {
     struct Expr *expr; // the final match expression
     struct Expr *match_against; // the value you compare against
     struct MatchCase *match_cases; // an array of all of the with statements
@@ -446,7 +446,7 @@ static struct Expr *parser_parse_match(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr_set(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_set(RaelParser* const parser) {
     struct SetExpr set_expr;
     enum ExprType type;
     struct Expr *at_set, *full_expr;
@@ -527,7 +527,7 @@ error:
     return NULL;
 }
 
-static struct Expr *parser_parse_paren_expr(struct Parser* const parser) {
+static struct Expr *parser_parse_paren_expr(RaelParser* const parser) {
     struct State full_backtrack = parser_dump_state(parser);
     struct State backtrack;
     struct Expr *expr;
@@ -563,7 +563,7 @@ static struct Expr *parser_parse_paren_expr(struct Parser* const parser) {
 }
 
 /* suffix parsing */
-static struct Expr *parser_parse_suffix(struct Parser* const parser) {
+static struct Expr *parser_parse_suffix(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_paren_expr(parser)) &&
@@ -607,7 +607,7 @@ static struct Expr *parser_parse_suffix(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_single(RaelParser* const parser) {
     struct Expr *expr;
     struct State backtrack = parser_dump_state(parser);;
 
@@ -681,7 +681,7 @@ static struct Expr *parser_parse_expr_single(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr_product(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_product(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_single(parser)))
@@ -729,7 +729,7 @@ loop_end:
     return expr;
 }
 
-static struct Expr *parser_parse_expr_sum(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_sum(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_product(parser)))
@@ -769,7 +769,7 @@ loop_end:
 }
 
 
-static struct Expr *parser_parse_expr_range(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_range(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_sum(parser)))
@@ -799,7 +799,7 @@ static struct Expr *parser_parse_expr_range(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_at(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_range(parser)))
@@ -830,7 +830,7 @@ static struct Expr *parser_parse_expr_at(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr_comparison(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_comparison(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_at(parser)))
@@ -889,7 +889,7 @@ loop_end:
     return expr;
 }
 
-static struct Expr *parser_parse_expr_and(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_and(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_comparison(parser)))
@@ -919,7 +919,7 @@ static struct Expr *parser_parse_expr_and(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr_or(struct Parser* const parser) {
+static struct Expr *parser_parse_expr_or(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_and(parser)))
@@ -949,7 +949,7 @@ static struct Expr *parser_parse_expr_or(struct Parser* const parser) {
     return expr;
 }
 
-static struct Expr *parser_parse_expr(struct Parser* const parser) {
+static struct Expr *parser_parse_expr(RaelParser* const parser) {
     struct Expr *expr;
 
     if (!(expr = parser_parse_expr_or(parser)))
@@ -982,7 +982,7 @@ loop_end:
     return expr;
 }
 
-static struct Instruction *parser_parse_instr_pure(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_pure(RaelParser* const parser) {
     struct Instruction *inst;
     struct Expr *expr;
     struct State backtrack = parser_dump_state(parser);
@@ -1009,7 +1009,7 @@ end:
 }
 
 /* parse comma separated expressions (e1, e2, e3, e4, ...) */
-static RaelExprList parser_parse_csv(struct Parser* const parser, const bool allow_newlines) {
+static RaelExprList parser_parse_csv(RaelParser* const parser, const bool allow_newlines) {
     struct RaelExprListEntry *entries;
     struct Expr *expr;
     struct State backtrack, full_backtrack = parser_dump_state(parser);
@@ -1069,7 +1069,7 @@ static RaelExprList parser_parse_csv(struct Parser* const parser, const bool all
     };
 }
 
-static struct Instruction *parser_parse_instr_catch(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_catch(RaelParser* const parser) {
     struct Instruction *inst;
     struct CatchInstruction catch;
     struct Token key_token;
@@ -1141,7 +1141,7 @@ static struct Instruction *parser_parse_instr_catch(struct Parser* const parser)
     return inst;
 }
 
-static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_log(RaelParser* const parser) {
     struct Instruction *inst;
     RaelExprList expr_list;
 
@@ -1157,7 +1157,7 @@ static struct Instruction *parser_parse_instr_log(struct Parser* const parser) {
     return inst;
 }
 
-static struct Instruction *parser_parse_instr_show(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_show(RaelParser* const parser) {
     struct Instruction *inst;
     RaelExprList expr_list;
 
@@ -1175,7 +1175,7 @@ static struct Instruction *parser_parse_instr_show(struct Parser* const parser) 
     return inst;
 }
 
-static struct Instruction *parser_parse_instr_return(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_return(RaelParser* const parser) {
     struct Instruction *inst;
     struct Expr *expr;
     struct State backtrack = parser_dump_state(parser);
@@ -1202,7 +1202,7 @@ static struct Instruction *parser_parse_instr_return(struct Parser* const parser
     return inst;
 }
 
-static struct Instruction *parser_parse_instr_single(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_single(RaelParser* const parser) {
     struct Instruction *inst;
     struct State backtrack = parser_dump_state(parser);
     enum InstructionType type;
@@ -1231,7 +1231,7 @@ static struct Instruction *parser_parse_instr_single(struct Parser* const parser
     return inst;
 }
 
-static struct Instruction **parser_parse_block(struct Parser* const parser) {
+static struct Instruction **parser_parse_block(RaelParser* const parser) {
     struct Instruction **block;
     size_t allocated, idx = 0;
     struct State backtrack = parser_dump_state(parser);
@@ -1266,7 +1266,7 @@ static struct Instruction **parser_parse_block(struct Parser* const parser) {
     return block;
 }
 
-static struct Instruction *parser_parse_instr_load(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr_load(RaelParser* const parser) {
     struct Instruction *instruction;
     char *key;
     struct Token key_token;
@@ -1287,7 +1287,7 @@ static struct Instruction *parser_parse_instr_load(struct Parser* const parser) 
     return instruction;
 }
 
-static struct Instruction *parser_parse_if_statement(struct Parser* const parser) {
+static struct Instruction *parser_parse_if_statement(RaelParser* const parser) {
     struct Instruction *inst;
     struct IfInstruction if_stat = {
         .else_type = ElseTypeNone
@@ -1341,7 +1341,7 @@ end:
     return inst;
 }
 
-static struct Instruction *parser_parse_loop(struct Parser* const parser) {
+static struct Instruction *parser_parse_loop(RaelParser* const parser) {
     struct Instruction *inst;
     struct LoopInstruction loop;
     struct State backtrack;
@@ -1403,7 +1403,7 @@ loop_parsing_end:
     return inst;
 }
 
-static struct Instruction *parser_parse_instr(struct Parser* const parser) {
+static struct Instruction *parser_parse_instr(RaelParser* const parser) {
     struct Instruction *inst;
     struct State prev_state = parser_dump_state(parser);
     if ((inst = parser_parse_instr_pure(parser))     ||
@@ -1421,7 +1421,7 @@ static struct Instruction *parser_parse_instr(struct Parser* const parser) {
     return NULL;
 }
 
-static void parser_construct(struct Parser *parser, RaelStream *stream) {
+static void parser_construct(RaelParser *parser, RaelStream *stream) {
     lexer_construct(&parser->lexer, stream);
     parser->idx = 0;
     parser->allocated = 0;
@@ -1430,14 +1430,14 @@ static void parser_construct(struct Parser *parser, RaelStream *stream) {
     parser->in_loop = false;
 }
 
-static void parser_destruct(struct Parser* parser) {
+static void parser_destruct(RaelParser* parser) {
     lexer_destruct(&parser->lexer);
 }
 
 struct Instruction **rael_parse(RaelStream *stream) {
     struct State backtrack;
     struct Instruction *inst;
-    struct Parser parser;
+    RaelParser parser;
 
     parser_construct(&parser, stream);
     parser_maybe_expect_newline(&parser);
@@ -1459,7 +1459,7 @@ struct Instruction **rael_parse(RaelStream *stream) {
 }
 
 struct Expr *rael_parse_expr(RaelStream *stream) {
-    struct Parser parser;
+    RaelParser parser;
     struct Expr *expr;
 
     parser_construct(&parser, stream);

@@ -213,13 +213,13 @@ struct Instruction {
     };
 };
 
-struct Parser {
+typedef struct RaelParser {
     RaelLexer lexer;
     struct Instruction** instructions;
     size_t idx, allocated;
     bool in_loop;
     bool can_return;
-};
+} RaelParser;
 
 struct Instruction **rael_parse(RaelStream *stream);
 
