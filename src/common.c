@@ -1,19 +1,5 @@
 #include "rael.h"
 
-void instance_delete(RaelInstance *instance) {
-    if (!instance->inherit_scope) {
-        struct Scope *parent;
-        for (struct Scope *scope = instance->scope; scope; scope = parent) {
-            parent = scope->parent;
-            scope_delete(scope);
-        }
-    }
-    if (instance->instructions)
-        block_delete(instance->instructions);
-    stream_deref(instance->stream);
-    free(instance);
-}
-
 /* this is basically our own implementation of strdup */
 char *rael_cstr_duplicate(char *cstr) {
     size_t length = strlen(cstr);

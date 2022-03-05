@@ -30,6 +30,7 @@
 #include <time.h>
 #include <inttypes.h>
 
+#include "interpreter.h"
 #include "stream.h"
 #include "common.h"
 #include "lexer.h"

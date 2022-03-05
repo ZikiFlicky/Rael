@@ -1,9 +1,5 @@
 #include "rael.h"
 
-void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
-void interpreter_push_scope(RaelInterpreter* const interpreter);
-void interpreter_pop_scope(RaelInterpreter* const interpreter);
-
 RaelValue *routine_call(RaelRoutineValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     struct Scope *prev_scope;
     size_t amount_params = self->amount_parameters;

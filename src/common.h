@@ -1,7 +1,6 @@
 #ifndef RAEL_COMMON_H
 #define RAEL_COMMON_H
 
-#include "varmap.h"
 #include "stream.h"
 
 #include <stdio.h>
@@ -32,66 +31,12 @@ typedef struct RaelValue RaelValue;
 #define RAELINT_MAX LONG_MAX
 #define RAELFLOAT_MAX DBL_MAX
 
-struct VariableMap;
-
-struct RaelInterpreter;
-
-typedef struct RaelInterpreter RaelInterpreter;
-
-typedef RaelValue* (*RaelNewModuleFunc)(RaelInterpreter *interpreter);
-
-struct RaelInstance;
-
-typedef struct RaelInstance RaelInstance;
-
 struct RaelHybridNumber {
     bool is_float;
     union {
         RaelInt as_int;
         RaelFloat as_float;
     };
-};
-
-enum ProgramInterrupt {
-    ProgramInterruptNone,
-    ProgramInterruptBreak,
-    ProgramInterruptReturn,
-    ProgramInterruptSkip
-};
-
-typedef struct RaelModuleLoader {
-    char *name;
-    RaelNewModuleFunc module_creator;
-    RaelValue *module_cache;
-} RaelModuleLoader;
-
-struct RaelInstance {
-    /* Store previous instance */
-    RaelInstance *prev;
-
-    RaelStream *stream;
-    struct Instruction **instructions;
-    size_t idx;
-
-    /* If true, the scope is inherited from a different instance */
-    bool inherit_scope;
-    struct Scope *scope;
-    enum ProgramInterrupt interrupt;
-    RaelValue *returned_value;
-};
-
-struct RaelInterpreter {
-    char* const exec_path;
-    char **argv;
-    size_t argc;
-
-    RaelStream *main_stream;
-    RaelInstance *instance;
-    RaelModuleLoader *loaded_modules;
-    unsigned int seed;
-
-    // warnings
-    bool warn_undefined;
 };
 
 struct State {
@@ -108,20 +53,6 @@ typedef struct RaelArgumentList {
     size_t amount_arguments, amount_allocated;
     RaelArgument *arguments;
 } RaelArgumentList;
-
-void rael_interpret(struct Instruction **instructions, RaelStream *stream,
-                    char* const exec_path, char **argv, size_t argc, const bool warn_undefined);
-
-void interpreter_destroy_all(RaelInterpreter* const interpreter);
-
-void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
-                            struct Instruction **instructions, bool inherit_scope);
-
-void interpreter_interpret(RaelInterpreter *interpreter);
-
-void interpreter_delete_instance(RaelInterpreter* const interpreter);
-
-void instance_delete(RaelInstance *instance);
 
 char *rael_cstr_duplicate(char *cstr);
 

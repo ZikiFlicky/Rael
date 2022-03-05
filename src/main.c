@@ -14,6 +14,8 @@ int main(int argc, char **argv) {
     size_t program_argc;
     bool warn_undefined = false, stream_defined = false;
     struct Instruction **parsed;
+    RaelModuleLoader *modules;
+    RaelInterpreter interpreter;
 
     if (argc <= 1) {
         print_help();
@@ -58,8 +60,25 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    modules = (RaelModuleLoader[]) {
+        { "Types", module_types_new, NULL },
+        { "Math", module_math_new, NULL },
+        { "Time", module_time_new, NULL },
+        { "Random", module_random_new, NULL },
+        { "System", module_system_new, NULL },
+        { "File", module_file_new, NULL },
+        { "Functional", module_functional_new, NULL },
+        { "Bin", module_bin_new, NULL },
+        { "Graphics", module_graphics_new, NULL },
+        { NULL, NULL, NULL }
+    };
+
     parsed = rael_parse(stream);
-    rael_interpret(parsed, stream, argv[0], program_argv, program_argc, warn_undefined);
+
+    interpreter_construct(&interpreter, parsed, stream, argv[0], program_argv,
+                        program_argc, warn_undefined, modules);
+    interpreter_interpret(&interpreter);
+    interpreter_destruct(&interpreter);
 
     return 0;
 }

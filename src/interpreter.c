@@ -4,20 +4,21 @@ typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
 // TODO: add interpreter_set_variable function
 
-/* standard modules */
-RaelValue *module_math_new(RaelInterpreter *interpreter);
-RaelValue *module_types_new(RaelInterpreter *interpreter);
-RaelValue *module_time_new(RaelInterpreter *interpreter);
-RaelValue *module_random_new(RaelInterpreter *interpreter);
-RaelValue *module_system_new(RaelInterpreter *interpreter);
-RaelValue *module_file_new(RaelInterpreter *interpreter);
-RaelValue *module_functional_new(RaelInterpreter *interpreter);
-RaelValue *module_bin_new(RaelInterpreter *interpreter);
-RaelValue *module_graphics_new(RaelInterpreter *interpreter);
-
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
-RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
-void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
+
+void instance_delete(RaelInstance *instance) {
+    if (!instance->inherit_scope) {
+        struct Scope *parent;
+        for (struct Scope *scope = instance->scope; scope; scope = parent) {
+            parent = scope->parent;
+            scope_delete(scope);
+        }
+    }
+    if (instance->instructions)
+        block_delete(instance->instructions);
+    stream_deref(instance->stream);
+    free(instance);
+}
 
 void interpreter_push_scope(RaelInterpreter* const interpreter) {
     struct Scope *new_scope = scope_new(interpreter->instance->scope);
@@ -61,19 +62,27 @@ static void interpreter_remove_modules(RaelInterpreter *interpreter) {
     }
 }
 
-void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
-                            struct Instruction **instructions, bool inherit_scope) {
+RaelInstance *instance_new(RaelInstance *previous_instance, RaelStream *stream,
+                        struct Instruction **instructions, struct Scope *scope) {
     RaelInstance *instance = malloc(sizeof(RaelInstance));
 
-    instance->prev = interpreter->instance;
+    instance->prev = previous_instance;
     instance->idx = 0;
     instance->instructions = instructions;
     instance->interrupt = ProgramInterruptNone;
     instance->returned_value = NULL;
-    instance->inherit_scope = inherit_scope;
-    instance->scope = inherit_scope ? interpreter->instance->scope : scope_new(NULL);
+    instance->inherit_scope = scope ? true : false;
+    instance->scope = scope ? scope : scope_new(NULL);
     instance->stream = stream;
-    interpreter->instance = instance;
+
+    return instance;
+}
+
+void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
+                            struct Instruction **instructions, bool inherit_scope) {
+    interpreter->instance = instance_new(interpreter->instance,
+                                        stream, instructions,
+                                        inherit_scope ? interpreter->instance->scope : NULL);
 }
 
 void interpreter_delete_instance(RaelInterpreter* const interpreter) {
@@ -82,8 +91,38 @@ void interpreter_delete_instance(RaelInterpreter* const interpreter) {
     instance_delete(instance);
 }
 
+static unsigned int generate_seed(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (unsigned int)ts.tv_sec % (unsigned int)ts.tv_nsec;
+}
+
+void interpreter_construct(RaelInterpreter *out, struct Instruction **instructions, RaelStream *stream,
+                        char* const exec_path, char **arguments, size_t amount_arguments,
+                        const bool warn_undefined, RaelModuleLoader *modules) {
+    unsigned int seed = generate_seed();
+
+    out->exec_path = exec_path;
+    out->argv = arguments;
+    out->argc = amount_arguments;
+
+    out->main_stream = stream;
+    out->instance = NULL;
+
+    out->loaded_modules = modules;
+
+    // seed the random number generator
+    srand(seed);
+    out->seed = seed;
+
+    out->warn_undefined = warn_undefined;
+
+    // create a new instance
+    interpreter_new_instance(out, stream, instructions, false);
+}
+
 /* make the interpreter deallocate everything it stores */
-void interpreter_destroy_all(RaelInterpreter* const interpreter) {
+void interpreter_destruct(RaelInterpreter* const interpreter) {
     // deallocate all of the scopes
     while (interpreter->instance)
         interpreter_delete_instance(interpreter);
@@ -106,7 +145,7 @@ void interpreter_error(RaelInterpreter* const interpreter, struct State state, c
     va_start(va, error_message);
     rael_show_error_message(interpreter->instance->stream->name, state, error_message, va);
     va_end(va);
-    interpreter_destroy_all(interpreter);
+    interpreter_destruct(interpreter);
     exit(1);
 }
 
@@ -912,7 +951,7 @@ RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr
         rael_show_line_state(state);
         // dereference the blame value
         value_deref(value);
-        interpreter_destroy_all(interpreter);
+        interpreter_destruct(interpreter);
         exit(1);
     }
 
@@ -1160,47 +1199,4 @@ static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struc
     default:
         RAEL_UNREACHABLE();
     }
-}
-
-static unsigned int generate_seed(void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    return (unsigned int)ts.tv_sec % (unsigned int)ts.tv_nsec;
-}
-
-void rael_interpret(struct Instruction **instructions, RaelStream *stream,
-                    char* const exec_path, char **argv, size_t argc, const bool warn_undefined) {
-    unsigned int seed = generate_seed();
-    RaelInterpreter interpreter = {
-        .exec_path = exec_path,
-        .argv = argv,
-        .argc = argc,
-
-        .main_stream = stream,
-        .instance = NULL,
-
-        .loaded_modules = (RaelModuleLoader[]) {
-            { "Types", module_types_new, NULL },
-            { "Math", module_math_new, NULL },
-            { "Time", module_time_new, NULL },
-            { "Random", module_random_new, NULL },
-            { "System", module_system_new, NULL },
-            { "File", module_file_new, NULL },
-            { "Functional", module_functional_new, NULL },
-            { "Bin", module_bin_new, NULL },
-            { "Graphics", module_graphics_new, NULL },
-            { NULL, NULL, NULL }
-        },
-        .seed = seed,
-
-        .warn_undefined = warn_undefined
-    };
-
-    interpreter_new_instance(&interpreter, stream, instructions, false);
-
-    // seed the random number generator
-    srand(seed);
-
-    interpreter_interpret(&interpreter);
-    interpreter_destroy_all(&interpreter);
 }

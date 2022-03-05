@@ -102,7 +102,7 @@ RaelValue *module_system_Exit(RaelArgumentList *args, RaelInterpreter *interpret
         RAEL_UNREACHABLE();
     }
 
-    interpreter_destroy_all(interpreter);
+    interpreter_destruct(interpreter);
     exit(exit_code);
     return void_new();
 }
