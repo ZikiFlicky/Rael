@@ -27,7 +27,7 @@ typedef struct RaelStreamPtr {
 
 RaelStream *stream_new(char *code, size_t length, bool on_heap, char *name);
 
-RaelStream *load_file(char* const filename);
+RaelStream *rael_load_file(char* const filename);
 
 void stream_ref(RaelStream *stream);
 

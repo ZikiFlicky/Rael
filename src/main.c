@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
             return 0;
         } else {
             // try to set the stream
-            if (!(stream = load_file(arg))) {
+            if (!(stream = rael_load_file(arg))) {
                 perror(arg);
                 return 1;
             }

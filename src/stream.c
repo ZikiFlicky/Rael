@@ -33,7 +33,7 @@ void stream_ptr_destruct(RaelStreamPtr *stream_ptr) {
     stream_deref(stream_ptr->base);
 }
 
-RaelStream *load_file(char* const filename) {
+RaelStream *rael_load_file(char* const filename) {
     FILE *file;
     char *allocated;
     size_t length;
