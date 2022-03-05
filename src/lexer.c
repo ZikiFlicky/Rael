@@ -93,15 +93,16 @@ bool lexer_tokenize(RaelLexer* const lexer) {
         return false;
     // tokenize a bunch of newlines as one newline
     if (lexer->stream.cur[0] == '\n') {
+        char *last_pos = lexer->stream.cur;
         lexer->token.name = TokenNameNewline;
         lexer->token.string = lexer->stream.cur;
-        lexer->token.length = 1;
         do {
             ++lexer->stream.cur;
             ++lexer->line;
             lexer->column = 1;
             lexer_clean(lexer);
         } while(lexer->stream.cur[0] == '\n');
+        lexer->token.length = lexer->stream.cur - last_pos;
         // if had newlines and was ended with a \0, count it as an eof
         if (lexer->stream.cur[0] == '\0')
             return false;
