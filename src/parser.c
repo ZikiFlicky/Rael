@@ -1406,14 +1406,14 @@ loop_parsing_end:
 static struct Instruction *parser_parse_instr(RaelParser* const parser) {
     struct Instruction *inst;
     struct State prev_state = parser_dump_state(parser);
-    if ((inst = parser_parse_instr_pure(parser))     ||
-        (inst = parser_parse_instr_log(parser))      ||
-        (inst = parser_parse_if_statement(parser))   ||
-        (inst = parser_parse_loop(parser))           ||
-        (inst = parser_parse_instr_return(parser))   ||
-        (inst = parser_parse_instr_single(parser))   ||
-        (inst = parser_parse_instr_catch(parser))    ||
-        (inst = parser_parse_instr_show(parser))     ||
+    if ((inst = parser_parse_instr_pure(parser))   ||
+        (inst = parser_parse_instr_log(parser))    ||
+        (inst = parser_parse_if_statement(parser)) ||
+        (inst = parser_parse_loop(parser))         ||
+        (inst = parser_parse_instr_return(parser)) ||
+        (inst = parser_parse_instr_single(parser)) ||
+        (inst = parser_parse_instr_catch(parser))  ||
+        (inst = parser_parse_instr_show(parser))   ||
         (inst = parser_parse_instr_load(parser))) {
         inst->state = prev_state;
         return inst;
