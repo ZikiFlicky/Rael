@@ -31,6 +31,19 @@ static inline void internal_parser_state_error(RaelParser* const parser, struct 
     exit(1);
 }
 
+static void parser_construct(RaelParser *parser, RaelStream *stream) {
+    lexer_construct(&parser->lexer, stream);
+    parser->idx = 0;
+    parser->allocated = 0;
+    parser->instructions = NULL;
+    parser->can_return = false;
+    parser->in_loop = false;
+}
+
+static void parser_destruct(RaelParser* parser) {
+    lexer_destruct(&parser->lexer);
+}
+
 static inline struct State parser_dump_state(RaelParser* const parser) {
     return lexer_dump_state(&parser->lexer);
 }
@@ -1419,19 +1432,6 @@ static struct Instruction *parser_parse_instr(RaelParser* const parser) {
         return inst;
     }
     return NULL;
-}
-
-static void parser_construct(RaelParser *parser, RaelStream *stream) {
-    lexer_construct(&parser->lexer, stream);
-    parser->idx = 0;
-    parser->allocated = 0;
-    parser->instructions = NULL;
-    parser->can_return = false;
-    parser->in_loop = false;
-}
-
-static void parser_destruct(RaelParser* parser) {
-    lexer_destruct(&parser->lexer);
 }
 
 struct Instruction **rael_parse(RaelStream *stream) {
