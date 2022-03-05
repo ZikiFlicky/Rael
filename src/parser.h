@@ -214,7 +214,7 @@ struct Instruction {
 };
 
 struct Parser {
-    struct Lexer lexer;
+    RaelLexer lexer;
     struct Instruction** instructions;
     size_t idx, allocated;
     bool in_loop;
