@@ -7,6 +7,8 @@
 typedef struct RaelInterpreter RaelInterpreter;
 typedef struct RaelInstance RaelInstance;
 typedef RaelValue* (*RaelNewModuleFunc)(RaelInterpreter *interpreter);
+typedef void (*RaelInstructionRunFunc)(RaelInterpreter*, RaelInstruction*);
+struct Expr;
 
 enum ProgramInterrupt {
     ProgramInterruptNone,
@@ -20,7 +22,7 @@ struct RaelInstance {
     RaelInstance *prev;
 
     RaelStream *stream;
-    struct Instruction **instructions;
+    RaelInstruction **instructions;
     size_t idx;
 
     /* If true, the scope is inherited from a different instance */
@@ -63,14 +65,14 @@ RaelValue *module_bin_new(RaelInterpreter *interpreter);
 RaelValue *module_graphics_new(RaelInterpreter *interpreter);
 
 /* interpreter functions */
-void interpreter_construct(RaelInterpreter *out, struct Instruction **instructions, RaelStream *stream,
+void interpreter_construct(RaelInterpreter *out, RaelInstruction **instructions, RaelStream *stream,
                         char* const exec_path, char **arguments, size_t amount_arguments,
                         const bool warn_undefined, RaelModuleLoader *modules);
 
 void interpreter_destruct(RaelInterpreter* const interpreter);
 
 void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
-                            struct Instruction **instructions, bool inherit_scope);
+                            RaelInstruction **instructions, bool inherit_scope);
 
 void interpreter_interpret(RaelInterpreter *interpreter);
 
@@ -82,11 +84,11 @@ void interpreter_pop_scope(RaelInterpreter* const interpreter);
 
 RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
 
-void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
+void block_run(RaelInterpreter* const interpreter, RaelInstruction **block, bool create_new_scope);
 
 /* instance functions */
 RaelInstance *instance_new(RaelInstance *previous_instance, RaelStream *stream,
-                        struct Instruction **instructions, struct Scope *scope);
+                        RaelInstruction **instructions, struct Scope *scope);
 
 void instance_delete(RaelInstance *instance);
 

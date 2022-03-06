@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
     char **program_argv;
     size_t program_argc;
     bool warn_undefined = false, stream_defined = false;
-    struct Instruction **parsed;
+    RaelInstruction **parsed;
     RaelModuleLoader *modules;
     RaelInterpreter interpreter;
 

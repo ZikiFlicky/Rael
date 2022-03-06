@@ -10,7 +10,7 @@ typedef struct RaelRoutineValue {
     struct Scope *scope;
     char **parameters;
     size_t amount_parameters;
-    struct Instruction **block;
+    RaelInstruction **block;
 } RaelRoutineValue;
 
 #endif /* RAEL_ROUTINE_H */

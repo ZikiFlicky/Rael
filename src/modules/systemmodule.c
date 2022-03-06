@@ -6,8 +6,8 @@
  */
 
 RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
-void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope);
-void block_delete(struct Instruction **block);
+void block_run(RaelInterpreter* const interpreter, RaelInstruction **block, bool create_new_scope);
+void block_delete(RaelInstruction **block);
 
 RaelValue *module_system_RunShellCommand(RaelArgumentList *args, RaelInterpreter *interpreter) {
     char *command_cstr;
@@ -112,7 +112,7 @@ RaelValue *module_system_Run(RaelArgumentList *args, RaelInterpreter *interprete
     RaelStringValue *string;
     RaelStream *stream;
     char *code;
-    struct Instruction **instructions;
+    RaelInstruction **instructions;
     bool new_scope;
 
     assert(arguments_amount(args) >= 1 && arguments_amount(args) <= 2);

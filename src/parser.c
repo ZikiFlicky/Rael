@@ -2,14 +2,14 @@
 
 static struct Expr *parser_parse_expr(RaelParser* const parser);
 static struct Expr *parser_parse_expr_at(RaelParser* const parser);
-static struct Instruction *parser_parse_instr(RaelParser* const parser);
-static struct Instruction **parser_parse_block(RaelParser* const parser);
+static RaelInstruction *parser_parse_inst(RaelParser* const parser);
+static RaelInstruction **parser_parse_block(RaelParser* const parser);
 static RaelExprList parser_parse_csv(RaelParser* const parser, const bool allow_newlines);
 static struct Expr *parser_parse_suffix(RaelParser* const parser);
 
 static void exprlist_delete(RaelExprList *list);
 static void match_case_delete(struct MatchCase *match_case);
-void block_delete(struct Instruction **block);
+void block_delete(RaelInstruction **block);
 
 static inline char *parser_get_filename(RaelParser* const parser) {
     return parser->lexer.stream.base->name;
@@ -64,14 +64,14 @@ static struct ValueExpr *value_expr_new(enum ValueExprType type) {
     return value;
 }
 
-static struct Instruction *instruction_new(enum InstructionType type) {
-    struct Instruction *instruction = malloc(sizeof(struct Instruction));
+RaelInstruction *instruction_new(RaelInstructionType *type, size_t size) {
+    RaelInstruction *instruction = malloc(size);
     instruction->refcount = 1;
     instruction->type = type;
     return instruction;
 }
 
-void instruction_ref(struct Instruction *instruction) {
+void instruction_ref(RaelInstruction *instruction) {
     ++instruction->refcount;
 }
 
@@ -87,11 +87,11 @@ static void parser_error(RaelParser* const parser, char* error_message, ...) {
     internal_parser_state_error(parser, parser_dump_state(parser), error_message, va);
 }
 
-static void parser_push(RaelParser* const parser, struct Instruction* const inst) {
+static void parser_push(RaelParser* const parser, RaelInstruction* const inst) {
     if (parser->allocated == 0) {
-        parser->instructions = malloc(((parser->allocated = 64)+1) * sizeof(struct Instruction*));
+        parser->instructions = malloc(((parser->allocated = 64)+1) * sizeof(RaelInstruction*));
     } else if (parser->idx == 64) {
-        parser->instructions = realloc(parser->instructions, ((parser->allocated += 64)+1) * sizeof(struct Instruction*));
+        parser->instructions = realloc(parser->instructions, ((parser->allocated += 64)+1) * sizeof(RaelInstruction*));
     }
     parser->instructions[parser->idx++] = inst;
 }
@@ -340,7 +340,7 @@ static struct Expr *parser_parse_match(RaelParser* const parser) {
     struct Expr *match_against; // the value you compare against
     struct MatchCase *match_cases; // an array of all of the with statements
     size_t amount = 0, allocated = 0; // array length and size counters
-    struct Instruction **else_block = NULL; // the block of the else case
+    RaelInstruction **else_block = NULL; // the block of the else case
     struct State backtrack, full_backtrack;
     bool is_matching = true;
     bool old_can_return;
@@ -379,7 +379,7 @@ static struct Expr *parser_parse_match(RaelParser* const parser) {
 
         switch (parser->lexer.token.name) {
         case TokenNameWith: {
-            struct Instruction **case_block;
+            RaelInstruction **case_block;
             RaelExprList exprs;
 
             // parse the part after the 'with'
@@ -995,8 +995,8 @@ loop_end:
     return expr;
 }
 
-static struct Instruction *parser_parse_instr_pure(RaelParser* const parser) {
-    struct Instruction *inst;
+static RaelInstruction *parser_parse_inst_pure(RaelParser* const parser) {
+    RaelPureInstruction *inst;
     struct Expr *expr;
     struct State backtrack = parser_dump_state(parser);
 
@@ -1016,9 +1016,9 @@ static struct Instruction *parser_parse_instr_pure(RaelParser* const parser) {
 
     return NULL;
 end:
-    inst = instruction_new(InstructionTypePureExpr);
-    inst->pure = expr;
-    return inst;
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypePureExpr, RaelPureInstruction);
+    inst->expr = expr;
+    return (RaelInstruction*)inst;
 }
 
 /* parse comma separated expressions (e1, e2, e3, e4, ...) */
@@ -1082,16 +1082,18 @@ static RaelExprList parser_parse_csv(RaelParser* const parser, const bool allow_
     };
 }
 
-static struct Instruction *parser_parse_instr_catch(RaelParser* const parser) {
-    struct Instruction *inst;
-    struct CatchInstruction catch;
+static RaelInstruction *parser_parse_inst_catch(RaelParser* const parser) {
+    RaelCatchInstruction *inst;
+    struct Expr *catch_expr;
+    RaelInstruction **handle_block, **else_block;
     struct Token key_token;
+    char *value_key;
     bool store_value;
 
     if (!parser_match(parser, TokenNameCatch))
         return NULL;
 
-    if (!(catch.catch_expr = parser_parse_expr(parser))) {
+    if (!(catch_expr = parser_parse_expr(parser))) {
         parser_error(parser, "Expected expression");
     }
 
@@ -1099,7 +1101,7 @@ static struct Instruction *parser_parse_instr_catch(RaelParser* const parser) {
 
     if (parser_match(parser, TokenNameWith)) {
         if (!parser_match(parser, TokenNameKey)) {
-            expr_delete(catch.catch_expr);
+            expr_delete(catch_expr);
             parser_error(parser, "Expected a key");
         }
         key_token = parser->lexer.token;
@@ -1108,8 +1110,8 @@ static struct Instruction *parser_parse_instr_catch(RaelParser* const parser) {
         store_value = false;
     }
 
-    if (!(catch.handle_block = parser_parse_block(parser))) {
-        expr_delete(catch.catch_expr);
+    if (!(handle_block = parser_parse_block(parser))) {
+        expr_delete(catch_expr);
         if (store_value) {
             parser_error(parser, "Expected block");
         } else {
@@ -1121,41 +1123,42 @@ static struct Instruction *parser_parse_instr_catch(RaelParser* const parser) {
 
     // if there is an else keyword
     if (parser_match(parser, TokenNameElse)) {
-        struct Instruction **else_block;
-
         // there can be a newline after else keyword
         parser_maybe_expect_newline(parser);
 
         // get block
         else_block = parser_parse_block(parser);
         if (!else_block) {
-            expr_delete(catch.catch_expr);
-            block_delete(catch.handle_block);
+            expr_delete(catch_expr);
+            block_delete(handle_block);
             // FIXME: this leaks
             parser_error(parser, "Expected block");
         }
         parser_maybe_expect_newline(parser);
-        catch.else_block = else_block;
     } else {
-        catch.else_block = NULL;
+        else_block = NULL;
     }
 
     parser_maybe_expect_newline(parser);
 
     if (store_value) {
         // add key to catch statement
-        catch.value_key = token_allocate_key(&key_token);
+        value_key = token_allocate_key(&key_token);
     } else {
-        catch.value_key = NULL;
+        value_key = NULL;
     }
 
-    inst = instruction_new(InstructionTypeCatch);
-    inst->catch = catch;
-    return inst;
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypeCatch, RaelCatchInstruction);
+    inst->catch_expr = catch_expr;
+    inst->value_key = value_key;
+    inst->handle_block = handle_block;
+    inst->else_block = else_block;
+
+    return (RaelInstruction*)inst;
 }
 
-static struct Instruction *parser_parse_instr_log(RaelParser* const parser) {
-    struct Instruction *inst;
+static RaelInstruction *parser_parse_inst_log(RaelParser* const parser) {
+    RaelCsvInstruction *inst;
     RaelExprList expr_list;
 
     if (!parser_match(parser, TokenNameLog))
@@ -1164,14 +1167,14 @@ static struct Instruction *parser_parse_instr_log(RaelParser* const parser) {
     expr_list = parser_parse_csv(parser, false);
     parser_expect_newline(parser);
 
-    inst = instruction_new(InstructionTypeLog);
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypeLog, RaelCsvInstruction);
     inst->csv = expr_list;
 
-    return inst;
+    return (RaelInstruction*)inst;
 }
 
-static struct Instruction *parser_parse_instr_show(RaelParser* const parser) {
-    struct Instruction *inst;
+static RaelInstruction *parser_parse_inst_show(RaelParser* const parser) {
+    RaelCsvInstruction *inst;
     RaelExprList expr_list;
 
     if (!parser_match(parser, TokenNameShow))
@@ -1182,14 +1185,14 @@ static struct Instruction *parser_parse_instr_show(RaelParser* const parser) {
 
     parser_expect_newline(parser);
 
-    inst = instruction_new(InstructionTypeShow);
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypeShow, RaelCsvInstruction);
     inst->csv = expr_list;
 
-    return inst;
+    return (RaelInstruction*)inst;
 }
 
-static struct Instruction *parser_parse_instr_return(RaelParser* const parser) {
-    struct Instruction *inst;
+static RaelInstruction *parser_parse_inst_return(RaelParser* const parser) {
+    RaelReturnInstruction *inst;
     struct Expr *expr;
     struct State backtrack = parser_dump_state(parser);
 
@@ -1210,15 +1213,15 @@ static struct Instruction *parser_parse_instr_return(RaelParser* const parser) {
         parser_state_error(parser, backtrack, "'^' is outside of a routine and a match statement");
     }
 
-    inst = instruction_new(InstructionTypeReturn);
-    inst->return_value = expr;
-    return inst;
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypeReturn, RaelReturnInstruction);
+    inst->return_expr = expr;
+
+    return (RaelInstruction*)inst;
 }
 
-static struct Instruction *parser_parse_instr_single(RaelParser* const parser) {
-    struct Instruction *inst;
+static RaelInstruction *parser_parse_inst_single(RaelParser* const parser) {
     struct State backtrack = parser_dump_state(parser);
-    enum InstructionType type;
+    RaelInstructionType *type;
 
     if (!lexer_tokenize(&parser->lexer))
         return NULL;
@@ -1227,12 +1230,12 @@ static struct Instruction *parser_parse_instr_single(RaelParser* const parser) {
     case TokenNameBreak:
         if (!parser->in_loop)
             parser_state_error(parser, backtrack, "'break' is outside of a loop");
-        type = InstructionTypeBreak;
+        type = &RaelInstructionTypeBreak;
         break;
     case TokenNameSkip:
         if (!parser->in_loop)
             parser_state_error(parser, backtrack, "'skip' is outside of a loop");
-        type = InstructionTypeSkip;
+        type = &RaelInstructionTypeSkip;
         break;
     default:
         parser_load_state(parser, backtrack);
@@ -1240,47 +1243,13 @@ static struct Instruction *parser_parse_instr_single(RaelParser* const parser) {
     }
 
     parser_expect_newline(parser);
-    inst = instruction_new(type);
-    return inst;
+
+    return RAEL_INSTRUCTION_NEW(*type, RaelInstruction);
 }
 
-static struct Instruction **parser_parse_block(RaelParser* const parser) {
-    struct Instruction **block;
-    size_t allocated, idx = 0;
-    struct State backtrack = parser_dump_state(parser);
 
-    parser_maybe_expect_newline(parser);
-    if (!parser_match(parser, TokenNameLeftCur)) {
-        parser_load_state(parser, backtrack);
-        return NULL;
-    }
-
-    parser_maybe_expect_newline(parser);
-    block = malloc(((allocated = 32)+1) * sizeof(struct Instruction *));
-    for (;;) {
-        struct Instruction *inst;
-        if (!(inst = parser_parse_instr(parser))) {
-            if (!lexer_tokenize(&parser->lexer))
-                parser_error(parser, "Unmatched '}'");
-            if (parser->lexer.token.name == TokenNameRightCur) {
-                break;
-            } else {
-                parser_error(parser, "Unexpected token");
-            }
-        }
-        if (idx == allocated)
-            block = realloc(block, ((allocated += 32)+1) * sizeof(struct Instruction*));
-        block[idx++] = inst;
-    }
-
-    block[idx++] = NULL;
-    block = realloc(block, idx * sizeof(struct Instruction*));
-
-    return block;
-}
-
-static struct Instruction *parser_parse_instr_load(RaelParser* const parser) {
-    struct Instruction *instruction;
+static RaelInstruction *parser_parse_inst_load(RaelParser* const parser) {
+    RaelLoadInstruction *inst;
     char *key;
     struct Token key_token;
 
@@ -1295,68 +1264,71 @@ static struct Instruction *parser_parse_instr_load(RaelParser* const parser) {
     parser_expect_newline(parser);
     key = token_allocate_key(&key_token);
 
-    instruction = instruction_new(InstructionTypeLoad);
-    instruction->load.module_name = key;
-    return instruction;
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypeLoad, RaelLoadInstruction);
+    inst->module_name = key;
+
+    return (RaelInstruction*)inst;
 }
 
-static struct Instruction *parser_parse_instr_if(RaelParser* const parser) {
-    struct Instruction *inst;
-    struct IfInstruction if_stat = {
-        .else_type = ElseTypeNone
-    };
+static RaelInstruction *parser_parse_inst_if(RaelParser* const parser) {
+    RaelIfInstruction *inst;
+    struct IfInstructionInfo info;
 
     if (!parser_match(parser, TokenNameIf))
         return NULL;
 
-    if (!(if_stat.condition = parser_parse_expr(parser)))
+    if (!(info.condition = parser_parse_expr(parser)))
         parser_error(parser, "No expression after if keyword");
 
     // try to parse a block
-    if ((if_stat.if_block = parser_parse_block(parser))) {
-        if_stat.if_type = IfTypeBlock;
+    if ((info.if_block = parser_parse_block(parser))) {
+        info.if_type = IfTypeBlock;
     } else {
         // if you couldn't parse a block, try to parse a single instruction
         if (!parser_maybe_expect_newline(parser)) {
-            expr_delete(if_stat.condition);
+            expr_delete(info.condition);
             parser_error(parser, "No newline or block after 'if' statement");
         }
-        if ((if_stat.if_instruction = parser_parse_instr(parser))) {
-            if_stat.if_type = IfTypeInstruction;
+        if ((info.if_instruction = parser_parse_inst(parser))) {
+            info.if_type = IfTypeInstruction;
         } else {
-            expr_delete(if_stat.condition);
+            expr_delete(info.condition);
             parser_error(parser, "No block or instruction after 'if' statement");
         }
     }
 
     parser_maybe_expect_newline(parser);
 
-    inst = instruction_new(InstructionTypeIf);
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypeIf, RaelIfInstruction);
 
-    if (!parser_match(parser, TokenNameElse))
+    if (!parser_match(parser, TokenNameElse)) {
+        info.else_type = ElseTypeNone;
         goto end;
+    }
 
-    if ((if_stat.else_block = parser_parse_block(parser))) {
-        if_stat.else_type = ElseTypeBlock;
+    if ((info.else_block = parser_parse_block(parser))) {
+        info.else_type = ElseTypeBlock;
     } else {
         parser_maybe_expect_newline(parser);
-        if ((if_stat.else_instruction = parser_parse_instr(parser))) {
-           if_stat.else_type = ElseTypeInstruction;
+        if ((info.else_instruction = parser_parse_inst(parser))) {
+           info.else_type = ElseTypeInstruction;
         } else {
-            expr_delete(if_stat.condition);
+            expr_delete(info.condition);
             parser_error(parser, "Expected a block or an instruction after 'else' keyword");
         }
     }
 
     parser_maybe_expect_newline(parser);
 end:
-    inst->if_stat = if_stat;
-    return inst;
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypeIf, RaelIfInstruction);
+    inst->info = info;
+
+    return (RaelInstruction*)inst;
 }
 
-static struct Instruction *parser_parse_instr_loop(RaelParser* const parser) {
-    struct Instruction *inst;
-    struct LoopInstruction loop;
+static RaelInstruction *parser_parse_inst_loop(RaelParser* const parser) {
+    RaelLoopInstruction *inst;
+    struct LoopInstructionInfo info;
     struct State backtrack;
     bool old_in_loop;
 
@@ -1366,8 +1338,8 @@ static struct Instruction *parser_parse_instr_loop(RaelParser* const parser) {
     old_in_loop = parser->in_loop;
     parser->in_loop = true;
 
-    if ((loop.block = parser_parse_block(parser))) {
-        loop.type = LoopForever;
+    if ((info.block = parser_parse_block(parser))) {
+        info.type = LoopForever;
         goto loop_parsing_end;
     }
 
@@ -1377,72 +1349,108 @@ static struct Instruction *parser_parse_instr_loop(RaelParser* const parser) {
         struct Token key_token = parser->lexer.token;
 
         if (parser_match(parser, TokenNameThrough)) {
-            if (!(loop.iterate.expr = parser_parse_expr(parser)))
+            if (!(info.iterate.expr = parser_parse_expr(parser)))
                 parser_error(parser, "Expected an expression after 'through'");
 
-            loop.type = LoopThrough;
-            loop.iterate.key = token_allocate_key(&key_token);
+            info.type = LoopThrough;
+            info.iterate.key = token_allocate_key(&key_token);
             if (parser_match(parser, TokenNameComma)) {
-                if (!(loop.iterate.secondary_condition = parser_parse_expr(parser))) {
+                if (!(info.iterate.secondary_condition = parser_parse_expr(parser))) {
                     parser_error(parser, "Expected an expression after comma in loop");
                 }
             } else {
-                loop.iterate.secondary_condition = NULL;
+                info.iterate.secondary_condition = NULL;
             }
         } else {
             parser_load_state(parser, backtrack);
             // FIXME: is this really true?
             // we already know there is a key, it must parse at least a key,
             // if not a full expression
-            loop.while_condition = parser_parse_expr(parser);
-            assert(loop.while_condition);
-            loop.type = LoopWhile;
+            info.while_condition = parser_parse_expr(parser);
+            assert(info.while_condition);
+            info.type = LoopWhile;
         }
     } else {
-        if (!(loop.while_condition = parser_parse_expr(parser)))
+        if (!(info.while_condition = parser_parse_expr(parser)))
             parser_error(parser, "Expected expression after loop");
 
-        loop.type = LoopWhile;
+        info.type = LoopWhile;
     }
 
-    if (!(loop.block = parser_parse_block(parser)))
+    if (!(info.block = parser_parse_block(parser)))
         parser_error(parser, "Expected block after loop");
 
 loop_parsing_end:
     parser_maybe_expect_newline(parser);
-    inst = instruction_new(InstructionTypeLoop);
-    inst->loop = loop;
+    inst = RAEL_INSTRUCTION_NEW(RaelInstructionTypeLoop, RaelLoopInstruction);
+    inst->info = info;
     parser->in_loop = old_in_loop;
-    return inst;
+
+    return (RaelInstruction*)inst;
 }
 
-static struct Instruction *parser_parse_instr(RaelParser* const parser) {
-    struct Instruction *inst;
+static RaelInstruction *parser_parse_inst(RaelParser* const parser) {
+    RaelInstruction *inst;
     struct State prev_state = parser_dump_state(parser);
-    if ((inst = parser_parse_instr_pure(parser))   ||
-        (inst = parser_parse_instr_log(parser))    ||
-        (inst = parser_parse_instr_if(parser))     ||
-        (inst = parser_parse_instr_loop(parser))   ||
-        (inst = parser_parse_instr_return(parser)) ||
-        (inst = parser_parse_instr_single(parser)) ||
-        (inst = parser_parse_instr_catch(parser))  ||
-        (inst = parser_parse_instr_show(parser))   ||
-        (inst = parser_parse_instr_load(parser))) {
+    if ((inst = parser_parse_inst_pure(parser))   ||
+        (inst = parser_parse_inst_log(parser))    ||
+        (inst = parser_parse_inst_if(parser))     ||
+        (inst = parser_parse_inst_loop(parser))   ||
+        (inst = parser_parse_inst_return(parser)) ||
+        (inst = parser_parse_inst_single(parser)) ||
+        (inst = parser_parse_inst_catch(parser))  ||
+        (inst = parser_parse_inst_show(parser))   ||
+        (inst = parser_parse_inst_load(parser))) {
         inst->state = prev_state;
         return inst;
     }
     return NULL;
 }
 
-struct Instruction **rael_parse(RaelStream *stream) {
+static RaelInstruction **parser_parse_block(RaelParser* const parser) {
+    RaelInstruction **block;
+    size_t allocated, idx = 0;
+    struct State backtrack = parser_dump_state(parser);
+
+    parser_maybe_expect_newline(parser);
+    if (!parser_match(parser, TokenNameLeftCur)) {
+        parser_load_state(parser, backtrack);
+        return NULL;
+    }
+
+    parser_maybe_expect_newline(parser);
+    block = malloc(((allocated = 32)+1) * sizeof(RaelInstruction *));
+    for (;;) {
+        RaelInstruction *inst;
+        if (!(inst = parser_parse_inst(parser))) {
+            if (!lexer_tokenize(&parser->lexer))
+                parser_error(parser, "Unmatched '}'");
+            if (parser->lexer.token.name == TokenNameRightCur) {
+                break;
+            } else {
+                parser_error(parser, "Unexpected token");
+            }
+        }
+        if (idx == allocated)
+            block = realloc(block, ((allocated += 32)+1) * sizeof(RaelInstruction*));
+        block[idx++] = inst;
+    }
+
+    block[idx++] = NULL;
+    block = realloc(block, idx * sizeof(RaelInstruction*));
+
+    return block;
+}
+
+RaelInstruction **rael_parse(RaelStream *stream) {
     struct State backtrack;
-    struct Instruction *inst;
+    RaelInstruction *inst;
     RaelParser parser;
 
     parser_construct(&parser, stream);
     parser_maybe_expect_newline(&parser);
     // parse instruction while possible
-    while ((inst = parser_parse_instr(&parser)))
+    while ((inst = parser_parse_inst(&parser)))
         parser_push(&parser, inst);
 
     backtrack = lexer_dump_state(&parser.lexer);
@@ -1480,12 +1488,12 @@ static void match_case_delete(struct MatchCase *match_case) {
     block_delete(match_case->case_block);
 }
 
-void block_deref(struct Instruction **block) {
-    for (struct Instruction **instr = block; *instr; ++instr)
+void block_deref(RaelInstruction **block) {
+    for (RaelInstruction **instr = block; *instr; ++instr)
         instruction_deref(*instr);
 }
 
-void block_delete(struct Instruction **block) {
+void block_delete(RaelInstruction **block) {
     assert(block);
     block_deref(block);
     free(block);
@@ -1610,92 +1618,144 @@ void expr_delete(struct Expr* const expr) {
     free(expr);
 }
 
-void instruction_deref(struct Instruction* const inst) {
+/* declare instruction interpreting functions */
+void interpreter_interpret_inst_log(RaelInterpreter *interpreter, RaelCsvInstruction *inst);
+void interpreter_interpret_inst_show(RaelInterpreter *interpreter, RaelCsvInstruction *inst);
+void interpreter_interpret_inst_if(RaelInterpreter *interpreter, RaelIfInstruction *inst);
+void interpreter_interpret_inst_loop(RaelInterpreter *interpreter, RaelLoopInstruction *inst);
+void interpreter_interpret_inst_pure(RaelInterpreter *interpreter, RaelPureInstruction *inst);
+void interpreter_interpret_inst_return(RaelInterpreter *interpreter, RaelReturnInstruction *inst);
+void interpreter_interpret_inst_break(RaelInterpreter *interpreter, RaelInstruction *inst);
+void interpreter_interpret_inst_skip(RaelInterpreter *interpreter, RaelInstruction *inst);
+void interpreter_interpret_inst_catch(RaelInterpreter *interpreter, RaelCatchInstruction *inst);
+void interpreter_interpret_inst_load(RaelInterpreter *interpreter, RaelLoadInstruction *inst);
+
+/* define instruction deleting functions */
+static void instruction_csv_delete(RaelCsvInstruction *inst) {
+    exprlist_delete(&inst->csv);
+}
+static void instruction_loop_delete(RaelLoopInstruction *inst) {
+    struct LoopInstructionInfo *info = &inst->info;
+    switch (info->type) {
+    case LoopWhile:
+        expr_delete(info->while_condition);
+        break;
+    case LoopThrough:
+        free(info->iterate.key);
+        expr_delete(info->iterate.expr);
+        if (info->iterate.secondary_condition) {
+            expr_delete(info->iterate.secondary_condition);
+        }
+        break;
+    case LoopForever:
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+
+    block_delete(info->block);
+}
+static void instruction_if_delete(RaelIfInstruction *inst) {
+    struct IfInstructionInfo *info = &inst->info;
+
+    expr_delete(info->condition);
+    // remove the if statement part
+    switch (info->if_type) {
+    case IfTypeBlock:
+        block_delete(info->if_block);
+        break;
+    case IfTypeInstruction:
+        instruction_deref(info->if_instruction);
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+    // remove the else statement part
+    switch (info->else_type) {
+    case ElseTypeBlock:
+        block_delete(info->else_block);
+        break;
+    case ElseTypeInstruction:
+        instruction_deref(info->else_instruction);
+        break;
+    case ElseTypeNone:
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+}
+static void instruction_pure_delete(RaelPureInstruction *inst) {
+    expr_delete(inst->expr);
+}
+static void instruction_return_delete(RaelReturnInstruction *inst) {
+    if (inst->return_expr)
+        expr_delete(inst->return_expr);
+}
+static void instruction_catch_delete(RaelCatchInstruction *inst) {
+    expr_delete(inst->catch_expr);
+    block_delete(inst->handle_block);
+
+    // if there is an else part to the catch statement
+    if (inst->else_block) {
+        block_delete(inst->else_block);
+    }
+    // only if you tell it to catch, catch
+    if (inst->value_key)
+        free(inst->value_key);
+}
+static void instruction_load_delete(RaelLoadInstruction *inst) {
+    free(inst->module_name);
+}
+
+/* declare instruction types */
+RaelInstructionType RaelInstructionTypeLog = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_log,
+    (RaelInstructionDeleteFunc)instruction_csv_delete
+};
+RaelInstructionType RaelInstructionTypeIf = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_if,
+    (RaelInstructionDeleteFunc)instruction_if_delete
+};
+RaelInstructionType RaelInstructionTypeLoop = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_loop,
+    (RaelInstructionDeleteFunc)instruction_loop_delete
+};
+RaelInstructionType RaelInstructionTypePureExpr = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_pure,
+    (RaelInstructionDeleteFunc)instruction_pure_delete
+};
+RaelInstructionType RaelInstructionTypeReturn = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_return,
+    (RaelInstructionDeleteFunc)instruction_return_delete
+};
+RaelInstructionType RaelInstructionTypeBreak = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_break,
+    NULL
+};
+RaelInstructionType RaelInstructionTypeSkip = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_skip,
+    NULL
+};
+RaelInstructionType RaelInstructionTypeCatch = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_catch,
+    (RaelInstructionDeleteFunc)instruction_catch_delete
+};
+RaelInstructionType RaelInstructionTypeShow = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_show,
+    (RaelInstructionDeleteFunc)instruction_csv_delete
+};
+RaelInstructionType RaelInstructionTypeLoad = {
+    (RaelInstructionRunFunc)interpreter_interpret_inst_load,
+    (RaelInstructionDeleteFunc)instruction_load_delete
+};
+
+/* dereference an instruction and call its deallocator it in case we have no more references */
+void instruction_deref(RaelInstruction* const inst) {
     --inst->refcount;
     if (inst->refcount == 0) {
-        switch (inst->type) {
-        case InstructionTypeIf:
-            expr_delete(inst->if_stat.condition);
-            // remove the if statement part
-            switch (inst->if_stat.if_type) {
-            case IfTypeBlock:
-                block_delete(inst->if_stat.if_block);
-                break;
-            case IfTypeInstruction:
-                instruction_deref(inst->if_stat.if_instruction);
-                break;
-            default:
-                RAEL_UNREACHABLE();
-            }
-            // remove the else statement part
-            switch (inst->if_stat.else_type) {
-            case ElseTypeBlock:
-                block_delete(inst->if_stat.else_block);
-                break;
-            case ElseTypeInstruction:
-                instruction_deref(inst->if_stat.else_instruction);
-                break;
-            case ElseTypeNone:
-                break;
-            default:
-                RAEL_UNREACHABLE();
-            }
-            break;
-        case InstructionTypeLog:
-        case InstructionTypeShow:
-            exprlist_delete(&inst->csv);
-            break;
-        case InstructionTypeLoop: {
-            struct LoopInstruction *loop = &inst->loop;
-            switch (loop->type) {
-            case LoopWhile:
-                expr_delete(loop->while_condition);
-                break;
-            case LoopThrough:
-                free(loop->iterate.key);
-                expr_delete(loop->iterate.expr);
-                if (loop->iterate.secondary_condition) {
-                    expr_delete(loop->iterate.secondary_condition);
-                }
-                break;
-            case LoopForever:
-                break;
-            default:
-                RAEL_UNREACHABLE();
-            }
-
-            block_delete(loop->block);
-            break;
-        }
-        case InstructionTypePureExpr:
-            expr_delete(inst->pure);
-            break;
-        case InstructionTypeReturn:
-            if (inst->return_value) {
-                expr_delete(inst->return_value);
-            }
-            break;
-        case InstructionTypeBreak:
-        case InstructionTypeSkip:
-            break;
-        case InstructionTypeCatch:
-            expr_delete(inst->catch.catch_expr);
-            block_delete(inst->catch.handle_block);
-
-            // if there is an else part to the catch statement
-            if (inst->catch.else_block) {
-                block_delete(inst->catch.else_block);
-            }
-            // only if you tell it to catch, catch
-            if (inst->catch.value_key)
-                free(inst->catch.value_key);
-            break;
-        case InstructionTypeLoad:
-            free(inst->load.module_name);
-            break;
-        default:
-            RAEL_UNREACHABLE();
-        }
+        RaelInstructionDeleteFunc func = inst->type->delete;
+        if (func)
+            func(inst);
         free(inst);
     }
 }

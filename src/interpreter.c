@@ -4,7 +4,7 @@ typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
 // TODO: add interpreter_set_variable function
 
-static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction);
+static void interpreter_interpret_inst(RaelInterpreter* const interpreter, RaelInstruction* const instruction);
 
 void instance_delete(RaelInstance *instance) {
     if (!instance->inherit_scope) {
@@ -63,7 +63,7 @@ static void interpreter_remove_modules(RaelInterpreter *interpreter) {
 }
 
 RaelInstance *instance_new(RaelInstance *previous_instance, RaelStream *stream,
-                        struct Instruction **instructions, struct Scope *scope) {
+                        RaelInstruction **instructions, struct Scope *scope) {
     RaelInstance *instance = malloc(sizeof(RaelInstance));
 
     instance->prev = previous_instance;
@@ -79,7 +79,7 @@ RaelInstance *instance_new(RaelInstance *previous_instance, RaelStream *stream,
 }
 
 void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
-                            struct Instruction **instructions, bool inherit_scope) {
+                            RaelInstruction **instructions, bool inherit_scope) {
     interpreter->instance = instance_new(interpreter->instance,
                                         stream, instructions,
                                         inherit_scope ? interpreter->instance->scope : NULL);
@@ -97,7 +97,7 @@ static unsigned int generate_seed(void) {
     return (unsigned int)ts.tv_sec % (unsigned int)ts.tv_nsec;
 }
 
-void interpreter_construct(RaelInterpreter *out, struct Instruction **instructions, RaelStream *stream,
+void interpreter_construct(RaelInterpreter *out, RaelInstruction **instructions, RaelStream *stream,
                         char* const exec_path, char **arguments, size_t amount_arguments,
                         const bool warn_undefined, RaelModuleLoader *modules) {
     unsigned int seed = generate_seed();
@@ -132,7 +132,7 @@ void interpreter_destruct(RaelInterpreter* const interpreter) {
 /* make the interpreter run its instructions */
 void interpreter_interpret(RaelInterpreter *interpreter) {
     RaelInstance *instance = interpreter->instance;
-    struct Instruction *instruction;
+    RaelInstruction *instruction;
 
     for (instance->idx = 0; (instruction = instance->instructions[instance->idx]); ++instance->idx) {
         interpreter_interpret_inst(interpreter, instruction);
@@ -958,7 +958,7 @@ RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr
     return value;
 }
 
-void block_run(RaelInterpreter* const interpreter, struct Instruction **block, bool create_new_scope) {
+void block_run(RaelInterpreter* const interpreter, RaelInstruction **block, bool create_new_scope) {
     if (create_new_scope)
         interpreter_push_scope(interpreter);
     for (size_t i = 0; block[i]; ++i) {
@@ -970,20 +970,20 @@ void block_run(RaelInterpreter* const interpreter, struct Instruction **block, b
         interpreter_pop_scope(interpreter);
 }
 
-static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct LoopInstruction *loop) {
-    switch (loop->type) {
+void interpreter_interpret_inst_loop(RaelInterpreter *interpreter, RaelLoopInstruction *inst) {
+    switch (inst->info.type) {
     case LoopWhile: {
         bool continue_loop;
         do {
             RaelValue *condition;
             interpreter_push_scope(interpreter);
 
-            condition = expr_eval(interpreter, loop->while_condition, true);
+            condition = expr_eval(interpreter, inst->info.while_condition, true);
             continue_loop = value_truthy(condition);
             value_deref(condition);
-            // if you can loop, run the block
+            // if you can inst, run the block
             if (continue_loop) {
-                block_run(interpreter, loop->block, false);
+                block_run(interpreter, inst->info.block, false);
                 if (interpreter->instance->interrupt == ProgramInterruptBreak) {
                     interpreter->instance->interrupt = ProgramInterruptNone;
                     continue_loop = false;
@@ -999,12 +999,12 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
     }
     case LoopThrough: {
         bool continue_loop = true;
-        RaelValue *iterator = expr_eval(interpreter, loop->iterate.expr, true);
-        struct Expr *secondary_condition = loop->iterate.secondary_condition;
+        RaelValue *iterator = expr_eval(interpreter, inst->info.iterate.expr, true);
+        struct Expr *secondary_condition = inst->info.iterate.secondary_condition;
 
         if (!value_is_iterable(iterator)) {
             value_deref(iterator);
-            interpreter_error(interpreter, loop->iterate.expr->state, "Expected an iterable");
+            interpreter_error(interpreter, inst->info.iterate.expr->state, "Expected an iterable");
         }
 
         // calculate length every time because values can always shrink/grow
@@ -1025,11 +1025,11 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
             iteration_value = value_get(iterator, i);
 
             // set the iteration value and deref, because the value is already referenced in scope_set_local
-            scope_set_local(interpreter->instance->scope, rael_cstr_duplicate(loop->iterate.key), iteration_value, true);
+            scope_set_local(interpreter->instance->scope, rael_cstr_duplicate(inst->info.iterate.key), iteration_value, true);
             value_deref(iteration_value);
 
             // run the block of code
-            block_run(interpreter, loop->block, false);
+            block_run(interpreter, inst->info.block, false);
 
             // check for program interrupts
             if (interpreter->instance->interrupt == ProgramInterruptBreak) {
@@ -1047,7 +1047,7 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
     }
     case LoopForever:
         for (;;) {
-            block_run(interpreter, loop->block, true);
+            block_run(interpreter, inst->info.block, true);
             if (interpreter->instance->interrupt == ProgramInterruptBreak) {
                 interpreter->instance->interrupt = ProgramInterruptNone;
                 break;
@@ -1063,140 +1063,141 @@ static void interpreter_interpret_loop(RaelInterpreter *interpreter, struct Loop
     }
 }
 
-static void interpreter_interpret_inst(RaelInterpreter* const interpreter, struct Instruction* const instruction) {
-    switch (instruction->type) {
-    case InstructionTypeLog:
-        if (instruction->csv.amount_exprs > 0) {
-            RaelValue *value;
-            value_log((value = expr_eval(interpreter, instruction->csv.exprs[0].expr, true)));
-            value_deref(value);
-            for (size_t i = 1; i < instruction->csv.amount_exprs; ++i) {
-                printf(" ");
-                value_log((value = expr_eval(interpreter, instruction->csv.exprs[i].expr, true)));
-                value_deref(value);
-            }
-        }
-        printf("\n");
-        break;
-    case InstructionTypeShow: {
-        for (size_t i = 0; i < instruction->csv.amount_exprs; ++i) {
-            RaelValue *value = expr_eval(interpreter, instruction->csv.exprs[i].expr, true);
-            value_log(value);
+void interpreter_interpret_inst_log(RaelInterpreter *interpreter, RaelCsvInstruction *inst) {
+    if (inst->csv.amount_exprs > 0) {
+        RaelValue *value;
+        value_log((value = expr_eval(interpreter, inst->csv.exprs[0].expr, true)));
+        value_deref(value);
+        for (size_t i = 1; i < inst->csv.amount_exprs; ++i) {
+            printf(" ");
+            value_log((value = expr_eval(interpreter, inst->csv.exprs[i].expr, true)));
             value_deref(value);
         }
-        break;
     }
-    case InstructionTypeIf: {
-        RaelValue *condition;
-        bool is_true;
+    printf("\n");
+}
 
-        switch (instruction->if_stat.if_type) {
-        case IfTypeBlock:
-            interpreter_push_scope(interpreter);
-            // evaluate condition and check if it is true then dereference the condition
-            condition = expr_eval(interpreter, instruction->if_stat.condition, true);
-            is_true = value_truthy(condition);
-            value_deref(condition);
-            if (is_true) {
-                block_run(interpreter, instruction->if_stat.if_block, false);
-            }
-            interpreter_pop_scope(interpreter);
+void interpreter_interpret_inst_show(RaelInterpreter *interpreter, RaelCsvInstruction *inst) {
+    for (size_t i = 0; i < inst->csv.amount_exprs; ++i) {
+        RaelValue *value = expr_eval(interpreter, inst->csv.exprs[i].expr, true);
+        value_log(value);
+        value_deref(value);
+    }
+}
+
+void interpreter_interpret_inst_if(RaelInterpreter *interpreter, RaelIfInstruction *inst) {
+    RaelValue *condition;
+    bool is_true;
+
+    switch (inst->info.if_type) {
+    case IfTypeBlock:
+        interpreter_push_scope(interpreter);
+        // evaluate condition and check if it is true then dereference the condition
+        condition = expr_eval(interpreter, inst->info.condition, true);
+        is_true = value_truthy(condition);
+        value_deref(condition);
+        if (is_true) {
+            block_run(interpreter, inst->info.if_block, false);
+        }
+        interpreter_pop_scope(interpreter);
+        break;
+    case IfTypeInstruction:
+        condition = expr_eval(interpreter, inst->info.condition, true);
+        is_true = value_truthy(condition);
+        value_deref(condition);
+        if (is_true) {
+            interpreter_interpret_inst(interpreter, inst->info.if_instruction);
+        }
+        break;
+    default:
+        RAEL_UNREACHABLE();
+    }
+    if (!is_true) {
+        switch (inst->info.else_type) {
+        case ElseTypeBlock:
+            block_run(interpreter, inst->info.else_block, true);
             break;
-        case IfTypeInstruction:
-            condition = expr_eval(interpreter, instruction->if_stat.condition, true);
-            is_true = value_truthy(condition);
-            value_deref(condition);
-            if (is_true) {
-                interpreter_interpret_inst(interpreter, instruction->if_stat.if_instruction);
-            }
+        case ElseTypeInstruction:
+            interpreter_interpret_inst(interpreter, inst->info.else_instruction);
+            break;
+        case ElseTypeNone:
             break;
         default:
             RAEL_UNREACHABLE();
         }
-        if (!is_true) {
-            switch (instruction->if_stat.else_type) {
-            case ElseTypeBlock:
-                block_run(interpreter, instruction->if_stat.else_block, true);
-                break;
-            case ElseTypeInstruction:
-                interpreter_interpret_inst(interpreter, instruction->if_stat.else_instruction);
-                break;
-            case ElseTypeNone:
-                break;
-            default:
-                RAEL_UNREACHABLE();
-            }
-        }
-        break;
     }
-    case InstructionTypeLoop:
-        interpreter_interpret_loop(interpreter, &instruction->loop);
-        break;
-    case InstructionTypePureExpr:
-        // dereference result right after evaluation
-        value_deref(expr_eval(interpreter, instruction->pure, true));
-        break;
-    case InstructionTypeReturn: {
-        // if there is a return value, return it, and if there isn't, return a Void
-        if (instruction->return_value) {
-            interpreter->instance->returned_value = expr_eval(interpreter, instruction->return_value, false);
-        } else {
-            interpreter->instance->returned_value = void_new();
-        }
-        interpreter->instance->interrupt = ProgramInterruptReturn;
-        break;
-    }
-    case InstructionTypeBreak:
-        interpreter->instance->interrupt = ProgramInterruptBreak;
-        break;
-    case InstructionTypeSkip:
-        interpreter->instance->interrupt = ProgramInterruptSkip;
-        break;
-    case InstructionTypeCatch: {
-        struct CatchInstruction *catch = &instruction->catch;
-        RaelValue *caught_value = expr_eval(interpreter, catch->catch_expr, false);
+}
 
-        // handle blame
-        if (blame_validate(caught_value)) {
-            // if it is a catch with, set the message of the blame
-            if (catch->value_key) {
-                RaelValue *message = ((RaelBlameValue*)caught_value)->message;
+void interpreter_interpret_inst_pure(RaelInterpreter *interpreter, RaelPureInstruction *inst) {
+    // dereference result right after evaluation
+    value_deref(expr_eval(interpreter, inst->expr, true));
+}
 
-                if (message) {
-                    value_ref(message);
-                } else {
-                    // if there is no message, set a void
-                    message = void_new();
-                }
-                // set the message as the key
-                scope_set(interpreter->instance->scope, rael_cstr_duplicate(catch->value_key), message, true);
-                // dereference the value because it's already being referenced in scope_set
-                value_deref(message);
+void interpreter_interpret_inst_return(RaelInterpreter *interpreter, RaelReturnInstruction *inst) {
+    // if there is a return value, return it, and if there isn't, return a Void
+    if (inst->return_expr) {
+        interpreter->instance->returned_value = expr_eval(interpreter, inst->return_expr, false);
+    } else {
+        interpreter->instance->returned_value = void_new();
+    }
+    interpreter->instance->interrupt = ProgramInterruptReturn;
+}
+
+void interpreter_interpret_inst_break(RaelInterpreter *interpreter, RaelInstruction *inst) {
+    (void)inst;
+    interpreter->instance->interrupt = ProgramInterruptBreak;
+}
+
+void interpreter_interpret_inst_skip(RaelInterpreter *interpreter, RaelInstruction *inst) {
+    (void)inst;
+    interpreter->instance->interrupt = ProgramInterruptSkip;
+}
+
+void interpreter_interpret_inst_catch(RaelInterpreter *interpreter, RaelCatchInstruction *inst) {
+    RaelValue *caught_value = expr_eval(interpreter, inst->catch_expr, false);
+
+    // handle blame
+    if (blame_validate(caught_value)) {
+        // if it is a catch with, set the message of the blame
+        if (inst->value_key) {
+            RaelValue *message = ((RaelBlameValue*)caught_value)->message;
+
+            if (message) {
+                value_ref(message);
+            } else {
+                // if there is no message, set a void
+                message = void_new();
             }
-            block_run(interpreter, catch->handle_block, true);
-        } else if (catch->else_block) {
-            if (catch->value_key) {
-                scope_set(interpreter->instance->scope, rael_cstr_duplicate(catch->value_key), caught_value, true);
-            }
-            block_run(interpreter, catch->else_block, true);
+            // set the message as the key
+            scope_set(interpreter->instance->scope, rael_cstr_duplicate(inst->value_key), message, true);
+            // dereference the value because it's already being referenced in scope_set
+            value_deref(message);
         }
+        block_run(interpreter, inst->handle_block, true);
+    } else if (inst->else_block) {
+        if (inst->value_key) {
+            scope_set(interpreter->instance->scope, rael_cstr_duplicate(inst->value_key), caught_value, true);
+        }
+        block_run(interpreter, inst->else_block, true);
+    }
 
-        value_deref(caught_value);
-        break;
-    }
-    case InstructionTypeLoad: {
-        // try to load module
-        RaelValue *module = interpreter_get_module_by_name(interpreter, instruction->load.module_name);
-        // if you couldn't load the module, error
-        if (!module)
-            interpreter_error(interpreter, instruction->state, "Unknown module name");
-        // set the module
-        scope_set(interpreter->instance->scope, rael_cstr_duplicate(instruction->load.module_name), module, true);
-        // deref because the value is referenced when set
-        value_deref(module);
-        break;
-    }
-    default:
-        RAEL_UNREACHABLE();
-    }
+    value_deref(caught_value);
+}
+
+void interpreter_interpret_inst_load(RaelInterpreter *interpreter, RaelLoadInstruction *inst) {
+    // try to load module
+    RaelValue *module = interpreter_get_module_by_name(interpreter, inst->module_name);
+    // if you couldn't load the module, error
+    if (!module)
+        interpreter_error(interpreter, ((RaelInstruction*)inst)->state, "Unknown module name");
+    // set the module
+    scope_set(interpreter->instance->scope, rael_cstr_duplicate(inst->module_name), module, true);
+    // deref because the value is referenced when set
+    value_deref(module);
+}
+
+static void interpreter_interpret_inst(RaelInterpreter* const interpreter, RaelInstruction* const instruction) {
+    RaelInstructionRunFunc func = instruction->type->run;
+    assert(func);
+    func(interpreter, instruction);
 }

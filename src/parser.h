@@ -6,7 +6,14 @@
 
 #include <stdbool.h>
 
+#define RAEL_INSTRUCTION_HEADER RaelInstruction _base
+
+#define RAEL_INSTRUCTION_NEW(instruction_type, c_type) ((c_type*)instruction_new(&(instruction_type), sizeof(c_type)))
+
 struct Expr;
+typedef struct RaelInstruction RaelInstruction;
+typedef struct RaelInterpreter RaelInterpreter;
+typedef void (*RaelInstructionDeleteFunc)(RaelInstruction *instruction);
 
 typedef struct RaelExprList {
     size_t amount_exprs;
@@ -32,7 +39,7 @@ struct ASTStringValue {
 struct ASTRoutineValue {
     char **parameters;
     size_t amount_parameters;
-    struct Instruction **block;
+    RaelInstruction **block;
 };
 
 struct ASTStackValue {
@@ -109,9 +116,9 @@ struct MatchExpr {
     struct Expr *match_against;
     struct MatchCase {
         RaelExprList match_exprs;
-        struct Instruction **case_block;
+        RaelInstruction **case_block;
     } *match_cases;
-    struct Instruction **else_block;
+    RaelInstruction **else_block;
 };
 
 struct GetMemberExpr {
@@ -136,105 +143,123 @@ struct Expr {
     };
 };
 
-enum InstructionType {
-    InstructionTypeLog = 1,
-    InstructionTypeIf,
-    InstructionTypeLoop,
-    InstructionTypePureExpr,
-    InstructionTypeReturn,
-    InstructionTypeBreak,
-    InstructionTypeSkip,
-    InstructionTypeCatch,
-    InstructionTypeShow,
-    InstructionTypeLoad
-};
+typedef struct RaelInstructionType {
+    void (*run)(RaelInterpreter*, RaelInstruction*);
+    void (*delete)(RaelInstruction*);
+} RaelInstructionType;
 
-struct IfInstruction {
-    enum {
-        IfTypeBlock,
-        IfTypeInstruction
-    } if_type;
-    struct Expr *condition;
-    union {
-        struct Instruction **if_block;
-        struct Instruction *if_instruction;
-    };
-    enum {
-        ElseTypeNone,
-        ElseTypeBlock,
-        ElseTypeInstruction
-    } else_type;
-    union {
-        struct Instruction **else_block;
-        struct Instruction *else_instruction;
-    };
-};
+/* declare all of the instruction types */
+extern RaelInstructionType RaelInstructionTypeLog;
+extern RaelInstructionType RaelInstructionTypeIf;
+extern RaelInstructionType RaelInstructionTypeLoop;
+extern RaelInstructionType RaelInstructionTypePureExpr;
+extern RaelInstructionType RaelInstructionTypeReturn;
+extern RaelInstructionType RaelInstructionTypeBreak;
+extern RaelInstructionType RaelInstructionTypeSkip;
+extern RaelInstructionType RaelInstructionTypeCatch;
+extern RaelInstructionType RaelInstructionTypeShow;
+extern RaelInstructionType RaelInstructionTypeLoad;
 
-struct LoopInstruction {
-    enum {
-        LoopWhile,
-        LoopThrough, // iterate
-        LoopForever
-    } type;
-    union {
-        struct Expr *while_condition;
-        struct {
-            char *key;
-            struct Expr *expr;
-            struct Expr *secondary_condition;
-        } iterate;
-    };
-    struct Instruction **block;
-};
-
-struct CatchInstruction {
-    struct Expr *catch_expr;
-    struct Instruction **handle_block;
-    struct Instruction **else_block;
-    char *value_key;
-};
-
-struct LoadInstruction {
-    char *module_name;
-};
-
-struct Instruction {
+struct RaelInstruction {
     size_t refcount;
-    enum InstructionType type;
+    RaelInstructionType *type;
     struct State state;
-    union {
-        RaelExprList csv;
-        struct IfInstruction if_stat;
-        struct LoopInstruction loop;
-        struct Expr *pure;
-        struct Expr *return_value;
-        struct CatchInstruction catch;
-        struct LoadInstruction load;
-    };
 };
+
+typedef struct RaelIfInstruction {
+    RAEL_INSTRUCTION_HEADER;
+    struct IfInstructionInfo {
+        enum {
+            IfTypeBlock,
+            IfTypeInstruction
+        } if_type;
+        struct Expr *condition;
+        union {
+            RaelInstruction **if_block;
+            RaelInstruction *if_instruction;
+        };
+        enum {
+            ElseTypeNone,
+            ElseTypeBlock,
+            ElseTypeInstruction
+        } else_type;
+        union {
+            RaelInstruction **else_block;
+            RaelInstruction *else_instruction;
+        };
+    } info;
+} RaelIfInstruction;
+
+typedef struct RaelLoopInstruction {
+    RAEL_INSTRUCTION_HEADER;
+    struct LoopInstructionInfo {
+        enum {
+            LoopWhile,
+            LoopThrough, // iterate
+            LoopForever
+        } type;
+        union {
+            struct Expr *while_condition;
+            struct {
+                char *key;
+                struct Expr *expr;
+                struct Expr *secondary_condition;
+            } iterate;
+        };
+        RaelInstruction **block;
+    } info;
+} RaelLoopInstruction;
+
+typedef struct RaelCatchInstruction {
+    RAEL_INSTRUCTION_HEADER;
+    struct Expr *catch_expr;
+    RaelInstruction **handle_block;
+    RaelInstruction **else_block;
+    char *value_key;
+} RaelCatchInstruction;
+
+typedef struct RaelLoadInstruction {
+    RAEL_INSTRUCTION_HEADER;
+    char *module_name;
+} RaelLoadInstruction;
+
+typedef struct RaelCsvInstruction {
+    RAEL_INSTRUCTION_HEADER;
+    RaelExprList csv;
+} RaelCsvInstruction;
+
+typedef struct RaelPureInstruction {
+    RAEL_INSTRUCTION_HEADER;
+    struct Expr *expr;
+} RaelPureInstruction;
+
+typedef struct RaelReturnInstruction {
+    RAEL_INSTRUCTION_HEADER;
+    struct Expr *return_expr;
+} RaelReturnInstruction;
 
 typedef struct RaelParser {
     RaelLexer lexer;
-    struct Instruction** instructions;
+    RaelInstruction** instructions;
     size_t idx, allocated;
     bool in_loop;
     bool can_return;
 } RaelParser;
 
-struct Instruction **rael_parse(RaelStream *stream);
+RaelInstruction **rael_parse(RaelStream *stream);
 
 struct Expr *rael_parse_expr(RaelStream *stream);
 
-void instruction_ref(struct Instruction *instruction);
+void instruction_ref(RaelInstruction *instruction);
 
-void instruction_deref(struct Instruction* const instruction);
+void instruction_deref(RaelInstruction* const instruction);
 
 void expr_delete(struct Expr* const expr);
 
 /* go through insturctions in block and instruction_deref each one of them */
-void block_deref(struct Instruction **block);
+void block_deref(RaelInstruction **block);
 
 /* block_deref then free the block itself */
-void block_delete(struct Instruction **block);
+void block_delete(RaelInstruction **block);
 
 #endif // RAEL_PARSER_H
