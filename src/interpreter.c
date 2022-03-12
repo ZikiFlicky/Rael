@@ -16,7 +16,8 @@ void instance_delete(RaelInstance *instance) {
     }
     if (instance->instructions)
         block_delete(instance->instructions);
-    stream_deref(instance->stream);
+    if (instance->stream)
+        stream_deref(instance->stream);
     free(instance);
 }
 
