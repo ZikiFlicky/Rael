@@ -1,5 +1,5 @@
 :inc ?= routine(:a) {
-    log :a + 1 
+    log :a + 1
 }
 
 :something ?= :inc(23)

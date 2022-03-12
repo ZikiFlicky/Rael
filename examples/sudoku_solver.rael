@@ -12,7 +12,7 @@ load :Math
             show :grid at :y at :x
         }
         log
-    }    
+    }
 }
 
 :getAmountNotSet ?= routine() {

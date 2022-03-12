@@ -5,12 +5,12 @@
 RaelValue *blame_new(RaelValue *message, struct State *state) {
     RaelBlameValue *blame = RAEL_VALUE_NEW(RaelBlameType, RaelBlameValue);
     if (state) {
-        blame->state_defined = true;    
+        blame->state_defined = true;
         blame->original_place = *state;
     } else {
         blame->state_defined = false;
     }
-    
+
     blame->message = message;
     return (RaelValue*)blame;
 }

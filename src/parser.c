@@ -730,7 +730,7 @@ static struct Expr *parser_parse_expr_product(RaelParser* const parser) {
             default:
                 parser_load_state(parser, backtrack);
                 goto loop_end;
-            } 
+            }
         } else {
             break;
         }

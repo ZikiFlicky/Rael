@@ -18,7 +18,7 @@ loop :i through 0 to 26 {
 :entered ?= ""
 
 loop :0 through 0 to :AmountTurns {
-    :coloredChars ?= {} 
+    :coloredChars ?= {}
     loop :i through 0 to sizeof(:possibleChars) {
         :c ?= ("a":charAt(0) + :i):toCharString()
         :color ?= match :possibleChars at :i {

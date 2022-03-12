@@ -98,7 +98,7 @@ typedef struct RaelTypeValue {
     RaelSingleFunc op_deref;
 
     /* Convert a value to its boolean representation */
-    RaelAsBoolFunc as_bool; 
+    RaelAsBoolFunc as_bool;
     /* Free all of the internally allocated values. Called by the interpreter */
     RaelSingleFunc deallocator;
     /*

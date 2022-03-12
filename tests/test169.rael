@@ -10,7 +10,7 @@ else
 
 if 699 = 2 {
     log "how did we get here"
-} else 
+} else
     log "we didn't"
 
 if 0

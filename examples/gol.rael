@@ -90,7 +90,7 @@ loop {
             blame "Point out of range"
         }
         %% set grid at that point to the opposite
-        :grid at :y at :x ?= 1 - (:grid at :y at :x) 
+        :grid at :y at :x ?= 1 - (:grid at :y at :x)
     }
 
     %% show grid after every change

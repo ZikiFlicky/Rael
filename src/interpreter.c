@@ -664,7 +664,7 @@ RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr
     case ExprTypeBiggerThan:
         lhs = expr_eval(interpreter, expr->lhs, true);
         rhs = expr_eval(interpreter, expr->rhs, true);
-    
+
         // try to compare
         value = values_bigger(lhs, rhs);
         if (!value) {
@@ -764,7 +764,7 @@ RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr
 
             if (range->start < 0 || range->end < 0 || range->start > range->end) {
                 value = BLAME_NEW_CSTR_ST("Invalid range for slicing", expr->rhs->state);
-            } else {                
+            } else {
                 value = value_slice(lhs, (size_t)range->start, (size_t)range->end);
                 // type is unsliceable
                 if (!value) {

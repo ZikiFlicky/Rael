@@ -79,7 +79,7 @@ RaelValue *string_get(RaelStringValue *self, size_t idx) {
         ptr[0] = self->source[idx];
         new_string = string_new_pure(ptr, 1, true);
     }
-    
+
     return new_string;
 }
 
@@ -237,7 +237,7 @@ bool string_eq(RaelStringValue *self, RaelStringValue *value) {
 RaelValue *string_cast(RaelStringValue *self, RaelTypeValue *type) {
     if (type == &RaelNumberType) {
         struct RaelHybridNumber hybrid;
-        
+
         if (!number_from_string(self->source, self->length, &hybrid)) {
             return BLAME_NEW_CSTR("String could not be parsed as an int");
         }
@@ -500,7 +500,7 @@ RaelValue *string_method_chunkSplit(RaelStringValue *self, RaelArgumentList *arg
 
     (void)interpreter;
     arg1 = arguments_get(args, 0);
-    
+
     if (arg1->type != &RaelNumberType) {
         return BLAME_NEW_CSTR_ST("Expected a number", *arguments_state(args, 0));
     }
@@ -650,7 +650,7 @@ RaelValue *string_method_replace(RaelStringValue *self, RaelArgumentList *args, 
     RaelValue *arg1, *arg2;
     RaelStringValue *search_string, *replace_string, *new_string;
     size_t length, search_length, replace_length, last_index = 0;
-    
+
     (void)interpreter;
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType) {

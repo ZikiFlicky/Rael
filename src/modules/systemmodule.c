@@ -109,7 +109,7 @@ static RaelValue *instancevalue_method_eval(RaelInstanceValue *self, RaelArgumen
     return result;
 }
 
-static RaelValue *instancevalue_method_resetScope(RaelInstanceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {    
+static RaelValue *instancevalue_method_resetScope(RaelInstanceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
     (void)interpreter;
 
     assert(arguments_amount(args) == 0);

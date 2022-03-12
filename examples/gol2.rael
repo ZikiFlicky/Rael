@@ -7,12 +7,12 @@ load :Math
     loop :y through 0 to :HeightInCubes {
         :surface:drawLine(0, :y * :CellSize, :window:Width, :y * :CellSize, :GridLineColor)
     }
-    
+
     loop :x through 0 to :WidthInCubes {
         :surface:drawLine(:x * :CellSize, 0, :x * :CellSize, :window:Height, :GridLineColor)
     }
 
-    :surface:update()    
+    :surface:update()
 }
 
 :getAmountNeighbors ?= routine(:x, :y) {

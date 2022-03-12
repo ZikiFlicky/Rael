@@ -14,7 +14,7 @@ log
 loop :i through { 1, 2, 3, 4 } {
     match :i {
     with 3 {
-        skip 
+        skip
     }
     with 44 {
         skip

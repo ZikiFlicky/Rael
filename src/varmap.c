@@ -1,6 +1,6 @@
 #include "rael.h"
 
-void varmap_new(struct VariableMap *out) {    
+void varmap_new(struct VariableMap *out) {
     out->buckets = NULL;
     out->allocated = 0;
     out->pairs = 0;
