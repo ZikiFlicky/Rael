@@ -30,13 +30,9 @@ struct RaelInstance {
     struct Scope *scope;
     enum ProgramInterrupt interrupt;
     RaelValue *returned_value;
+    bool inherit_modules;
+    RaelValue **module_cache;
 };
-
-typedef struct RaelModuleLoader {
-    char *name;
-    RaelNewModuleFunc module_creator;
-    RaelValue *module_cache;
-} RaelModuleLoader;
 
 struct RaelInterpreter {
     char *exec_path;
@@ -45,13 +41,18 @@ struct RaelInterpreter {
 
     RaelStream *main_stream;
     RaelInstance *instance;
-    RaelModuleLoader *loaded_modules;
     unsigned int seed;
 
     // warnings
     bool warn_undefined;
 };
 
+typedef struct RaelModuleDecl {
+    char *name;
+    RaelNewModuleFunc module_creator;
+} RaelModuleDecl;
+
+extern RaelModuleDecl rael_module_declarations[];
 
 /* standard modules */
 RaelValue *module_math_new(RaelInterpreter *interpreter);
@@ -67,14 +68,19 @@ RaelValue *module_graphics_new(RaelInterpreter *interpreter);
 /* interpreter functions */
 void interpreter_construct(RaelInterpreter *out, RaelInstruction **instructions, RaelStream *stream,
                         char* const exec_path, char **arguments, size_t amount_arguments,
-                        const bool warn_undefined, RaelModuleLoader *modules);
+                        const bool warn_undefined);
 
 void interpreter_destruct(RaelInterpreter* const interpreter);
 
-void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
-                            RaelInstruction **instructions, bool inherit_scope);
 
 void interpreter_interpret(RaelInterpreter *interpreter);
+
+void interpreter_push_instance(RaelInterpreter* const interpreter, RaelInstance *instance);
+
+void interpreter_pop_instance(RaelInterpreter* const interpreter);
+
+void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
+                            RaelInstruction **instructions, bool inherit_scope, bool inherit_modules);
 
 void interpreter_delete_instance(RaelInterpreter* const interpreter);
 
@@ -88,7 +94,7 @@ void block_run(RaelInterpreter* const interpreter, RaelInstruction **block, bool
 
 /* instance functions */
 RaelInstance *instance_new(RaelInstance *previous_instance, RaelStream *stream,
-                        RaelInstruction **instructions, struct Scope *scope);
+                        RaelInstruction **instructions, struct Scope *scope, RaelValue **module_cache);
 
 void instance_delete(RaelInstance *instance);
 

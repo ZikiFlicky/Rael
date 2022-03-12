@@ -3,6 +3,7 @@
 
 #include "varmap.h"
 #include "common.h"
+#include "interpreter.h"
 
 #include <stddef.h>
 

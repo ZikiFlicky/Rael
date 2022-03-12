@@ -5,6 +5,174 @@
  * which gives access to system related functions.
  */
 
+typedef struct RaelInstanceValue {
+    RAEL_VALUE_BASE;
+    RaelInstance *instance;
+    char *name;
+} RaelInstanceValue;
+
+RaelTypeValue RaelInstanceType;
+
+void instancevalue_delete(RaelInstanceValue *self) {
+    instance_delete(self->instance);
+    free(self->name);
+}
+
+RaelValue *instancevalue_construct(RaelArgumentList *args, RaelInterpreter *interpreter) {
+    char *name;
+    RaelInstance *instance;
+    RaelInstanceValue *instancevalue;
+    RaelValue *arg1;
+
+    (void)interpreter;
+    assert(arguments_amount(args) == 1);
+
+    arg1 = arguments_get(args, 0);
+    if (arg1->type != &RaelStringType)
+        return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
+    name = string_to_cstr((RaelStringValue*)arg1);
+    instance = instance_new(NULL, NULL, NULL, NULL, NULL);
+
+    instancevalue = RAEL_VALUE_NEW(RaelInstanceType, RaelInstanceValue);
+    instancevalue->name = name;
+    instancevalue->instance = instance;
+
+    return (RaelValue*)instancevalue;
+}
+
+static RaelValue *instancevalue_method_run(RaelInstanceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    RaelInstruction **instructions;
+    char *code;
+    RaelStream *stream;
+    RaelValue *arg1;
+    RaelStringValue *string;
+
+    assert(arguments_amount(args) == 1);
+
+    arg1 = arguments_get(args, 0);
+    if (arg1->type != &RaelStringType)
+        return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
+    string = (RaelStringValue*)arg1;
+    code = string_to_cstr(string);
+
+    // create stream
+    stream = stream_new(code, string_length(string), true, self->name);
+
+    instructions = rael_parse(stream);
+    self->instance->instructions = instructions;
+    stream_ref(stream);
+    self->instance->stream = stream;
+    interpreter_push_instance(interpreter, self->instance);
+    interpreter_interpret(interpreter);
+    interpreter_pop_instance(interpreter);
+
+    stream_deref(stream); // one time for our instance->stream
+    stream_deref(stream); // and one time for the local reference
+    block_delete(self->instance->instructions);
+    self->instance->stream = NULL;
+    self->instance->instructions = NULL;
+
+    return void_new();
+}
+
+static RaelValue *instancevalue_method_eval(RaelInstanceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {
+    RaelValue *arg1;
+    RaelStringValue *string;
+    char *code;
+    RaelStream *stream;
+    struct Expr *expr;
+    RaelValue *result;
+
+    assert(arguments_amount(args) == 1);
+
+    arg1 = arguments_get(args, 0);
+    if (arg1->type != &RaelStringType)
+        return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
+    string = (RaelStringValue*)arg1;
+    code = string_to_cstr(string);
+
+    // create stream
+    stream = stream_new(code, string_length(string), true, self->name);
+    expr = rael_parse_expr(stream);
+
+    stream_ref(stream);
+    self->instance->stream = stream;
+    interpreter_push_instance(interpreter, self->instance);
+    result = expr_eval(interpreter, expr, true);
+    interpreter_pop_instance(interpreter);
+
+    expr_delete(expr);
+    stream_deref(stream); // one time for our instance->stream
+    stream_deref(stream); // and one time for the local reference
+    self->instance->stream = NULL;
+
+    return result;
+}
+
+static RaelValue *instancevalue_method_resetScope(RaelInstanceValue *self, RaelArgumentList *args, RaelInterpreter *interpreter) {    
+    (void)interpreter;
+
+    assert(arguments_amount(args) == 0);
+
+    scope_delete(self->instance->scope);
+    self->instance->scope = scope_new(NULL);
+
+    return void_new();
+}
+
+static void instancevalue_repr(RaelInstanceValue *self) {
+    printf("[Instance \"%s\"]", self->name);
+}
+
+RaelConstructorInfo intstancevalue_constructor_info = {
+    instancevalue_construct,
+    true,
+    1,
+    1
+};
+
+RaelTypeValue RaelInstanceType = {
+    RAEL_TYPE_DEF_INIT,
+    .name = "Instance",
+    .op_add = NULL,
+    .op_sub = NULL,
+    .op_mul = NULL,
+    .op_div = NULL,
+    .op_mod = NULL,
+    .op_red = NULL,
+    .op_eq = NULL,
+    .op_smaller = NULL,
+    .op_bigger = NULL,
+    .op_smaller_eq = NULL,
+    .op_bigger_eq = NULL,
+
+    .op_neg = NULL,
+
+    .callable_info = NULL,
+    .constructor_info = &intstancevalue_constructor_info,
+    .op_ref = NULL,
+    .op_deref = NULL,
+
+    .as_bool = NULL,
+    .deallocator = (RaelSingleFunc)instancevalue_delete,
+    .repr = (RaelSingleFunc)instancevalue_repr,
+    .logger = NULL, /* fallbacks to .repr */
+
+    .cast = NULL,
+
+    .at_index = NULL,
+    .at_range = NULL,
+
+    .length = NULL,
+
+    .methods = (MethodDecl[]) {
+        RAEL_CMETHOD("run", instancevalue_method_run, 1, 1),
+        RAEL_CMETHOD("eval", instancevalue_method_eval, 1, 1),
+        RAEL_CMETHOD("resetScope", instancevalue_method_resetScope, 0, 0),
+        RAEL_CMETHOD_TERMINATOR
+    }
+};
+
 RaelValue *module_system_RunShellCommand(RaelArgumentList *args, RaelInterpreter *interpreter) {
     char *command_cstr;
     RaelValue *arg1;
@@ -139,7 +307,7 @@ RaelValue *module_system_Run(RaelArgumentList *args, RaelInterpreter *interprete
     // parse the string
     instructions = rael_parse(stream);
     // create a new instance that inherits our current scope
-    interpreter_new_instance(interpreter, stream, instructions, !new_scope);
+    interpreter_new_instance(interpreter, stream, instructions, !new_scope, true);
     // run
     interpreter_interpret(interpreter);
     // remove the new instance and return to the previous one
@@ -181,7 +349,7 @@ RaelValue *module_system_Eval(RaelArgumentList *args, RaelInterpreter *interpret
 
     stream = stream_new(code, string_length(string), true, NULL);
 
-    interpreter_new_instance(interpreter, stream, NULL, !new_scope);
+    interpreter_new_instance(interpreter, stream, NULL, !new_scope, true);
     if (!(expr = rael_parse_expr(stream)))
         return BLAME_NEW_CSTR_ST("Cannot parse string", *arguments_state(args, 0));
 
@@ -221,6 +389,7 @@ static RaelValue *raelpath_string_new(RaelInterpreter *interpreter) {
 RaelValue *module_system_new(RaelInterpreter *interpreter) {
     RaelModuleValue *m = (RaelModuleValue*)module_new(RAEL_HEAPSTR("System"));
 
+    value_ref((RaelValue*)&RaelInstanceType);
     module_set_key(m, RAEL_HEAPSTR("RaelPath"), raelpath_string_new(interpreter));
     module_set_key(m, RAEL_HEAPSTR("ProgramArgv"), program_argv_stack_new(interpreter));
     module_set_key(m, RAEL_HEAPSTR("ProgramFilename"), program_filename_string_new(interpreter));
@@ -229,6 +398,7 @@ RaelValue *module_system_new(RaelInterpreter *interpreter) {
     module_set_key(m, RAEL_HEAPSTR("RunShellCommand"), cfunc_new(RAEL_HEAPSTR("RunShellCommand"), (RaelRawCFunc)module_system_RunShellCommand, 1));
     module_set_key(m, RAEL_HEAPSTR("GetShellOutput"), cfunc_new(RAEL_HEAPSTR("GetShellOutput"), (RaelRawCFunc)module_system_GetShellOutput, 1));
     module_set_key(m, RAEL_HEAPSTR("Exit"), cfunc_ranged_new(RAEL_HEAPSTR("Exit"), (RaelRawCFunc)module_system_Exit, 0, 1));
+    module_set_key(m, RAEL_HEAPSTR("Instance"), (RaelValue*)&RaelInstanceType);
 
     return (RaelValue*)m;
 }

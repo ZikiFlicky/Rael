@@ -41,3 +41,31 @@ log ":b is", :b
 :System:Run(:command, 1) %% Don't inherit scope
 
 log ":b is", :b
+
+:System:SomeKey ?= 5
+
+:command ?= "log :System\nload :System\nlog :System\nlog :System:SomeKey"
+:System:Run(:command)
+:System:Run(:command, 1)
+
+:instance ?= :System:Instance("Name")
+log :instance
+:instance:run("log 2") %% 2
+:instance:run("log :System") %% Void
+:instance:run(":a ?= 3")
+:instance:run("log :a") %% 3
+:b ?= "please don't reach this"
+:instance:run("log :b") %% Void
+:System:SomeKey ?= "value"
+:instance:run(
+"log :System:SomeKey\n\
+load :System\n\
+log :System\n\
+log:System:SomeKey") %% Void, module(:System), Void
+
+:instance:resetScope()
+:instance:run("log :System\nlog :a") %% Void, Void
+
+log :instance:eval("2 * 1") %% 2
+:instance:run(":a ?= 3")
+log :instance:eval("\n:a * 5\n") %% 15

@@ -6,20 +6,17 @@ typedef RaelValue *(*RaelBinaryOperationFunction)(RaelValue *, RaelValue *);
 
 static void interpreter_interpret_inst(RaelInterpreter* const interpreter, RaelInstruction* const instruction);
 
-void instance_delete(RaelInstance *instance) {
-    if (!instance->inherit_scope) {
-        struct Scope *parent;
-        for (struct Scope *scope = instance->scope; scope; scope = parent) {
-            parent = scope->parent;
-            scope_delete(scope);
-        }
-    }
-    if (instance->instructions)
-        block_delete(instance->instructions);
-    if (instance->stream)
-        stream_deref(instance->stream);
-    free(instance);
-}
+RaelModuleDecl rael_module_declarations[] = {
+    { "Types", module_types_new },
+    { "Math", module_math_new },
+    { "Time", module_time_new },
+    { "Random", module_random_new },
+    { "System", module_system_new },
+    { "File", module_file_new },
+    { "Functional", module_functional_new },
+    { "Bin", module_bin_new },
+    { "Graphics", module_graphics_new }
+};
 
 void interpreter_push_scope(RaelInterpreter* const interpreter) {
     struct Scope *new_scope = scope_new(interpreter->instance->scope);
@@ -35,15 +32,20 @@ void interpreter_pop_scope(RaelInterpreter* const interpreter) {
 }
 
 static RaelValue *interpreter_get_module_by_name(RaelInterpreter *interpreter, char *module_name) {
-    for (RaelModuleLoader *loader = interpreter->loaded_modules; loader->name; ++loader) {
-        if (strcmp(loader->name, module_name) == 0) {
+    const size_t amount_modules = sizeof(rael_module_declarations) / sizeof(RaelModuleDecl);
+    RaelInstance *instance = interpreter->instance;
+
+    for (size_t i = 0; i < amount_modules; ++i) {
+        RaelModuleDecl *decl = &rael_module_declarations[i];
+        if (strcmp(decl->name, module_name) == 0) {
             RaelValue *module;
-            // if the value was already loaded
-            if (loader->module_cache) {
-                module = loader->module_cache;
+            // if the module was already loaded
+            if (instance->module_cache[i]) {
+                module = instance->module_cache[i];
             } else {
-                module = loader->module_creator(interpreter);
-                loader->module_cache = module;
+                // construct the module
+                module = decl->module_creator(interpreter);
+                instance->module_cache[i] = module;
             }
             value_ref(module);
             return module;
@@ -54,17 +56,19 @@ static RaelValue *interpreter_get_module_by_name(RaelInterpreter *interpreter, c
     return NULL;
 }
 
-static void interpreter_remove_modules(RaelInterpreter *interpreter) {
-    for (RaelModuleLoader *module = interpreter->loaded_modules; module->name; ++module) {
+static void instance_remove_modules(RaelInstance *instance) {
+    const size_t amount_modules = sizeof(rael_module_declarations) / sizeof(RaelModuleDecl);
+    for (size_t i = 0; i < amount_modules; ++i) {
+        RaelValue *module;
         // if the module was loaded at least once
-        if (module->module_cache) {
-            value_deref(module->module_cache);
-        }
+        if ((module = instance->module_cache[i]))
+            value_deref(module);
     }
+    free(instance->module_cache);
 }
 
 RaelInstance *instance_new(RaelInstance *previous_instance, RaelStream *stream,
-                        RaelInstruction **instructions, struct Scope *scope) {
+                        RaelInstruction **instructions, struct Scope *scope, RaelValue **module_cache) {
     RaelInstance *instance = malloc(sizeof(RaelInstance));
 
     instance->prev = previous_instance;
@@ -75,17 +79,55 @@ RaelInstance *instance_new(RaelInstance *previous_instance, RaelStream *stream,
     instance->inherit_scope = scope ? true : false;
     instance->scope = scope ? scope : scope_new(NULL);
     instance->stream = stream;
+    if (module_cache) {
+        instance->module_cache = module_cache;
+        instance->inherit_modules = true;
+    } else {
+        instance->module_cache = calloc(sizeof(rael_module_declarations) / sizeof(RaelModuleDecl), sizeof(RaelValue*));
+        instance->inherit_modules = false;
+    }
 
     return instance;
 }
 
-void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
-                            RaelInstruction **instructions, bool inherit_scope) {
-    interpreter->instance = instance_new(interpreter->instance,
-                                        stream, instructions,
-                                        inherit_scope ? interpreter->instance->scope : NULL);
+void instance_delete(RaelInstance *instance) {
+    if (!instance->inherit_modules)
+        instance_remove_modules(instance);
+    if (!instance->inherit_scope) {
+        struct Scope *parent;
+        for (struct Scope *scope = instance->scope; scope; scope = parent) {
+            parent = scope->parent;
+            scope_delete(scope);
+        }
+    }
+    if (instance->instructions)
+        block_delete(instance->instructions);
+    if (instance->stream)
+        stream_deref(instance->stream);
+    free(instance);
 }
 
+/* Add an existing instance to the top of the interpreter */
+void interpreter_push_instance(RaelInterpreter* const interpreter, RaelInstance *instance) {
+    instance->prev = interpreter->instance;
+    interpreter->instance = instance;
+}
+
+/* Remove an instance from the top of the interpreter, without deleting it */
+void interpreter_pop_instance(RaelInterpreter* const interpreter) {
+    interpreter->instance = interpreter->instance->prev;
+}
+
+/* Add a new instance to the interpreter */
+void interpreter_new_instance(RaelInterpreter* const interpreter, RaelStream *stream,
+                            RaelInstruction **instructions, bool inherit_scope, bool inherit_modules) {
+    interpreter->instance = instance_new(interpreter->instance,
+                                        stream, instructions,
+                                        inherit_scope ? interpreter->instance->scope : NULL,
+                                        inherit_modules ? interpreter->instance->module_cache : NULL);
+}
+
+/* Delete the instance at the top of the interpreter, and load the previous instance */
 void interpreter_delete_instance(RaelInterpreter* const interpreter) {
     RaelInstance *instance = interpreter->instance;
     interpreter->instance = instance->prev;
@@ -100,7 +142,7 @@ static unsigned int generate_seed(void) {
 
 void interpreter_construct(RaelInterpreter *out, RaelInstruction **instructions, RaelStream *stream,
                         char* const exec_path, char **arguments, size_t amount_arguments,
-                        const bool warn_undefined, RaelModuleLoader *modules) {
+                        const bool warn_undefined) {
     unsigned int seed = generate_seed();
 
     out->exec_path = exec_path;
@@ -110,8 +152,6 @@ void interpreter_construct(RaelInterpreter *out, RaelInstruction **instructions,
     out->main_stream = stream;
     out->instance = NULL;
 
-    out->loaded_modules = modules;
-
     // seed the random number generator
     srand(seed);
     out->seed = seed;
@@ -119,7 +159,7 @@ void interpreter_construct(RaelInterpreter *out, RaelInstruction **instructions,
     out->warn_undefined = warn_undefined;
 
     // create a new instance
-    interpreter_new_instance(out, stream, instructions, false);
+    interpreter_new_instance(out, stream, instructions, false, false);
 }
 
 /* make the interpreter deallocate everything it stores */
@@ -127,7 +167,6 @@ void interpreter_destruct(RaelInterpreter* const interpreter) {
     // deallocate all of the scopes
     while (interpreter->instance)
         interpreter_delete_instance(interpreter);
-    interpreter_remove_modules(interpreter);
 }
 
 /* make the interpreter run its instructions */
