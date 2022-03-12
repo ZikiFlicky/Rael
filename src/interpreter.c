@@ -139,6 +139,8 @@ void interpreter_interpret(RaelInterpreter *interpreter) {
         interpreter_interpret_inst(interpreter, instruction);
         assert(instance->interrupt == ProgramInterruptNone);
     }
+    // reset instance index
+    instance->idx = 0;
 }
 
 void interpreter_error(RaelInterpreter* const interpreter, struct State state, const char* const error_message, ...) {
