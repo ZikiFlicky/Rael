@@ -5,10 +5,6 @@
  * which gives access to system related functions.
  */
 
-RaelValue *expr_eval(RaelInterpreter* const interpreter, struct Expr* const expr, const bool can_explode);
-void block_run(RaelInterpreter* const interpreter, RaelInstruction **block, bool create_new_scope);
-void block_delete(RaelInstruction **block);
-
 RaelValue *module_system_RunShellCommand(RaelArgumentList *args, RaelInterpreter *interpreter) {
     char *command_cstr;
     RaelValue *arg1;
