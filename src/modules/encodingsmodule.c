@@ -11,7 +11,7 @@ RaelValue *module_encodings_Base64Encode(RaelArgumentList *args, RaelInterpreter
 
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType)
-        return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
+        return BLAME_NEW_CSTR_ST("Expected string", *arguments_state(args, 0));
 
     string = (RaelStringValue*)arg1;
     source = string->source;
@@ -59,7 +59,7 @@ RaelValue *module_encodings_Base64Decode(RaelArgumentList *args, RaelInterpreter
 
     arg1 = arguments_get(args, 0);
     if (arg1->type != &RaelStringType)
-        return BLAME_NEW_CSTR_ST("Expected a string", *arguments_state(args, 0));
+        return BLAME_NEW_CSTR_ST("Expected string", *arguments_state(args, 0));
 
     string = (RaelStringValue*)arg1;
     source = string->source;
