@@ -64,6 +64,7 @@ RaelValue *module_file_new(RaelInterpreter *interpreter);
 RaelValue *module_functional_new(RaelInterpreter *interpreter);
 RaelValue *module_bin_new(RaelInterpreter *interpreter);
 RaelValue *module_graphics_new(RaelInterpreter *interpreter);
+RaelValue *module_encodings_new(RaelInterpreter *interpreter);
 
 /* interpreter functions */
 void interpreter_construct(RaelInterpreter *out, RaelInstruction **instructions, RaelStream *stream,

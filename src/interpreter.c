@@ -15,7 +15,8 @@ RaelModuleDecl rael_module_declarations[] = {
     { "File", module_file_new },
     { "Functional", module_functional_new },
     { "Bin", module_bin_new },
-    { "Graphics", module_graphics_new }
+    { "Graphics", module_graphics_new },
+    { "Encodings", module_encodings_new }
 };
 
 void interpreter_push_scope(RaelInterpreter* const interpreter) {

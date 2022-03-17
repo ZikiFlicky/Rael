@@ -35,7 +35,8 @@ OBJECTS=main.o             \
 		filemodule.o       \
 		functionalmodule.o \
 		binmodule.o        \
-		graphicsmodule.o
+		graphicsmodule.o   \
+		encodingsmodule.o
 
 .PHONY: clean all debug
 
