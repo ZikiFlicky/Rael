@@ -74,6 +74,9 @@ RaelValue *module_encodings_Base64Decode(RaelArgumentList *args, RaelInterpreter
     for (size_t i = 0; i < source_length; ++i) {
         int byte = source[i];
         int c;
+        size_t byte1_idx, byte2_idx;
+        size_t byte1_bits, byte2_bits;
+
         if (byte >= 'A' && byte <= 'Z') {
             c = byte - 'A';
         } else if (byte >= 'a' && byte <= 'z') {
@@ -89,10 +92,11 @@ RaelValue *module_encodings_Base64Decode(RaelArgumentList *args, RaelInterpreter
             return BLAME_NEW_CSTR_ST("Unexpected characters in base64 string",
                                     *arguments_state(args, 0));
         }
-        size_t byte1_idx = i * 3 / 4;
-        size_t byte2_idx = (i + 1) * 3 / 4;
-        size_t byte1_bits = (8 - (i * 6) % 8) % 8;
-        size_t byte2_bits = 6 - byte1_bits;
+
+        byte1_idx = i * 3 / 4;
+        byte2_idx = (i + 1) * 3 / 4;
+        byte1_bits = (8 - (i * 6) % 8) % 8;
+        byte2_bits = 6 - byte1_bits;
 
         decoded[byte1_idx] = (decoded[byte1_idx] >> byte1_bits << byte1_bits) + (c >> (6 - byte1_bits));
         decoded[byte2_idx] = (c & ((1 << byte2_bits) - 1)) << (8 - byte2_bits);
