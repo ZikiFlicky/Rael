@@ -17,8 +17,13 @@ void stream_ref(RaelStream *stream) {
 void stream_deref(RaelStream *stream) {
     --stream->refcount;
     if (stream->refcount == 0) {
-        if (stream->on_heap)
+        if (stream->on_heap) {
+#ifdef __unix__
+            munmap(stream->base, stream->length);
+#else
             free(stream->base);
+#endif
+        }
         free(stream);
     }
 }
@@ -33,6 +38,25 @@ void stream_ptr_destruct(RaelStreamPtr *stream_ptr) {
     stream_deref(stream_ptr->base);
 }
 
+#ifdef __unix__
+RaelStream *rael_load_file(char* const filename) {
+    int fd;
+    char *stream;
+    size_t length;
+
+    fd = open(filename, O_RDONLY);
+    if (fd == -1)
+        return NULL;
+
+    length = (size_t)lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET);
+    stream = mmap(NULL, length+1, PROT_WRITE, MAP_PRIVATE, fd, 0);
+    stream[length] = '\0';
+    close(fd);
+
+    return stream_new(stream, length, true, filename);
+}
+#else
 RaelStream *rael_load_file(char* const filename) {
     FILE *file;
     char *allocated;
@@ -52,3 +76,4 @@ RaelStream *rael_load_file(char* const filename) {
 
     return stream_new(allocated, length, true, filename);
 }
+#endif

@@ -13,6 +13,8 @@
 #define _POSIX_C_SOURCE 199309L
 #define __USE_POSIX199309
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 
 #if !(_POSIX_TIMERS > 0)
 #error Expected _POSIX_TIMERS to be bigger than 0
