@@ -21,7 +21,7 @@ RaelValue *module_encodings_Base64Encode(RaelArgumentList *args, RaelInterpreter
                                 *arguments_state(args, 0));
 
     encoded_length = string_length(string) / 3 * 4;
-    encoded = malloc((encoded_length + 1) * sizeof(char));
+    encoded = malloc(encoded_length * sizeof(char));
 
     for (size_t i = 0; i < encoded_length; ++i) {
         size_t byte1_idx = i * 3 / 4; // index of first chunk
@@ -44,7 +44,6 @@ RaelValue *module_encodings_Base64Encode(RaelArgumentList *args, RaelInterpreter
             c = '/';
         encoded[i] = c;
     }
-    encoded[encoded_length] = '\0';
 
     return string_new_pure(encoded, encoded_length, true);
 }
@@ -70,7 +69,7 @@ RaelValue *module_encodings_Base64Decode(RaelArgumentList *args, RaelInterpreter
                                 *arguments_state(args, 0));
 
     decoded_length = string_length(string) / 4 * 3;
-    decoded = malloc((decoded_length + 1) * sizeof(char));
+    decoded = malloc(decoded_length * sizeof(char));
 
     for (size_t i = 0; i < source_length; ++i) {
         int byte = source[i];
@@ -98,7 +97,6 @@ RaelValue *module_encodings_Base64Decode(RaelArgumentList *args, RaelInterpreter
         decoded[byte1_idx] = (decoded[byte1_idx] >> byte1_bits << byte1_bits) + (c >> (6 - byte1_bits));
         decoded[byte2_idx] = (c & ((1 << byte2_bits) - 1)) << (8 - byte2_bits);
     }
-    decoded[decoded_length] = '\0';
 
     return string_new_pure(decoded, decoded_length, true);
 }
