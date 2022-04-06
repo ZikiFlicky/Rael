@@ -59,6 +59,7 @@ RaelInt routine_validate_args(RaelRoutineValue *self, size_t amount) {
 void routine_delete(RaelRoutineValue *self) {
     for (size_t i = 0; self->block[i]; ++i)
         instruction_deref(self->block[i]);
+    scope_deref(self->scope);
 }
 
 static RaelCallableInfo routine_callable_info = {

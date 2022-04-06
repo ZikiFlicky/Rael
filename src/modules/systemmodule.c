@@ -114,7 +114,7 @@ static RaelValue *instancevalue_method_resetScope(RaelInstanceValue *self, RaelA
 
     assert(arguments_amount(args) == 0);
 
-    scope_delete(self->instance->scope);
+    scope_deref(self->instance->scope);
     self->instance->scope = scope_new(NULL);
 
     return void_new();

@@ -3,13 +3,21 @@
 struct Scope *scope_new(struct Scope* const parent) {
     struct Scope *scope = malloc(sizeof(struct Scope));
     scope->parent = parent;
+    scope->refcount = 1;
     varmap_new(&scope->variables);
     return scope;
 }
 
-void scope_delete(struct Scope* const scope) {
-    varmap_delete(&scope->variables);
-    free(scope);
+void scope_ref(struct Scope* const scope) {
+    ++scope->refcount;
+}
+
+void scope_deref(struct Scope* const scope) {
+    --scope->refcount;
+    if (scope->refcount == 0) {
+        varmap_delete(&scope->variables);
+        free(scope);
+    }
 }
 
 void scope_set(struct Scope* const scope, char *key, RaelValue *value, bool dealloc_key_on_free) {

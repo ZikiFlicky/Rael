@@ -27,7 +27,7 @@ void interpreter_push_scope(RaelInterpreter* const interpreter) {
 void interpreter_pop_scope(RaelInterpreter* const interpreter) {
     if (interpreter->instance->scope) {
         struct Scope *parent = interpreter->instance->scope->parent;
-        scope_delete(interpreter->instance->scope);
+        scope_deref(interpreter->instance->scope);
         interpreter->instance->scope = parent;
     }
 }
@@ -98,7 +98,7 @@ void instance_delete(RaelInstance *instance) {
         struct Scope *parent;
         for (struct Scope *scope = instance->scope; scope; scope = parent) {
             parent = scope->parent;
-            scope_delete(scope);
+            scope_deref(scope);
         }
     }
     if (instance->instructions)
@@ -247,6 +247,8 @@ static RaelValue *value_eval(RaelInterpreter* const interpreter, struct ValueExp
         new_routine->block = ast_routine.block;
         new_routine->amount_parameters = ast_routine.amount_parameters;
         new_routine->scope = interpreter->instance->scope;
+
+        scope_ref(new_routine->scope);
 
         out_value = (RaelValue*)new_routine;
         break;
