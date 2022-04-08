@@ -3,6 +3,8 @@ LINK=-lm -lSDL2
 CFLAGS=-Wall -Wextra -std=c99 -Wno-missing-braces -Isrc/
 
 SRCDIR=src
+MODULESDIR=$(SRCDIR)/modules
+TYPESDIR=$(SRCDIR)/types
 MKDIR=mkdir -p
 BUILDDIR=build
 NAME=rael
@@ -52,13 +54,13 @@ $(BUILDDIR):
 $(BUILDDIR)/$(NAME): $(OBJECTS)
 	$(CC) $(CFLAGS) $(BUILDDIR)/* -o $@ $(LINK)
 
-%.o: src/%.c $(BUILDDIR)
+%.o: $(SRCDIR)/%.c $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
 
-%.o: src/modules/%.c $(BUILDDIR)
+%.o: $(MODULESDIR)/%.c $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
 
-%.o: src/types/%.c $(BUILDDIR)
+%.o: $(TYPESDIR)/%.c $(BUILDDIR)
 	$(CC) $(CFLAGS) -c -o $(BUILDDIR)/$@ $<
 
 clean:
